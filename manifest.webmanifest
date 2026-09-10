@@ -1,0 +1,25 @@
+{
+  "name": "MUB Portál – Ung-vidék, Bodrogköz",
+  "short_name": "MUB Portál",
+  "description": "Máriás kártyaversenyek Ung-vidéken és a Bodrogközben: versenynaptár, jelentkezés, eredmények és galéria. Máriáš kartové turnaje: kalendár, prihlášky, výsledky a galéria.",
+  "lang": "hu",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FFFFFF",
+  "theme_color": "#128A46",
+  "categories": ["sports", "lifestyle"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Versenynaptár", "short_name": "Naptár", "url": "./#naptar" },
+    { "name": "Jelentkezés", "short_name": "Jelentkezés", "url": "./#jelentkezes" },
+    { "name": "Jelentkezéseim", "short_name": "Jelentkezéseim", "url": "./#jelentkezesaim" },
+    { "name": "Galéria", "short_name": "Galéria", "url": "./#galeria" }
+  ]
+}
