@@ -129,6 +129,20 @@
   .likebtn{border:1px solid var(--border); background:var(--surface); border-radius:999px; padding:.3rem .75rem; font:inherit; font-size:1rem; font-weight:700; color:var(--ink-soft); display:inline-flex; align-items:center; gap:.35rem; cursor:pointer; min-height:2.5rem; min-width:3.2rem; justify-content:center; flex:none}
   .likebtn:hover{border-color:var(--accent); background:var(--accent-soft)}
   .likebtn.on{color:var(--gold); border-color:var(--gold); background:var(--gold-soft)}
+  /* ---- szavazás a hírekhez ---- */
+  .poll{margin-top:1rem; border:2px solid var(--accent); border-radius:12px; padding:.9rem 1rem; background:var(--accent-soft)}
+  .pollq{font-weight:700; font-size:1.08rem; margin-bottom:.75rem}
+  .pollopt{display:block; width:100%; text-align:left; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:.8rem 1rem; font:inherit; font-size:1.02rem; font-weight:600; color:var(--ink); margin-bottom:.5rem; min-height:3rem; cursor:pointer}
+  .pollopt:hover{border-color:var(--accent); background:var(--surface-2)}
+  .pollhint{margin:.55rem 0 0; font-size:.93rem}
+  .pollres{margin-bottom:.7rem}
+  .pollresline{display:flex; justify-content:space-between; gap:.6rem; align-items:baseline; font-size:1.02rem}
+  .pollres.mine .pollresline{font-weight:700; color:var(--accent-strong)}
+  .pollbar{height:.85rem; background:var(--surface); border:1px solid var(--border); border-radius:999px; overflow:hidden; margin-top:.3rem}
+  .pollbar span{display:block; height:100%; background:var(--accent)}
+  .pollres.mine .pollbar span{background:var(--accent-strong)}
+  .pollrow{display:flex; gap:.5rem; align-items:flex-start; margin-bottom:.5rem; flex-wrap:wrap}
+  .pollrow input{flex:1 1 12rem; min-width:8rem}
   .likebtn .lk-heart{font-size:1.2rem; line-height:1}
   .likebtn .lk-n{font-family:"IBM Plex Mono",monospace; font-size:.95rem}
   .stack{display:flex; flex-direction:column; gap:1rem}
@@ -427,7 +441,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 6;
+  var BUILD = 7;
   var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1097,14 +1111,86 @@
   function eventCard(t){ return eventCardLevel(t, ''); }
   function newsCard(n){
     /* A hírnek lehet címsora (title_hu / title_sk), és utána jön a szöveg.
-       A régi, cím nélküli hírek változatlanul megjelennek. */
+       A régi, cím nélküli hírek változatlanul megjelennek.
+       A hírhez szavazás is tartozhat (poll): kérdés + válaszlehetőségek. */
     var title = T(n.title_hu, n.title_sk);
     return '<div class="card" style="margin-bottom:.7rem">'
       + '<div class="newshead"><span class="meta num">'+fmtDate(n.date)+'</span>'+likeButton('news', n.id)+'</div>'
       + (title ? '<div class="newstitle">'+esc(title)+'</div>' : '')
       + '<div>'+linkify(nl2br(T(n.text_hu,n.text_sk)))+'</div>'
       + (n.imageUrl ? '<img src="'+esc(n.imageUrl)+'" style="max-width:100%;border-radius:8px;margin-top:.6rem" loading="lazy" alt="">' : '')
+      + pollHtml(n)
       + '</div>';
+  }
+  /* ---------- Szavazás a hírekhez ---------- */
+  function pollHtml(n){
+    var p = n && n.poll;
+    if(!p || !p.options || p.options.length < 2) return '';
+    var q = T(p.q_hu, p.q_sk);
+    return '<div class="poll" id="poll-'+esc(n.id)+'" data-news="'+esc(n.id)+'">'
+      + '<div class="pollq">'+esc(q || T('Szavazzon!','Hlasujte!'))+'</div>'
+      + '<div class="pollbody">'+esc(T('Betöltés…','Načítava sa…'))+'</div>'
+      + '</div>';
+  }
+  function votedFor(newsId){
+    try{ return localStorage.getItem('mub-poll-'+newsId) || ''; }catch(e){ return ''; }
+  }
+  function markVoted(newsId, optId){
+    try{ localStorage.setItem('mub-poll-'+newsId, optId); }catch(e){}
+  }
+  /* A látható szavazások kitöltése a szavazatszámokkal. */
+  function fillPolls(){
+    if(!document.querySelectorAll) return;
+    var boxes = document.querySelectorAll('.poll');
+    for(var i = 0; i < boxes.length; i++){
+      (function(box){
+        var id = box.getAttribute ? box.getAttribute('data-news') : '';
+        var n = ((CACHE.news || [])).filter(function(x){ return x.id === id; })[0];
+        if(!n || !n.poll) return;
+        db.collection('pollVotes').doc(id).get().then(function(d){
+          drawPoll(box, n, (d && d.exists) ? (d.data() || {}) : {}, votedFor(id));
+        }).catch(function(){ drawPoll(box, n, {}, votedFor(id)); });
+      })(boxes[i]);
+    }
+  }
+  function drawPoll(box, n, counts, voted){
+    var body = box.querySelector ? box.querySelector('.pollbody') : null;
+    if(!body) return;
+    var opts = (n.poll && n.poll.options) || [];
+    var total = 0, cnt = opts.map(function(o){ var v = Number(counts['c_' + o.id]) || 0; total += v; return v; });
+    if(!voted){
+      body.innerHTML = opts.map(function(o){
+        return '<button type="button" class="pollopt" onclick="MUB.votePoll(\''+jsq(n.id)+'\',\''+jsq(o.id)+'\')">'+esc(T(o.hu, o.sk))+'</button>';
+      }).join('')
+      + '<p class="meta pollhint">'+esc(T('Kattintson arra, amit támogat. Egy szavazat adható.','Kliknite na to, čo podporujete. Hlasovať sa dá raz.'))+'</p>';
+      return;
+    }
+    body.innerHTML = opts.map(function(o, i){
+      var pct = total ? Math.round(cnt[i] * 100 / total) : 0;
+      var mine = (voted === o.id);
+      return '<div class="pollres'+(mine ? ' mine' : '')+'">'
+        + '<div class="pollresline"><span>'+esc(T(o.hu, o.sk))+(mine ? ' <strong>✓ '+esc(T('az Ön szavazata','váš hlas'))+'</strong>' : '')+'</span>'
+        + '<span class="num">'+cnt[i]+' · '+pct+'%</span></div>'
+        + '<div class="pollbar"><span style="width:'+pct+'%"></span></div>'
+        + '</div>';
+    }).join('')
+    + '<p class="meta pollhint">'+esc(T('Összesen ','Spolu '))+total+' '+esc(T('szavazat','hlasov'))+' · '+esc(T('Köszönjük a véleményét!','Ďakujeme za váš názor!'))+'</p>';
+  }
+  function votePoll(newsId, optId){
+    if(votedFor(newsId)){ alert(T('Ön ebben a kérdésben már szavazott.','V tejto otázke ste už hlasovali.')); return; }
+    var upd = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    upd['c_' + optId] = firebase.firestore.FieldValue.increment(1);
+    db.collection('pollVotes').doc(newsId).set(upd, { merge: true }).then(function(){
+      markVoted(newsId, optId);
+      var box = document.getElementById('poll-' + newsId);
+      var n = ((CACHE.news || [])).filter(function(x){ return x.id === newsId; })[0];
+      if(!box || !n) return;
+      db.collection('pollVotes').doc(newsId).get().then(function(d){
+        drawPoll(box, n, (d && d.exists) ? (d.data() || {}) : {}, optId);
+      }).catch(function(){ drawPoll(box, n, {}, optId); });
+    }).catch(function(e){
+      alert(T('Nem sikerült rögzíteni a szavazatot: ','Hlas sa nepodarilo zaznamenať: ') + e.message);
+    });
   }
   /* Korábbi versenyek – "tovább" gombbal bővíthető */
   function renderHomePast(){
@@ -1225,6 +1311,7 @@
           HOME_SEASONS = seasons;
           renderHomePast();
           renderHomeSeasons();
+          fillPolls();
         });
       });
      });
@@ -3402,10 +3489,56 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   /* --- admin: news --- */
   var editingNewsId = null;      /* ha ki van töltve, a fenti űrlap egy meglévő hírt szerkeszt */
   var adminNewsList = [];        /* a legutóbb betöltött hírek (a szerkesztéshez) */
+  var pollRows = [];             /* a szavazás válaszlehetőségei szerkesztés közben */
+  function renderPollRows(){
+    var box = document.getElementById('n-poll-rows');
+    if(!box) return;
+    box.innerHTML = pollRows.map(function(r, i){
+      return '<div class="pollrow">'
+        + '<input value="'+esc(r.hu || '')+'" placeholder="'+esc(T('Válasz (magyar)','Odpoveď (maďarsky)'))+'" oninput="MUB.setPollRow('+i+',\'hu\',this.value)">'
+        + '<input value="'+esc(r.sk || '')+'" placeholder="'+esc(T('Válasz (szlovák)','Odpoveď (slovensky)'))+'" oninput="MUB.setPollRow('+i+',\'sk\',this.value)">'
+        + '<button type="button" class="btn sm danger" title="'+esc(T('Sor törlése','Zmazať riadok'))+'" onclick="MUB.removePollRow('+i+')">✕</button>'
+        + '</div>';
+    }).join('') || '<p class="meta">'+esc(T('Még nincs válaszlehetőség.','Zatiaľ žiadna odpoveď.'))+'</p>';
+  }
+  function addPollRow(){
+    if(pollRows.length >= 8) return;
+    pollRows.push({ hu: '', sk: '' });
+    renderPollRows();
+  }
+  function removePollRow(i){
+    if(pollRows.length <= 1) return;
+    pollRows.splice(i, 1);
+    renderPollRows();
+  }
+  function setPollRow(i, which, v){
+    if(!pollRows[i]) return;
+    pollRows[i][which === 'sk' ? 'sk' : 'hu'] = String(v || '');
+  }
+  function togglePoll(on){
+    var f = document.getElementById('n-poll-fields');
+    if(f) f.hidden = !on;
+  }
+  function pollFromForm(){
+    var onEl = document.getElementById('n-poll-on');
+    if(!onEl || !onEl.checked) return { on: false };
+    var qEl = document.getElementById('n-poll-q-hu');
+    var qSkEl = document.getElementById('n-poll-q-sk');
+    var qHu = qEl ? String(qEl.value || '').trim() : '';
+    var qSk = qSkEl ? String(qSkEl.value || '').trim() : '';
+    var opts = pollRows.map(function(r, i){
+      return { id: 'o' + (i + 1), hu: String(r.hu || '').trim(), sk: String(r.sk || '').trim() };
+    }).filter(function(o){ return o.hu || o.sk; });
+    if(!qHu || opts.length < 2) return { on: true, bad: true };
+    return { on: true, poll: { q_hu: qHu, q_sk: qSk || qHu, options: opts } };
+  }
   function renderAdminNews(){
     var body = document.getElementById('admin-body');
     var editing = !!editingNewsId;
     var n = editing ? ((adminNewsList || []).filter(function(x){ return x.id === editingNewsId; })[0] || {}) : {};
+    var poll = (n.poll && n.poll.options) ? n.poll : null;
+    pollRows = poll ? poll.options.map(function(o){ return { hu: o.hu || '', sk: o.sk || '' }; }) : [];
+    if(pollRows.length < 2) pollRows = [{hu:'',sk:''},{hu:'',sk:''}];
     body.innerHTML = '<div class="card" style="margin-bottom:1.2rem" id="n-form">'
       + '<h3 style="margin-bottom:.8rem">'+esc(editing ? T('Hír szerkesztése','Úprava správy') : T('Új hír','Nová správa'))+'</h3>'
       + (editing ? '<p class="meta" style="margin:-.4rem 0 .9rem">'+esc(T('Most egy meglévő hírt szerkeszt. A mentés a régit írja felül.','Teraz upravujete existujúcu správu. Uložením prepíšete pôvodnú.'))+'</p>' : '')
@@ -3417,9 +3550,22 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '<div class="field"><label for="n-date">'+esc(T('Dátum','Dátum'))+'</label><input id="n-date" type="date" value="'+esc(n.date||todayISO())+'"></div>'
       + '<div class="field"><label for="n-file">'+esc(editing ? T('Új kép csatolása (a régi helyére, nem kötelező)','Priložiť nový obrázok (namiesto starého, nepovinné)') : T('Kép csatolása (nem kötelező)','Priložiť obrázok (nepovinné)'))+'</label><input type="file" id="n-file" accept="image/*"></div>'
       + (editing && n.imageUrl ? '<div class="field" style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" id="n-delimg" style="width:auto"><label for="n-delimg" style="margin:0">'+esc(T('A meglévő kép törlése','Odstrániť existujúci obrázok'))+'</label></div>' : '')
+      + '<details class="polledit" id="n-poll-box"'+(poll?' open':'')+' style="margin:.6rem 0 1rem">'
+      + '<summary class="metasum">'+esc(T('Szavazás a hírhez (nem kötelező)','Hlasovanie k správe (nepovinné)'))+'</summary>'
+      + '<div style="margin-top:.8rem">'
+      + '<div class="field" style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" id="n-poll-on" '+(poll?'checked':'')+' style="width:auto" onchange="MUB.togglePoll(this.checked)"><label for="n-poll-on" style="margin:0">'+esc(T('Legyen szavazás ehhez a hírhez','Nech je k tejto správe hlasovanie'))+'</label></div>'
+      + '<div id="n-poll-fields"'+(poll?'':' hidden')+'>'
+      + '<div class="field"><label for="n-poll-q-hu">'+esc(T('Kérdés (magyar)','Otázka (maďarsky)'))+'</label><input id="n-poll-q-hu" maxlength="160" value="'+esc(poll?poll.q_hu:'')+'" placeholder="'+esc(T('pl. Kezdjünk-e 9 órakor?','napr. Začnime o 9:00?'))+'"></div>'
+      + '<div class="field"><label for="n-poll-q-sk">'+esc(T('Kérdés (szlovák)','Otázka (slovensky)'))+'</label><input id="n-poll-q-sk" maxlength="160" value="'+esc(poll?poll.q_sk:'')+'"></div>'
+      + '<p class="meta" style="margin:0 0 .5rem">'+esc(T('Válaszlehetőségek (legalább kettő):','Možnosti odpovede (aspoň dve):'))+'</p>'
+      + '<div id="n-poll-rows"></div>'
+      + '<button type="button" class="btn sm secondary" onclick="MUB.addPollRow()">＋ '+esc(T('Válasz hozzáadása','Pridať odpoveď'))+'</button>'
+      + '<p class="meta" style="margin:.6rem 0 0">'+esc(T('A szavazó egy szavazatot adhat, utána látja az eredményt.','Hlasujúci môže hlasovať raz, potom vidí výsledok.'))+'</p>'
+      + '</div></div></details>'
       + '<button type="button" class="btn sm" onclick="MUB.addNews()" id="n-add-btn">'+esc(editing ? T('Mentés','Uložiť') : T('Közzététel','Zverejniť'))+'</button>'
       + (editing ? ' <button type="button" class="btn sm secondary" onclick="MUB.cancelNewsEdit()">'+esc(T('Mégse','Zrušiť'))+'</button>' : '')
       + '</div><div id="n-list"></div>';
+    renderPollRows();
     invalidate('news');
     loadNews(function(news){
       adminNewsList = news;
@@ -3451,6 +3597,13 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   function addNews(){
     var hu = document.getElementById('n-hu').value.trim();
     if(!hu) return;
+    /* A szavazatot előbb ellenőrizzük, hogy ne maradjon félbe a mentés. */
+    var pf = pollFromForm();
+    if(pf.bad){
+      alert(T('A szavazáshoz meg kell adni a kérdést, és legalább két válaszlehetőséget.',
+              'Pre hlasovanie treba zadať otázku a aspoň dve možnosti odpovede.'));
+      return;
+    }
     var file = document.getElementById('n-file').files[0];
     var btn = document.getElementById('n-add-btn');
     var editing = !!editingNewsId;
@@ -3478,6 +3631,9 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       data.imageUrl = firebase.firestore.FieldValue.delete();
       data.imageStoragePath = firebase.firestore.FieldValue.delete();
     }
+    /* Szavazás: bekapcsolva bekerül, kikapcsolva törlődik a hírből. */
+    if(pf.on && pf.poll) data.poll = pf.poll;
+    else if(editing) data.poll = firebase.firestore.FieldValue.delete();
     function restore(){ btn.disabled = false; btn.textContent = editing ? T('Mentés','Uložiť') : T('Közzététel','Zverejniť'); }
     function finish(){
       ref.set(data, { merge: true }).then(function(){
@@ -4552,6 +4708,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     editTournament: editTournament, saveTournament: saveTournament, deleteTournament: deleteTournament,
     editSeason: editSeason, saveSeason: saveSeason, deleteSeason: deleteSeason,
     addNews: addNews, editNews: editNews, cancelNewsEdit: cancelNewsEdit, deleteNews: deleteNews, toggleLike: toggleLike,
+    votePoll: votePoll, addPollRow: addPollRow, removePollRow: removePollRow, setPollRow: setPollRow, togglePoll: togglePoll,
     setGalleryMode: setGalleryMode, setGalleryCustomTitle: setGalleryCustomTitle, setGalleryCustomTitleSk: setGalleryCustomTitleSk,
     openPhoto: openPhoto, closePhoto: closePhoto, nextPhoto: nextPhoto, prevPhoto: prevPhoto,
     galleryMore: galleryMore, jumpAlbum: jumpAlbum,
