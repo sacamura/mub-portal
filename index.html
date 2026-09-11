@@ -405,7 +405,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 3;
+  var BUILD = 4;
   var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2108,14 +2108,16 @@
           + '<button type="button" class="btn sm secondary" onclick="MUB.cancelRegistration()">'+esc(T('Jelentkezés visszavonása','Zrušiť prihlášku'))+'</button>'
           + '</div>';
       }
+      /* Az előző jelentkezés adatait NEM írjuk be magától – inkább rákérdezünk,
+         mert egy gépen gyakran több embernek is segítenek a jelentkezésben. */
       var pre = loadLastReg();
       var prefillNote = (pre && !regPrefillOff && (pre.name || pre.code))
         ? '<div class="prefillnote" id="reg-prefill-note">'
-          + '<strong>'+esc(T('Figyelem: az előző jelentkezés adatai vannak a mezőkben','Pozor: v poliach sú údaje z predchádzajúcej prihlášky'))+'</strong>'
-          + (pre.name ? ' — <strong>'+esc(pre.name)+'</strong>' : '')
-          + (pre.code ? ' ('+esc(pre.code)+')' : '') + '. '
-          + esc(T('Ha nem ezt a személyt akarja jelentkeztetni, törölje a mezőket:','Ak nechcete prihlásiť túto osobu, vymažte polia:'))
-          + ' <button type="button" class="btn sm secondary" onclick="MUB.clearRegForm()">'+esc(T('Mezők törlése','Vymazať polia'))+'</button></div>'
+          + '<strong>'+esc(T('Legutóbb ezen a gépen: ','Naposledy na tomto počítači: '))+esc(pre.name || '')+(pre.code ? ' ('+esc(pre.code)+')' : '')+'</strong><br>'
+          + esc(T('Ugyanaz a személy jelentkezik most is?','Prihlasuje sa teraz tá istá osoba?'))
+          + ' <button type="button" class="btn sm" onclick="MUB.useLastReg()">'+esc(T('Igen, ugyanaz','Áno, tá istá'))+'</button>'
+          + ' <button type="button" class="btn sm secondary" onclick="MUB.clearRegForm()">'+esc(T('Nem, más valaki','Nie, niekto iný'))+'</button>'
+          + '</div>'
         : '';
       var formHtml = ''
         + '<form id="reg-form" class="card stack">'
@@ -2191,19 +2193,23 @@
     var note = document.getElementById('reg-prefill-note'); if(note) note.hidden = true;
     if(c && c.focus) c.focus();
   }
-  function prefillRegForm(){
-    if(regPrefillOff) return;
+  /* „Igen, ugyanaz" – csak ilyenkor töltjük be az előző adatokat. */
+  function useLastReg(){
     var m = loadLastReg();
-    if(!m) return;
+    regPrefillOff = false;
+    var note = document.getElementById('reg-prefill-note'); if(note) note.hidden = true;
     var nameEl = document.getElementById('f-name');
     var codeEl = document.getElementById('f-code');
-    if(codeEl && m.code && !codeEl.value){
+    if(codeEl && m && m.code){
       codeEl.value = m.code;
       lookupCode(m.code);
-    } else if(nameEl && m.name && !nameEl.value){
+    } else if(nameEl && m && m.name){
       nameEl.value = m.name;
     }
+    if(codeEl && codeEl.focus) codeEl.focus();
   }
+  /* Semmit nem töltünk ki magától – a látogató dönt: ugyanaz a személy, vagy más. */
+  function prefillRegForm(){}
   function submitRegistration(ev){
     ev.preventDefault();
     var name = document.getElementById('f-name').value.trim();
@@ -2244,7 +2250,18 @@
                            'Toto meno sa už nachádza medzi prihlásenými. Ak ste to vy, nemusíte sa prihlasovať znova. Naozaj to chcete odoslať ešte raz?'));
         if(!ok){ reset(); return; }
       }
-      doAdd();
+      /* Védelem: a kiválasztott verseny létezzen, és legyen nyitva. */
+      loadTournaments(function(ts){
+        var t = ts.filter(function(x){ return x.id === selectedTid; })[0];
+        if(!t || !t.registrationOpen){
+          reset();
+          alert(T('A kiválasztott verseny nem található, vagy már lezárult a jelentkezés. Kérjük, válassza ki újra a versenyt.',
+                  'Vybraný turnaj sa nenašiel alebo je prihlasovanie už uzavreté. Vyberte turnaj znova.'));
+          renderRegister(document.getElementById('view'));
+          return;
+        }
+        doAdd();
+      });
     }).catch(function(){ doAdd(); });
   }
   function cancelRegistration(){
@@ -4351,7 +4368,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     importPhotoUrls: importPhotoUrls, countImportUrls: countImportUrls,
     importUrlsPaste: importUrlsPaste, updateImportTarget: updateImportTarget,
     parseAlbumBlocks: parseAlbumBlocks, blocksToText: blocksToText, htmlToBlocks: htmlToBlocks,
-    selectTournament: selectTournament, lookupCode: lookupCode, resetRegForm: resetRegForm, cancelRegistration: cancelRegistration, clearRegForm: clearRegForm,
+    selectTournament: selectTournament, lookupCode: lookupCode, resetRegForm: resetRegForm, cancelRegistration: cancelRegistration, clearRegForm: clearRegForm, useLastReg: useLastReg,
     withdrawByCode: withdrawByCode, deleteRegPublic: deleteRegPublic, adminDeleteReg: adminDeleteReg,
     askWithdrawReg: askWithdrawReg, cancelWithdrawReg: cancelWithdrawReg, confirmWithdrawReg: confirmWithdrawReg,
     findMyRegs: findMyRegs, forgetMyReg: forgetMyReg, installApp: installApp,
