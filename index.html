@@ -252,6 +252,8 @@
   /* A jelentkezésnél mindig kiírjuk, melyik versenyre megy a jelentkezés. */
   .chosenline{margin:.2rem 0 .1rem; font-size:1.02rem}
   .chosenline strong{color:var(--accent-strong)}
+  /* Figyelmeztetés, ha az előző jelentkezés adatai vannak a mezőkben. */
+  .prefillnote{background:var(--accent-soft); border:1px solid var(--accent); border-radius:10px; padding:.7rem .9rem; margin-bottom:.3rem; font-size:.98rem; line-height:1.5}
   .toolbar{display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:1.1rem}
   .checkbox{width:1.5rem; height:1.5rem; border:2px solid var(--ink-soft); display:inline-block; border-radius:4px}
   .sheetwrap{border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:1rem}
@@ -403,7 +405,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 2;
+  var BUILD = 3;
   var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2106,8 +2108,18 @@
           + '<button type="button" class="btn sm secondary" onclick="MUB.cancelRegistration()">'+esc(T('Jelentkezés visszavonása','Zrušiť prihlášku'))+'</button>'
           + '</div>';
       }
+      var pre = loadLastReg();
+      var prefillNote = (pre && !regPrefillOff && (pre.name || pre.code))
+        ? '<div class="prefillnote" id="reg-prefill-note">'
+          + '<strong>'+esc(T('Figyelem: az előző jelentkezés adatai vannak a mezőkben','Pozor: v poliach sú údaje z predchádzajúcej prihlášky'))+'</strong>'
+          + (pre.name ? ' — <strong>'+esc(pre.name)+'</strong>' : '')
+          + (pre.code ? ' ('+esc(pre.code)+')' : '') + '. '
+          + esc(T('Ha nem ezt a személyt akarja jelentkeztetni, törölje a mezőket:','Ak nechcete prihlásiť túto osobu, vymažte polia:'))
+          + ' <button type="button" class="btn sm secondary" onclick="MUB.clearRegForm()">'+esc(T('Mezők törlése','Vymazať polia'))+'</button></div>'
+        : '';
       var formHtml = ''
         + '<form id="reg-form" class="card stack">'
+        + prefillNote
         /* A versenyt itt is ki lehet választani – így nem lehet eltéveszteni. */
         + '<div class="field"><label for="f-tid">'+esc(T('Melyik versenyre jelentkezik?','Na ktorý turnaj sa prihlasujete?'))+'</label>'
         + '<select id="f-tid" onchange="MUB.selectTournament(this.value)">'
@@ -2167,7 +2179,20 @@
     });
   }
   var lastRegId = null;
+  var regPrefillOff = false;   /* ha valaki kitörli a mezőket, ne töltődjön vissza újra */
+  /* Az előző jelentkezés adatainak kitörlése – hogy senki ne jelentkezzen véletlenül
+     más nevében (pl. ha legutóbb egy idős játékosnak segített). */
+  function clearRegForm(){
+    regPrefillOff = true;
+    var c = document.getElementById('f-code'), n = document.getElementById('f-name');
+    if(c) c.value = '';
+    if(n){ n.value = ''; n.readOnly = false; }
+    var h = document.getElementById('f-name-hint'); if(h) h.hidden = true;
+    var note = document.getElementById('reg-prefill-note'); if(note) note.hidden = true;
+    if(c && c.focus) c.focus();
+  }
   function prefillRegForm(){
+    if(regPrefillOff) return;
     var m = loadLastReg();
     if(!m) return;
     var nameEl = document.getElementById('f-name');
@@ -2203,7 +2228,7 @@
         document.getElementById('reg-form').hidden = true;
         document.getElementById('reg-confirm').hidden = false;
         var where = document.getElementById('reg-confirm-where');
-        if(where) where.innerHTML = esc(T('Verseny: ','Turnaj: ')) + '<strong>' + esc(regChosenLabel) + '</strong> · ' + esc(name);
+        if(where) where.innerHTML = esc(T('Verseny: ','Turnaj: ')) + '<strong>' + esc(regChosenLabel) + '</strong> · ' + esc(name) + (code ? ' (' + esc(T('azonosító','identifikačné číslo')) + ': ' + esc(code) + ')' : '');
       }).catch(function(err){
         alert(T('A jelentkezés nem sikerült, próbálja meg újra.','Prihlásenie zlyhalo, skúste to znova.') + ' (' + err.message + ')');
       }).finally(reset);
@@ -4326,7 +4351,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     importPhotoUrls: importPhotoUrls, countImportUrls: countImportUrls,
     importUrlsPaste: importUrlsPaste, updateImportTarget: updateImportTarget,
     parseAlbumBlocks: parseAlbumBlocks, blocksToText: blocksToText, htmlToBlocks: htmlToBlocks,
-    selectTournament: selectTournament, lookupCode: lookupCode, resetRegForm: resetRegForm, cancelRegistration: cancelRegistration,
+    selectTournament: selectTournament, lookupCode: lookupCode, resetRegForm: resetRegForm, cancelRegistration: cancelRegistration, clearRegForm: clearRegForm,
     withdrawByCode: withdrawByCode, deleteRegPublic: deleteRegPublic, adminDeleteReg: adminDeleteReg,
     askWithdrawReg: askWithdrawReg, cancelWithdrawReg: cancelWithdrawReg, confirmWithdrawReg: confirmWithdrawReg,
     findMyRegs: findMyRegs, forgetMyReg: forgetMyReg, installApp: installApp,
