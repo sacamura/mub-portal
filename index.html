@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="hu">
 <head>
 <meta charset="utf-8">
@@ -249,6 +249,9 @@
   .footer-link{text-align:center; margin-top:2rem; font-size:.98rem; color:var(--ink-soft)}
   .footer-link a{color:var(--accent-strong)}
   .buildline{text-align:center; margin-top:.9rem; font-size:.82rem; color:var(--ink-soft); opacity:.75}
+  /* A jelentkezésnél mindig kiírjuk, melyik versenyre megy a jelentkezés. */
+  .chosenline{margin:.2rem 0 .1rem; font-size:1.02rem}
+  .chosenline strong{color:var(--accent-strong)}
   .toolbar{display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:1.1rem}
   .checkbox{width:1.5rem; height:1.5rem; border:2px solid var(--ink-soft); display:inline-block; border-radius:4px}
   .sheetwrap{border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:1rem}
@@ -400,7 +403,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 1;
+  var BUILD = 2;
   var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1924,6 +1927,7 @@
 
   /* ---------- REGISTER (public) ---------- */
   var selectedTid = null;
+  var regChosenLabel = '';    /* a kiválasztott verseny neve+dátuma – mindig kiírjuk, hova megy a jelentkezés */
   /* Visszavonás ugyanolyan módon, ahogy a jelentkezés történik: azonosító szám beírásával.
      Bárki kijelenthet bárkit – így egy fiatal segíthet egy idős játékosnak. */
   function withdrawBox(ts){
@@ -2076,7 +2080,14 @@
         regBody.innerHTML = '<p class="meta">'+esc(T('Jelenleg nincs nyitott jelentkezés versenyre.','Momentálne nie je otvorené prihlasovanie na turnaj.'))+'</p>' + whoLink;
         return;
       }
-      if(!selectedTid || !open.some(function(t){return t.id===selectedTid;})) selectedTid = open[0].id;
+      if(!selectedTid || !open.some(function(t){return t.id===selectedTid;})){
+        /* Alapból a soron következő verseny (amelyik még nem múlt el). */
+        var today = todayISO();
+        var upcoming = open.filter(function(t){ return String(t.date||'') >= today; });
+        selectedTid = (upcoming.length ? upcoming[0] : open[open.length - 1]).id;
+      }
+      var chosen = open.filter(function(t){ return t.id === selectedTid; })[0] || open[0];
+      regChosenLabel = chosen ? (T(chosen.location_hu, chosen.location_sk) + ' – ' + fmtDate(chosen.date)) : '';
       var list = '<h2 class="picktitle">'+esc(T('Válassza ki a versenyt','Vyberte turnaj'))+'</h2>' + open.map(function(t){
         return '<button type="button" class="eventcard pickcard'+(t.id===selectedTid?' picked':'')+'" onclick="MUB.selectTournament(\''+jsq(t.id)+'\')">'
           + '<span class="title">'+esc(T(t.location_hu,t.location_sk))+tagBadge(t.tag)+'</span>'
@@ -2097,14 +2108,24 @@
       }
       var formHtml = ''
         + '<form id="reg-form" class="card stack">'
+        /* A versenyt itt is ki lehet választani – így nem lehet eltéveszteni. */
+        + '<div class="field"><label for="f-tid">'+esc(T('Melyik versenyre jelentkezik?','Na ktorý turnaj sa prihlasujete?'))+'</label>'
+        + '<select id="f-tid" onchange="MUB.selectTournament(this.value)">'
+        + open.map(function(t){
+            return '<option value="'+esc(t.id)+'"'+(t.id===selectedTid?' selected':'')+'>'+esc(T(t.location_hu,t.location_sk))+' – '+esc(fmtDate(t.date))+'</option>';
+          }).join('')
+        + '</select></div>'
+        + '<p class="chosenline">'+esc(T('Jelentkezik: ','Prihlasujete sa na: '))+'<strong>'+esc(regChosenLabel)+'</strong></p>'
         + '<div class="field"><label for="f-code">'+esc(T('Azonosító szám','Identifikačné číslo'))+'</label><input id="f-code" inputmode="numeric" autocomplete="off" placeholder="1234567890" oninput="MUB.lookupCode(this.value)"></div>'
         + '<p class="meta hintline">'+esc(T('Írja be a kártyáján lévő azonosító számot — a nevét magától kitöltjük.','Zadajte identifikačné číslo z vašej karty — meno doplníme automaticky.'))+'</p>'
         + '<div class="field"><label for="f-name">'+esc(T('Név','Meno'))+'</label><input id="f-name" required autocomplete="name" placeholder="'+esc(T('Vezetéknév és keresztnév','Priezvisko a meno'))+'"></div>'
         + '<p id="f-name-hint" class="meta" hidden></p>'
+        + '<p class="chosenline">'+esc(T('Jelentkezés ide: ','Prihláška na: '))+'<strong>'+esc(regChosenLabel)+'</strong></p>'
         + '<button class="btn" type="submit" id="submit-btn">'+esc(T('Jelentkezés elküldése','Odoslať prihlášku'))+'</button>'
         + '</form>';
       regBody.innerHTML = banner + whoLink + list + formHtml + withdrawBox(ts.slice().sort(byDateDesc))
         + '<div id="reg-confirm" class="card confirm" hidden><div class="mark">✓</div><h2>'+esc(T('Jelentkezés elküldve!','Prihláška odoslaná!'))+'</h2>'
+        + '<p class="chosenline" id="reg-confirm-where"></p>'
         + '<button type="button" class="btn secondary sm" onclick="MUB.cancelRegistration()" id="cancel-reg-btn">'+esc(T('Mégsem, visszavonom','Predsa len, zrušiť'))+'</button> '
         + '<button type="button" class="btn secondary sm" onclick="MUB.resetRegForm()">'+esc(T('Új jelentkezés','Nová prihláška'))+'</button></div>';
       document.getElementById('reg-form').addEventListener('submit', submitRegistration);
@@ -2181,6 +2202,8 @@
         invalidate('registrations');
         document.getElementById('reg-form').hidden = true;
         document.getElementById('reg-confirm').hidden = false;
+        var where = document.getElementById('reg-confirm-where');
+        if(where) where.innerHTML = esc(T('Verseny: ','Turnaj: ')) + '<strong>' + esc(regChosenLabel) + '</strong> · ' + esc(name);
       }).catch(function(err){
         alert(T('A jelentkezés nem sikerült, próbálja meg újra.','Prihlásenie zlyhalo, skúste to znova.') + ' (' + err.message + ')');
       }).finally(reset);
@@ -2726,7 +2749,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     tInfoRows[i][(which === 'sk') ? 'sk' : 'hu'] = String(input.value||'');
   }
   function renderTournamentForm(t){
-    t = t || {location_hu:'',location_sk:'',date:'',time_start:'8:30',time_end:'15:30',tag:'',registrationOpen:false,info:[]};
+    /* Új verseny: a jelentkezés alapból NYITVA van, hogy rögtön lehessen jelentkezni. */
+    t = t || {location_hu:'',location_sk:'',date:'',time_start:'8:30',time_end:'15:30',tag:'',registrationOpen:true,info:[]};
     tInfoRows = (t.info||[]).map(function(r){ return { hu: String((r&&r.hu)||''), sk: String((r&&r.sk)||'') }; });
     var html = '<input type="hidden" id="t-id" value="'+esc(t.id||'')+'">'
       + '<div class="row2"><div class="field"><label for="t-loc-hu">'+esc(T('Helyszín (magyar)','Miesto (maďarsky)'))+'</label><input id="t-loc-hu" value="'+esc(t.location_hu)+'"></div>'
@@ -2745,6 +2769,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '</div>'
       + '<div id="t-info-rows">'+infoRowsHtml()+'</div></div>'
       + '<div class="field" style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" id="t-open" '+(t.registrationOpen?'checked':'')+' style="width:auto"><label for="t-open" style="margin:0">'+esc(T('Nyitva a jelentkezésre','Otvorené prihlasovanie'))+'</label></div>'
+      + (t.id ? '' : '<p class="meta" style="margin:-.5rem 0 .8rem">'+esc(T('Új versenynél ez alapból be van jelölve — így azonnal lehet jelentkezni. Ha még nem szeretné, vegye ki a pipát.','Pri novom turnaji je to zaškrtnuté — hneď sa dá prihlásiť. Ak ešte nechcete, odškrtnite.'))+'</p>')
       + '<button type="button" class="btn sm" onclick="MUB.saveTournament()">'+esc(T('Mentés','Uložiť'))+'</button> '+(t.id?'<button type="button" class="btn sm secondary" onclick="MUB.editTournament(null)">'+esc(T('Mégse','Zrušiť'))+'</button>':'');
     document.getElementById('t-form').innerHTML = html;
   }
