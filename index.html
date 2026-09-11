@@ -190,7 +190,12 @@
   .thumbgrid .ph img{width:100%; height:100%; object-fit:cover; display:block}
   .thumbgrid .ph .podiummark{position:absolute; top:6px; left:6px; background:var(--gold); color:#fff; font-size:.85rem; font-weight:700; padding:.15rem .5rem; border-radius:999px}
   .thumbgrid .ph .rm{position:absolute; bottom:6px; right:6px; background:rgba(0,0,0,.65); color:#fff; border:none; border-radius:999px; width:2.4rem; height:2.4rem; font-size:1.1rem}
+  /* Forgató gombok (admin): a kép balra/jobbra fordítása. */
+  .thumbgrid .ph .rot{position:absolute; top:6px; right:6px; display:flex; gap:.25rem}
+  .thumbgrid .ph .rot button{background:rgba(0,0,0,.65); color:#fff; border:none; border-radius:999px; width:2.3rem; height:2.3rem; font-size:1.15rem; line-height:1; display:inline-flex; align-items:center; justify-content:center; padding:0}
+  .thumbgrid .ph .rot button:hover{background:rgba(0,0,0,.85)}
   .thumbgrid .ph{cursor:zoom-in}
+  .lb-img.lb-rot{max-width:80vh; max-height:92vw}
   .lightbox{position:fixed; inset:0; z-index:60; background:rgba(8,10,12,.94); display:flex; align-items:center; justify-content:center}
   /* Megerősítő ablak (pl. kijelentkezés a versenyről) – szándékos, kétlépéses művelet. */
   .cbox{position:fixed; inset:0; z-index:70; background:rgba(8,10,12,.62); display:flex; align-items:center; justify-content:center; padding:1rem}
@@ -329,8 +334,15 @@
     a{color:#000}
   }
   @media (max-width:640px){
-    nav.mainnav{margin-left:0; width:100%}
-    .toolgroup{margin-left:0; border-left:none; padding-left:0}
+    /* Mobilon tömörebb menü: kisebb gombok, így kevesebb helyet foglalnak elöl. */
+    .topbar{padding:.7rem .8rem; gap:.5rem}
+    .brand-mark{width:2.4rem; height:2.4rem}
+    .brand-mark .suit{width:1.25rem; height:1.25rem}
+    .brand-name{font-size:1.1rem}
+    nav.mainnav{margin-left:0; width:100%; gap:.28rem}
+    nav.mainnav a{font-size:.92rem; font-weight:600; padding:.35rem .6rem; min-height:2.35rem; border-color:var(--border); border-radius:.7rem}
+    .toolgroup{margin-left:0; border-left:none; padding-left:.1rem; gap:.22rem}
+    .toolbtn{min-height:2.35rem; min-width:2.35rem; padding:.3rem .55rem; font-size:.95rem}
     h1.page-title{font-size:1.5rem}
   }
   @media (prefers-reduced-motion: reduce){
@@ -685,22 +697,20 @@
   var TS_ORDER = ['ts-1','ts-2','ts-3','ts-4'];
   function currentTheme(){ return document.documentElement.getAttribute('data-theme')==='dark' ? 'dark' : 'light'; }
   function whereAmI(){
-    if(location.protocol === 'file:') return T('helyi fájl (file://)','lokálny súbor (file://)');
+    if(location.protocol === 'file:') return T('helyi megnyitás','lokálne otvorenie');
     return location.origin || location.host || '?';
   }
   function fileWarn(){
     if(location.protocol !== 'file:') return '';
-    return '<div class="banner err" role="alert"><strong>'
-      + esc(T('Ez az oldal most az Ön gépéről van megnyitva (file://).','Táto stránka je teraz otvorená priamo z vášho počítača (file://).'))
-      + '</strong><br>'
-      + esc(T('A Firebase csak engedélyezett webcímekről engedi a bejelentkezést, fájlból nem. Nyissa meg az oldalt localhost címen (pl. http://localhost:5500), vagy az éles, feltöltött címen.',
-             'Firebase povoľuje prihlásenie iba zo schválených webových adries, nie zo súboru. Otvorte stránku cez localhost (napr. http://localhost:5500) alebo na ostrej adrese.'))
-      + '</div>';
+    return '<p class="meta" role="status" style="margin:.2rem 0 1rem">'
+      + esc(T('Ez az oldal most az Ön gépéről van megnyitva, ezért a szervezői belépés nem működik. Nyissa meg a mub.sk címen.',
+             'Táto stránka je otvorená z vášho počítača, preto organizátorské prihlásenie nefunguje. Otvorte ju na adrese mub.sk.'))
+      + '</p>';
   }
   var AUTH_ERRORS = {
     'auth/unauthorized-domain': {
-      hu:'Ez a webcím nincs engedélyezve a Firebase-ben a bejelentkezéshez. Nyissa meg az oldalt localhost címen, vagy vegye fel a címet ide: Firebase Console > Authentication > Settings > Authorized domains.',
-      sk:'Táto webová adresa nie je vo Firebase povolená na prihlásenie. Otvorte stránku cez localhost, alebo ju pridajte sem: Firebase Console > Authentication > Settings > Authorized domains.'
+      hu:'Ezen a címen a belépés nincs engedélyezve. Nyissa meg az oldalt a szokásos címen.',
+      sk:'Na tejto adrese nie je prihlásenie povolené. Otvorte stránku na obvyklej adrese.'
     },
     'auth/invalid-email': {hu:'Az e-mail cím formailag hibás.', sk:'E-mailová adresa má nesprávny formát.'},
     'auth/missing-password': {hu:'Adja meg a jelszót is.', sk:'Zadajte aj heslo.'},
@@ -710,21 +720,21 @@
     'auth/invalid-login-credentials': {hu:'Hibás e-mail vagy jelszó.', sk:'Nesprávny e-mail alebo heslo.'},
     'auth/too-many-requests': {hu:'Túl sok hibás próbálkozás. Várjon néhány percet, majd próbálja újra.', sk:'Príliš mnoho pokusov. Počkajte niekoľko minút a skúste to znova.'},
     'auth/network-request-failed': {
-      hu:'Nincs internetkapcsolat, vagy a böngésző blokkolja a kérést. Ha az oldalt fájlból nyitotta meg, ez az oka: nyissa meg localhost címen vagy az éles címen.',
-      sk:'Chýba internetové pripojenie alebo prehliadač blokuje požiadavku. Ak ste stránku otvorili zo súboru, to je príčina: otvorte ju cez localhost alebo na ostrej adrese.'
+      hu:'Nincs internetkapcsolat. Ellenőrizze, majd próbálja újra.',
+      sk:'Chýba internetové pripojenie. Skontrolujte ho a skúste znova.'
     },
-    'auth/operation-not-allowed': {hu:'Az e-mail/jelszó bejelentkezés nincs bekapcsolva a Firebase Console-ban (Authentication > Sign-in method).', sk:'Prihlásenie e-mailom/heslom nie je vo Firebase Console zapnuté (Authentication > Sign-in method).'},
+    'auth/operation-not-allowed': {hu:'A belépésnek ez a módja most ki van kapcsolva.', sk:'Tento spôsob prihlásenia je teraz vypnutý.'},
     'auth/internal-error': {
-      hu:'A bejelentkezés belső hibával leállt. Ez a leggyakrabban akkor fordul elő, ha az oldalt közvetlenül fájlból nyitotta meg (file://) — ilyenkor nyissa meg localhost címen vagy az éles címen. Ha ott is ezt írja, nézze meg a Firebase Console > Authentication > Sign-in method alatt, hogy az E-mail/Jelszó be van-e kapcsolva.',
-      sk:'Prihlásenie zlyhalo s vnútornou chybou. Najčastejšie sa to stane, ak ste stránku otvorili priamo zo súboru (file://) — vtedy ju otvorte cez localhost alebo na ostrej adrese. Ak to píše aj tam, skontrolujte Firebase Console > Authentication > Sign-in method, či je E-mail/Heslo zapnuté.'
+      hu:'A belépés most nem sikerült. Próbálja újra néhány perc múlva.',
+      sk:'Prihlásenie sa nepodarilo. Skúste to znova o niekoľko minút.'
     },
-    'auth/unauthorized-continue-uri': {hu:'A jelszó-visszaállító link címe nincs engedélyezve a Firebase-ben.', sk:'Adresa na obnovenie hesla nie je vo Firebase povolená.'}
+    'auth/unauthorized-continue-uri': {hu:'A jelszó-visszaállító link címe nincs engedélyezve.', sk:'Adresa na obnovenie hesla nie je povolená.'}
   };
   function authErrorText(err){
     var code = (err && err.code) || '';
     var t = AUTH_ERRORS[code];
-    var base = t ? T(t.hu, t.sk) : T('A bejelentkezés nem sikerült.','Prihlásenie zlyhalo.');
-    return base + '  [' + (code || (err && err.message) || '?') + ']';
+    if(!t) console.warn('bejelentkezési hiba:', code, err);
+    return t ? T(t.hu, t.sk) : T('A belépés nem sikerült. Ellenőrizze az e-mail címet és a jelszót.','Prihlásenie sa nepodarilo. Skontrolujte e-mail a heslo.');
   }
   var SUIT_ROW = ''
     + '<svg class="suit s-makk" aria-hidden="true"><use href="#suit-makk" xlink:href="#suit-makk"/></svg>'
@@ -1711,6 +1721,16 @@
   }
 
   /* ---------- GALLERY ---------- */
+  /* A kép elforgatása: a fényképhez tartozó "rotate" érték (0/90/180/270 fok).
+     Így a régi, oldalra fordult képek is felállíthatók, és a kép fájlja nem változik. */
+  function rotVal(p){
+    var r = Number(p && p.rotate) || 0;
+    return ((r % 360) + 360) % 360;
+  }
+  function rotStyle(p){
+    var r = rotVal(p);
+    return r ? ' style="transform:rotate(' + r + 'deg)"' : '';
+  }
   function renderGallery(el){
     el.innerHTML = '<h1 class="page-title">'+esc(T('Galéria','Galéria'))+'</h1>'+rule()+'<div id="gal-body">'+esc(T('Betöltés…','Načítava sa…'))+'</div>';
     loadTournaments(function(ts){
@@ -1772,7 +1792,7 @@
             + '<p class="galhint">'+esc(T('Kattintson bármelyik képre: nagyban nyílik meg, és a ‹ › nyilakkal lépegethet közöttük — nem kell görgetni.','Kliknite na ktorúkoľvek fotku: otvorí sa veľká a šípkami ‹ › môžete listovať — netreba rolovať.'))+'</p>'
             + '<div class="thumbgrid" id="galgrid-'+gi+'">'+g.pics.map(function(p, pi){
               return '<a class="ph'+(pi >= PHOTO_LIMIT ? ' more' : '')+'" href="'+esc(p.url)+'" onclick="MUB.openPhoto('+gi+','+pi+');return false;">'
-                + '<img src="'+esc(p.url)+'" loading="lazy" alt="">'
+                + '<img src="'+esc(p.url)+'"'+rotStyle(p)+' loading="lazy" alt="">'
                 + (p.isPodium?'<span class="podiummark">🏆</span>':'')+'</a>';
             }).join('')+'</div>'
             + (g.pics.length > PHOTO_LIMIT
@@ -1867,7 +1887,15 @@
     var title = document.getElementById('lb-title');
     var count = document.getElementById('lb-count');
     var openLink = document.getElementById('lb-open');
-    if(img) img.src = url;
+    if(img){
+      img.src = url;
+      /* Ha a kép el van forgatva, a nagy nézetben is állva látszik. */
+      var r = rotVal(p);
+      img.style.transform = r ? 'rotate(' + r + 'deg)' : '';
+      if(img.classList){
+        if(r === 90 || r === 270) img.classList.add('lb-rot'); else img.classList.remove('lb-rot');
+      }
+    }
     if(title) title.textContent = g.label || '';
     if(count) count.textContent = (pi + 1) + ' / ' + n + ' ' + T('kép','fotiek');
     if(openLink) openLink.href = url;
@@ -3237,9 +3265,9 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   function backupReminderHtml(){
     var d = daysSince(lastBackupAt());
     if(d != null && d < 21) return '';
-    return '<div class="banner noprint" role="status" style="margin-bottom:1rem">'
+    return '<p class="meta noprint" role="status" style="margin:0 0 1rem">'
       + esc(d == null ? T('Még nem készült biztonsági mentés.','Ešte nebola vytvorená žiadna záloha.') : T('Régen volt biztonsági mentés: ','Dávno nebola záloha: ') + d + ' ' + T('napja.','dní.'))
-      + ' <button type="button" class="btn sm" onclick="MUB.setAdminTab(\'mentes\')">'+esc(T('Mentés készítése','Vytvoriť zálohu'))+'</button></div>';
+      + ' <a href="#admin" onclick="MUB.setAdminTab(\'mentes\');return false">'+esc(T('Mentés készítése','Vytvoriť zálohu'))+'</a></p>';
   }
 
   /* --- admin: news --- */
@@ -3361,6 +3389,10 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   var galleryPickTid = '';
   var galleryCustomTitle = '';
   var galleryCustomTitleSk = '';
+  var galleryTitles = [];          /* a létező albumok címei (magyar) */
+  var galleryTitleSk = {};         /* magyar cím -> szlovák cím */
+  var galleryRenameFor = '';       /* melyik albumra vonatkozik az átnevező doboz */
+  var galleryTitleTimer = null;
   function renderAdminGallery(){
     var body = document.getElementById('admin-body');
     loadTournaments(function(ts){
@@ -3368,7 +3400,15 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         var sorted = ts.slice().sort(byDateDesc);
         if(!galleryPickTid && sorted.length) galleryPickTid = sorted[0].id;
         var customTitles = [];
-        photos.forEach(function(p){ if(!p.tournamentId && p.customTitle && customTitles.indexOf(p.customTitle)<0) customTitles.push(p.customTitle); });
+        var skMap = {};
+        photos.forEach(function(p){
+          if(p.tournamentId || !p.customTitle) return;
+          if(customTitles.indexOf(p.customTitle) < 0) customTitles.push(p.customTitle);
+          if(p.customTitle_sk && !skMap[p.customTitle]) skMap[p.customTitle] = p.customTitle_sk;
+        });
+        galleryTitles = customTitles;
+        galleryTitleSk = skMap;
+        if(galleryRenameFor && customTitles.indexOf(galleryRenameFor) < 0) galleryRenameFor = '';
         /* A címben lévő dátum szerint, legújabb elöl. */
         customTitles.sort(function(a,b){
           var c = String(dateFromTitle(b)||'').localeCompare(String(dateFromTitle(a)||''));
@@ -3454,15 +3494,43 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
             return all.map(function(ct){ return '<option value="'+esc(ct)+'">'; }).join('');
           })()
         + '</datalist>'
-        + '<p class="meta" style="margin-top:.4rem">'+esc(T('A listában a régi weblap albumnevei is szerepelnek (elmúlt 3 év) — kattintson a mezőbe, és válassza ki.','V zozname sú aj názvy albumov zo starého webu (posledné 3 roky) — kliknite do poľa a vyberte.'))+'</p>'
+        + '<p class="meta" style="margin-top:.4rem">'+esc(T('Kattintson a mezőbe, és válassza ki a listából azt az albumot, amelyet szerkeszteni szeretne — a képei mindjárt megjelennek lent.','Kliknite do poľa a vyberte zo zoznamu album, ktorý chcete upraviť — jeho fotky sa hneď zobrazia nižšie.'))+'</p>'
         + '</div>'
         + '<div class="field"><label for="g-custom-title-sk">'+esc(T('Album címe (szlovák)','Názov albumu (slovensky)'))+'</label><input id="g-custom-title-sk" value="'+esc(galleryCustomTitleSk)+'" oninput="MUB.setGalleryCustomTitleSk(this.value)" placeholder="'+esc(T('pl. Záverečná večera','napr. Záverečná večera'))+'"></div>'
-        + '<p class="meta" style="margin:-.4rem 0 .9rem">'+esc(T('A magyar cím azonosítja az albumot: ha egy meglévő album címét átírja, abból új album lesz. Ha a szlovák címet üresen hagyja, a magyar jelenik meg a szlovák oldalon is.','Maďarský názov identifikuje album: ak prepíšete názov existujúceho albumu, vznikne nový album. Ak necháte slovenský názov prázdny, zobrazí sa maďarský aj na slovenskej stránke.'))+'</p>';
+        + '<p class="meta" style="margin:-.4rem 0 .9rem">'+esc(T('A magyar cím azonosítja az albumot. Ha szlovák címet is megad, az jelenik meg a szlovák oldalon.','Maďarský názov identifikuje album. Ak zadáte aj slovenský názov, zobrazí sa na slovenskej stránke.'))+'</p>'
+        + '<details class="renamedet" id="g-rename-box" hidden style="margin-bottom:1rem"><summary class="metasum">'+esc(T('A kiválasztott album átnevezése','Premenovať vybraný album'))+'</summary>'
+        + '<p class="meta" style="margin:.7rem 0 .6rem">'+esc(T('A cím itt minden képnél egyszerre módosul — a régi albumok elgépelt címeit is így javíthatja.','Názov sa tu zmení naraz pri všetkých fotkách — tak opravíte aj preklepy v názvoch starých albumov.'))+'</p>'
+        + '<div class="field"><label for="g-rename-hu">'+esc(T('Új cím (magyar)','Nový názov (maďarsky)'))+'</label><input id="g-rename-hu"></div>'
+        + '<div class="field"><label for="g-rename-sk">'+esc(T('Új cím (szlovák)','Nový názov (slovensky)'))+'</label><input id="g-rename-sk"></div>'
+        + '<button type="button" class="btn sm" onclick="MUB.renameAlbum()">'+esc(T('Átnevezés','Premenovať'))+'</button></details>';
     }
+    refreshRenameBox();
     updateImportTarget();
   }
+  /* Az átnevező doboz csak akkor látszik, ha a beírt cím már létező album. */
+  function refreshRenameBox(){
+    var box = document.getElementById('g-rename-box');
+    if(!box) return;
+    var t = (galleryCustomTitle||'').trim();
+    var exists = !!(t && galleryTitles.indexOf(t) >= 0);
+    box.hidden = !exists;
+    if(exists && galleryRenameFor !== t){
+      galleryRenameFor = t;
+      var hu = document.getElementById('g-rename-hu');
+      var sk = document.getElementById('g-rename-sk');
+      if(hu) hu.value = t;
+      if(sk) sk.value = galleryTitleSk[t] || '';
+    }
+  }
   function setGalleryMode(m){ galleryMode = m; renderAdminGallery(); }
-  function setGalleryCustomTitle(v){ galleryCustomTitle = v; updateImportTarget(); }
+  function setGalleryCustomTitle(v){
+    galleryCustomTitle = v;
+    updateImportTarget();
+    refreshRenameBox();
+    /* Gépelés közben ne pörögjön folyton: fél másodperc nyugalom után frissül a képgaléria. */
+    if(galleryTitleTimer) clearTimeout(galleryTitleTimer);
+    galleryTitleTimer = setTimeout(function(){ galleryTitleTimer = null; renderGalleryThumbs(); }, 500);
+  }
   function setGalleryCustomTitleSk(v){ galleryCustomTitleSk = v; updateImportTarget(); }
   function pickGalleryTournament(id){ galleryPickTid = id; updateImportTarget(); renderGalleryThumbs(); }
   function currentGalleryFilter(photos){
@@ -3477,10 +3545,15 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       var thumbs = document.getElementById('g-thumbs');
       if(!thumbs) return;
       thumbs.innerHTML = '<div class="thumbgrid">' + mine.map(function(p){
-        return '<div class="ph"><img src="'+esc(p.url)+'" loading="lazy" alt="">'
+        return '<div class="ph"><img src="'+esc(p.url)+'"'+rotStyle(p)+' loading="lazy" alt="">'
+          + '<span class="rot">'
+          + '<button type="button" title="'+esc(T('Elforgatás balra','Otočiť vľavo'))+'" aria-label="'+esc(T('Elforgatás balra','Otočiť vľavo'))+'" onclick="MUB.rotatePhoto(\''+jsq(p.id)+'\',-90)">⟲</button>'
+          + '<button type="button" title="'+esc(T('Elforgatás jobbra','Otočiť vpravo'))+'" aria-label="'+esc(T('Elforgatás jobbra','Otočiť vpravo'))+'" onclick="MUB.rotatePhoto(\''+jsq(p.id)+'\',90)">⟳</button>'
+          + '</span>'
           + '<button type="button" class="rm" title="'+esc(T('Törlés','Zmazať'))+'" aria-label="'+esc(T('Törlés','Zmazať'))+'" onclick="MUB.deletePhoto(\''+jsq(p.id)+'\',\''+jsq(p.storagePath||'')+'\')">✕</button>'
           + '</div>';
       }).join('') + '</div>'
+      + (mine.length ? '<p class="meta" style="margin:.7rem 0 0">'+esc(T('A képek felső sarkában lévő ⟲ ⟳ gombokkal tudja egyenesbe fordítani az oldalra dőlt képeket. Ez a látogatóknak azonnal látszik, és bármikor visszafordítható.','Tlačidlami ⟲ ⟳ v hornom rohu fotky narovnáte naklonené snímky. Návštevníci to uvidia okamžite a dá sa to kedykoľvek vrátiť.'))+'</p>' : '')
       + (mine.length ? '<div class="field" style="margin-top:.8rem"><label for="g-podium">'+esc(T('Melyik a dobogós (első) kép?','Ktorá fotka je na stupni víťazov (prvá)?'))+'</label><select id="g-podium" onchange="MUB.setPodium(this.value)"><option value="">'+esc(T('— nincs kijelölve —','— nie je vybraná —'))+'</option>'
         + mine.map(function(p){ return '<option value="'+p.id+'" '+(p.isPodium?'selected':'')+'>'+p.id.slice(0,6)+'…'+(p.isPodium?' ('+esc(T('jelenlegi','aktuálna'))+')':'')+'</option>'; }).join('') + '</select></div>' : '');
     });
@@ -3852,6 +3925,44 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       batch.commit().then(function(){ invalidate('gallery'); renderGalleryThumbs(); });
     });
   }
+  /* Egy album minden képének átnevezése (a magyar cím azonosítja az albumot). */
+  function renameAlbum(){
+    var from = (galleryCustomTitle||'').trim();
+    var huEl = document.getElementById('g-rename-hu');
+    var skEl = document.getElementById('g-rename-sk');
+    var to = huEl ? String(huEl.value||'').trim() : '';
+    var toSk = skEl ? String(skEl.value||'').trim() : '';
+    if(!from || !to) return;
+    if(to === from && !toSk) return;
+    if(!confirm(T('Biztosan átnevezi ezt az albumot? Minden képe az új nevet kapja.','Naozaj premenovať tento album? Všetky jeho fotky dostanú nový názov.'))) return;
+    db.collection('gallery').where('customTitle','==',from).get().then(function(snap){
+      var batch = db.batch(), n = 0;
+      snap.forEach(function(d){
+        batch.set(db.collection('gallery').doc(d.id), { customTitle: to, customTitle_sk: toSk || to }, { merge: true });
+        n++;
+      });
+      return n ? batch.commit() : null;
+    }).then(function(){
+      galleryCustomTitle = to;
+      galleryCustomTitleSk = toSk || to;
+      invalidate('gallery');
+      renderAdminGallery();
+    }).catch(function(e){
+      alert(T('Nem sikerült átnevezni: ','Nepodarilo sa premenovať: ') + e.message);
+    });
+  }
+  function rotatePhoto(id, delta){
+    loadGallery(function(photos){
+      var p = photos.filter(function(x){ return x.id === id; })[0];
+      if(!p) return;
+      var next = ((rotVal(p) + delta) % 360 + 360) % 360;
+      db.collection('gallery').doc(id).set({ rotate: next }, { merge: true }).then(function(){
+        invalidate('gallery'); renderGalleryThumbs();
+      }).catch(function(e){
+        alert(T('Nem sikerült elmenteni: ','Nepodarilo sa uložiť: ') + e.message);
+      });
+    });
+  }
   function deletePhoto(id, storagePath){
     if(!confirm(T('Biztosan törli ezt a képet?','Naozaj chcete zmazať túto fotku?'))) return;
     var p = db.collection('gallery').doc(id).delete();
@@ -4174,7 +4285,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     setGalleryMode: setGalleryMode, setGalleryCustomTitle: setGalleryCustomTitle, setGalleryCustomTitleSk: setGalleryCustomTitleSk,
     openPhoto: openPhoto, closePhoto: closePhoto, nextPhoto: nextPhoto, prevPhoto: prevPhoto,
     galleryMore: galleryMore, jumpAlbum: jumpAlbum,
-    pickGalleryTournament: pickGalleryTournament, uploadPhotos: uploadPhotos, setPodium: setPodium, deletePhoto: deletePhoto,
+    pickGalleryTournament: pickGalleryTournament, uploadPhotos: uploadPhotos, setPodium: setPodium, deletePhoto: deletePhoto, rotatePhoto: rotatePhoto, renameAlbum: renameAlbum,
     pickRegTournament: pickRegTournament, exportCsv: exportCsv,
     addPlayer: addPlayer, deletePlayer: deletePlayer, importDefaultRoster: importDefaultRoster, importPastedRoster: importPastedRoster,
     addDownload: addDownload, deleteDownload: deleteDownload
