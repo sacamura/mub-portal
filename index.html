@@ -355,6 +355,24 @@
     html{scroll-behavior:auto}
     *{transition:none !important; animation:none !important}
   }
+  /* ---------- Jelenléti ív (nyomtatáshoz) ---------- */
+  #print-area{display:none}
+  #print-area .sheet{font-family:Georgia,"Times New Roman",serif; color:#000; background:#fff; font-size:12pt; line-height:1.35}
+  #print-area h1{font-size:21pt; margin:0 0 .15rem; font-family:inherit}
+  #print-area .sub{font-size:11pt; margin:0 0 .15rem}
+  #print-area .sub.big{font-size:14.5pt; font-weight:700; margin:.45rem 0}
+  #print-area table{width:100%; border-collapse:collapse; margin-top:.5rem}
+  #print-area th,#print-area td{border:1px solid #000; padding:.28rem .45rem; text-align:left; vertical-align:middle}
+  #print-area th{font-size:10.5pt}
+  #print-area td.c,#print-area th.c{text-align:center}
+  #print-area th.boxh,#print-area td.box{width:2.4cm}
+  #print-area tbody tr{height:1.05cm}
+  @media print{
+    @page{margin:12mm}
+    html,body{background:#fff !important; color:#000 !important}
+    body.printing > *{display:none !important}
+    body.printing #print-area{display:block !important}
+  }
 </style>
 </head>
 <body>
@@ -381,6 +399,9 @@
 <div class="wrap" id="view" tabindex="-1"></div>
 <footer class="sitefoot noprint" id="site-footer"></footer>
 
+<!-- Csak nyomtatáskor látszik: jelenléti ív a verseny napjára. -->
+<div id="print-area" aria-hidden="true"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/firebase@8.10.1/firebase-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@8.10.1/firebase-firestore.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@8.10.1/firebase-auth.js"></script>
@@ -405,7 +426,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 4;
+  var BUILD = 5;
   var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -4077,16 +4098,83 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     loadTournaments(function(ts){
       var sorted = ts.slice().sort(byDateDesc);
       if(!regPickTid && sorted.length) regPickTid = sorted[0].id;
+      regTournaments = sorted;
+      regPickTournament = sorted.filter(function(t){ return t.id === regPickTid; })[0] || null;
       body.innerHTML = '<div class="field noprint"><label for="reg-tid">'+esc(T('Verseny','Turnaj'))+'</label><select id="reg-tid" onchange="MUB.pickRegTournament(this.value)">'
         + sorted.map(function(t){ return '<option value="'+t.id+'" '+(t.id===regPickTid?'selected':'')+'>'+esc(t.location_hu)+' ('+t.date+')</option>'; }).join('')
         + '</select></div>'
-        + '<div class="toolbar noprint"><div></div><div><button type="button" class="btn sm secondary" onclick="window.print()">'+esc(T('Nyomtatás','Tlačiť'))+'</button> <button type="button" class="btn sm" onclick="MUB.exportCsv()">CSV '+esc(T('exportálás','export'))+'</button></div></div>'
+        + '<div class="toolbar noprint"><div><button type="button" class="btn sm" onclick="MUB.printAttendance()">🖨 '+esc(T('Jelenléti ív nyomtatása','Vytlačiť prezenčnú listinu'))+'</button></div>'
+        + '<div><button type="button" class="btn sm secondary" onclick="window.print()">'+esc(T('Az oldal nyomtatása','Tlačiť stránku'))+'</button> <button type="button" class="btn sm secondary" onclick="MUB.exportCsv()">CSV '+esc(T('exportálás','export'))+'</button></div></div>'
         + '<div id="reg-list"></div>';
       renderRegList();
     });
   }
-  function pickRegTournament(id){ regPickTid = id; renderRegList(); }
+  function pickRegTournament(id){
+    regPickTid = id;
+    regPickTournament = (regTournaments || []).filter(function(t){ return t.id === id; })[0] || regPickTournament;
+    renderRegList();
+  }
   var lastRegList = [];
+  var regTournaments = [];        /* a jelentkezők fülön betöltött versenyek */
+  var regPickTournament = null;   /* a kiválasztott verseny (a jelenléti ívhez) */
+  /* A jelentkezés időpontja: a Firestore időbélyegből. */
+  function regDate(r){
+    var t = r && (r.ts || r.createdAt);
+    if(!t) return null;
+    try{
+      if(typeof t.toDate === 'function') return t.toDate();
+      if(t instanceof Date) return t;
+      if(typeof t === 'number') return new Date(t);
+    }catch(e){}
+    return null;
+  }
+  function fmtDateTime(d){
+    if(!d) return '—';
+    return d.getFullYear()+'.'+pad2(d.getMonth()+1)+'.'+pad2(d.getDate())+'. '+pad2(d.getHours())+':'+pad2(d.getMinutes());
+  }
+  /* Nyomtatható jelenléti ív: ábécé sorrendben, azonosítóval és a jelentkezés idejével. */
+  function attendanceSheetHtml(){
+    var t = regPickTournament;
+    var list = (lastRegList || []).slice().sort(function(a,b){
+      return String(a.name||'').localeCompare(String(b.name||''), 'hu');
+    });
+    var title = t ? (T(t.location_hu, t.location_sk) + ' – ' + fmtDate(t.date)) : '';
+    var rows = list.map(function(r, i){
+      return '<tr><td class="c">'+(i+1)+'</td><td>'+esc(r.name||'')+'</td><td class="c">'+esc(r.code||'')+'</td>'
+        + '<td class="c">'+esc(fmtDateTime(regDate(r)))+'</td><td class="box"></td></tr>';
+    }).join('');
+    var empty = '';
+    for(var k = 0; k < 6; k++){
+      empty += '<tr><td class="c">'+(list.length+k+1)+'</td><td></td><td></td><td></td><td class="box"></td></tr>';
+    }
+    return '<div class="sheet">'
+      + '<h1>'+esc(T('Jelenléti ív','Prezenčná listina'))+'</h1>'
+      + '<p class="sub">MUB Portál · '+esc(T('Ung-vidék, Bodrogköz','Ung, Medzibodrožie'))+'</p>'
+      + (title ? '<p class="sub big">'+esc(title)+'</p>' : '')
+      + '<p class="sub">'+esc(T('Jelentkezők száma: ','Počet prihlásených: '))+'<strong>'+list.length+'</strong>'
+        + ' · '+esc(T('Nyomtatva: ','Vytlačené: '))+esc(fmtDateTime(new Date()))+'</p>'
+      + '<table><thead><tr>'
+      + '<th class="c">#</th><th>'+esc(T('Név','Meno'))+'</th><th class="c">'+esc(T('Azonosító','Identifikačné číslo'))+'</th>'
+      + '<th class="c">'+esc(T('Jelentkezés ideje','Čas prihlásenia'))+'</th><th class="c boxh">'+esc(T('Megérkezett','Prišiel'))+'</th>'
+      + '</tr></thead><tbody>'+rows+empty+'</tbody></table>'
+      + '<p class="sub" style="margin-top:.5rem">'
+      + esc(T('A „Megérkezett" oszlopba pipáljon. Az utolsó üres sorok a helyszínen jelentkezőknek vannak.',
+             'Do stĺpca „Prišiel" urobte značku. Posledné prázdne riadky sú pre tých, ktorí sa prihlásia na mieste.'))
+      + '</p></div>';
+  }
+  function printAttendance(){
+    var box = document.getElementById('print-area');
+    if(!box) return;
+    box.innerHTML = attendanceSheetHtml();
+    if(document.body && document.body.classList) document.body.classList.add('printing');
+    setTimeout(function(){ try{ window.print(); }catch(e){} }, 80);
+  }
+  function endPrinting(){
+    if(document.body && document.body.classList) document.body.classList.remove('printing');
+    var box = document.getElementById('print-area');
+    if(box) box.innerHTML = '';
+  }
+  if(window.addEventListener) window.addEventListener('afterprint', endPrinting);
   function renderRegList(){
     db.collection('registrations').where('tournamentId','==',regPickTid).get().then(function(snap){
       var regs = []; snap.forEach(function(d){ regs.push(Object.assign({id:d.id}, d.data())); });
@@ -4369,7 +4457,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     importUrlsPaste: importUrlsPaste, updateImportTarget: updateImportTarget,
     parseAlbumBlocks: parseAlbumBlocks, blocksToText: blocksToText, htmlToBlocks: htmlToBlocks,
     selectTournament: selectTournament, lookupCode: lookupCode, resetRegForm: resetRegForm, cancelRegistration: cancelRegistration, clearRegForm: clearRegForm, useLastReg: useLastReg,
-    withdrawByCode: withdrawByCode, deleteRegPublic: deleteRegPublic, adminDeleteReg: adminDeleteReg,
+    withdrawByCode: withdrawByCode, deleteRegPublic: deleteRegPublic, adminDeleteReg: adminDeleteReg, printAttendance: printAttendance,
     askWithdrawReg: askWithdrawReg, cancelWithdrawReg: cancelWithdrawReg, confirmWithdrawReg: confirmWithdrawReg,
     findMyRegs: findMyRegs, forgetMyReg: forgetMyReg, installApp: installApp,
     setResSeason: setResSeason, setResPlayer: setResPlayer, setImpSeason: setImpSeason,
