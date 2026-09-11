@@ -259,6 +259,7 @@
   .sheetwrap{border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:1rem}
   .sheetwrap iframe{width:100%; height:480px; border:0; display:block}
   .rules-label{font-size:.8rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:.5rem}
+  .rulestitle{font-size:1.3rem; margin:0 0 .8rem; color:var(--accent-strong); border-bottom:2px solid var(--accent-soft); padding-bottom:.4rem}
   .rules-main{font-size:1.05rem; line-height:1.7}
   .rules-second{font-size:.9rem; line-height:1.6; color:var(--ink-soft)}
   .seasonblock{margin-bottom:2rem}
@@ -426,7 +427,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 5;
+  var BUILD = 6;
   var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -837,7 +838,7 @@
   var isAdmin = false;
 
   /* ---------- in-memory caches ---------- */
-  var CACHE = { tournaments:null, news:null, gallery:null, players:null, seasons:null, downloads:null, registrations:null, likes:null, results:null, features:null };
+  var CACHE = { tournaments:null, news:null, gallery:null, players:null, seasons:null, downloads:null, registrations:null, likes:null, results:null, features:null, rules:null };
 
   function loadTournaments(cb){
     if(CACHE.tournaments) return cb(CACHE.tournaments);
@@ -1524,6 +1525,24 @@
       CACHE.features = FEAT;
       cb(FEAT);
     }).catch(function(){ cb(FEAT); });   /* ha nem olvasható, marad a biztonságos KI */
+  }
+  /* ---------- Szabályok (Firestore: settings/rules) ----------
+     Két rész: szervezési szabályok és kártyaszabályok. Ha nincs beírva semmi,
+     a kártyaszabályoknál a beépített szöveg jelenik meg. */
+  function loadRules(cb){
+    if(CACHE.rules) return cb(CACHE.rules);
+    db.collection('settings').doc('rules').get().then(function(d){
+      var v = (d && d.exists) ? (d.data() || {}) : {};
+      var r = {
+        org_hu: v.org_hu || '', org_sk: v.org_sk || '',
+        card_hu: (v.card_hu || '').trim() ? v.card_hu : RULES_HU,
+        card_sk: (v.card_sk || '').trim() ? v.card_sk : RULES_SK
+      };
+      CACHE.rules = r; cb(r);
+    }).catch(function(){
+      CACHE.rules = { org_hu:'', org_sk:'', card_hu: RULES_HU, card_sk: RULES_SK };
+      cb(CACHE.rules);
+    });
   }
   function setStatistics(on){
     if(!requireFull()) return;
@@ -2527,15 +2546,28 @@ Ha egy játékos, akinek nem kellene kijátszania, mégis kitesz egy lapot, az e
 A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajdonosnak meg kell engednie az ellenfélnek, hogy ellenőrizze a pénz állását.`;
 
   function renderRules(el){
-    /* A szabály szlovákul olvasható nagyban, alatta magyarul kisebb betűvel. */
+    /* Két rész: szervezési szabályok és kártyaszabályok.
+       A szöveget az admin felületen lehet szerkeszteni (Admin → Szabályok). */
     el.innerHTML = '<h1 class="page-title">'+esc(T('Szabályok','Pravidlá'))+'</h1>'+rule()
-      + '<div class="card">'
-      + '<div class="rules-label">'+esc(T('Szlovákul','Slovensky'))+'</div>'
-      + '<div class="rules-main">'+nl2br(RULES_SK)+'</div>'
-      + '<div class="rules-label" style="margin-top:1.5rem">'+esc(T('Magyarul','Po maďarsky'))+'</div>'
-      + '<div class="rules-second">'+nl2br(RULES_HU)+'</div>'
-      + '</div>'
+      + '<div id="rules-body">'+esc(T('Betöltés…','Načítava sa…'))+'</div>'
       + '<div id="rules-downloads" style="margin-top:1.4rem"></div>';
+    loadRules(function(r){
+      var box = document.getElementById('rules-body');
+      if(!box) return;
+      var section = function(title_hu, title_sk, skText, huText){
+        skText = String(skText || '').trim();
+        huText = String(huText || '').trim();
+        if(!skText && !huText) return '';
+        return '<div class="card" style="margin-bottom:1.2rem">'
+          + '<h2 class="rulestitle">'+esc(T(title_hu, title_sk))+'</h2>'
+          + (skText ? '<div class="rules-label">'+esc(T('Szlovákul','Slovensky'))+'</div><div class="rules-main">'+nl2br(skText)+'</div>' : '')
+          + (huText ? '<div class="rules-label"'+(skText?' style="margin-top:1.5rem"':'')+'>'+esc(T('Magyarul','Po maďarsky'))+'</div><div class="rules-second">'+nl2br(huText)+'</div>' : '')
+          + '</div>';
+      };
+      var html = section('Szervezési szabályok','Organizačné pravidlá', r.org_sk, r.org_hu)
+               + section('Kártyaszabályok','Kartové pravidlá', r.card_sk, r.card_hu);
+      box.innerHTML = html || '<div class="card"><p class="meta">'+esc(T('A szabályok feltöltése folyamatban van.','Pravidlá sa pripravujú.'))+'</p></div>';
+    });
     loadDownloads(function(items){
       var box = document.getElementById('rules-downloads');
       if(!box) return;
@@ -2577,7 +2609,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
      B = korlátozott: versenyek, hírek, galéria, jelentkezők, játékosok — de
          szezon, eredmény-beolvasás, letöltések és biztonsági mentés NEM. */
   var ADMIN_FULL_EMAILS = ['jani991@gmail.com', 'jan.juhasz6@gmail.com'];   /* mindig teljes jog */
-  var ADMIN_B_TABS = ['versenyek', 'hirek', 'galeria', 'jelentkezok', 'jatekosok'];
+  var ADMIN_B_TABS = ['versenyek', 'hirek', 'galeria', 'jelentkezok', 'jatekosok', 'szabalyok'];
   var ADMIN_ROLES = null;                              /* a Firebase-ből: { full:[], limited:[] } */
   function lowerList(a){ return (a || []).map(function(x){ return String(x).trim().toLowerCase(); }).filter(Boolean); }
   function loadAdminRolesLocal(){ try{ return JSON.parse(localStorage.getItem('mub-adminroles') || 'null'); }catch(e){ return null; } }
@@ -2693,7 +2725,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       document.getElementById('login-form').addEventListener('submit', function(ev){ ev.preventDefault(); login(); });
       return;
     }
-    var tabs = [['versenyek',T('Versenyek','Turnaje')],['szezonok',T('Szezonok','Sezóny')],['eredmenyek',T('Eredmények','Výsledky')],['hirek',T('Hírek','Novinky')],['galeria',T('Galéria','Galéria')],['jelentkezok',T('Jelentkezők','Prihlásení')],['jatekosok',T('Játékosok','Hráči')],['letoltesek',T('Letöltések','Na stiahnutie')],['mentes',T('Mentés','Záloha')],['adminok',T('Adminok','Administrátori')]];
+    var tabs = [['versenyek',T('Versenyek','Turnaje')],['szezonok',T('Szezonok','Sezóny')],['eredmenyek',T('Eredmények','Výsledky')],['hirek',T('Hírek','Novinky')],['galeria',T('Galéria','Galéria')],['jelentkezok',T('Jelentkezők','Prihlásení')],['jatekosok',T('Játékosok','Hráči')],['szabalyok',T('Szabályok','Pravidlá')],['letoltesek',T('Letöltések','Na stiahnutie')],['mentes',T('Mentés','Záloha')],['adminok',T('Adminok','Administrátori')]];
     tabs = tabs.filter(function(t){ return tabAllowed(t[0]); });
     if(!tabAllowed(adminTab)) adminTab = 'versenyek';
     var html = (isFullAdmin() ? backupReminderHtml() : '') + '<div class="toolbar"><div><h1 class="page-title" style="display:inline">'+esc(T('Admin','Admin'))+'</h1> <span class="meta">'+esc(currentUser.email)+'</span></div>'
@@ -2715,6 +2747,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     else if(adminTab==='galeria') renderAdminGallery();
     else if(adminTab==='jelentkezok') renderAdminRegistrations();
     else if(adminTab==='jatekosok') renderAdminPlayers();
+    else if(adminTab==='szabalyok') renderAdminRules();
     else if(adminTab==='letoltesek') renderAdminDownloads();
     else if(adminTab==='mentes') renderAdminBackup();
     else if(adminTab==='adminok') renderAdminUsers();
@@ -4355,6 +4388,54 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     importRosterRows(rows);
   }
 
+  /* --- admin: szabályok ---
+     Két rész: szervezési szabályok és kártyaszabályok, magyarul és szlovákul.
+     A B kategóriás admin is szerkesztheti. */
+  function renderAdminRules(){
+    var body = document.getElementById('admin-body');
+    if(!body) return;
+    loadRules(function(r){
+      var rulesBox = function(id, title_hu, title_sk, note_hu, note_sk, hu, sk){
+        return '<div class="card" style="margin-bottom:1.2rem">'
+          + '<h3 style="margin-bottom:.3rem">'+esc(T(title_hu, title_sk))+'</h3>'
+          + '<p class="meta" style="margin:0 0 .9rem">'+esc(T(note_hu, note_sk))+'</p>'
+          + '<div class="field"><label for="'+id+'-hu">'+esc(T('Magyar szöveg','Maďarský text'))+'</label><textarea id="'+id+'-hu" rows="9">'+esc(hu||'')+'</textarea></div>'
+          + '<div class="field"><label for="'+id+'-sk">'+esc(T('Szlovák szöveg','Slovenský text'))+'</label><textarea id="'+id+'-sk" rows="9">'+esc(sk||'')+'</textarea></div>'
+          + '</div>';
+      };
+      body.innerHTML = rulesBox('r-org', 'Szervezési szabályok', 'Organizačné pravidlá',
+          'Ide kerül, ami a versenyek lebonyolításáról szól: nevezés, díjak, időrend, viselkedés a helyszínen. Ha üresen hagyja, ez a rész nem jelenik meg a Szabályok oldalon.',
+          'Sem patria pravidlá organizácie turnajov: prihlášky, poplatky, časový poriadok, správanie na mieste. Ak necháte prázdne, táto časť sa na stránke Pravidlá nezobrazí.',
+          r.org_hu, r.org_sk)
+        + rulesBox('r-card', 'Kártyaszabályok', 'Kartové pravidlá',
+          'A játék szabályai. Ha üresen hagyja, a beépített (eredeti) szöveg jelenik meg.',
+          'Pravidlá hry. Ak necháte prázdne, zobrazí sa zabudovaný (pôvodný) text.',
+          r.card_hu, r.card_sk)
+        + '<div class="toolbar"><div><button type="button" class="btn" onclick="MUB.saveRules()">'+esc(T('Mentés','Uložiť'))+'</button> '
+        + '<button type="button" class="btn sm secondary" onclick="MUB.resetRulesToDefault()">'+esc(T('Kártyaszabályok visszaállítása az eredeti szövegre','Obnoviť pôvodné kartové pravidlá'))+'</button></div></div>'
+        + '<p class="meta">'+esc(T('A mentés után a Szabályok oldal azonnal ezt mutatja mindenkinek.','Po uložení stránka Pravidlá okamžite zobrazí tento text všetkým.'))+'</p>';
+    });
+  }
+  function saveRules(){
+    var val = function(id){ var e = document.getElementById(id); return e ? String(e.value||'') : ''; };
+    var v = { org_hu: val('r-org-hu'), org_sk: val('r-org-sk'), card_hu: val('r-card-hu'), card_sk: val('r-card-sk') };
+    var btn = document.querySelector ? null : null;
+    db.collection('settings').doc('rules').set(v, { merge: true }).then(function(){
+      CACHE.rules = null;
+      alert(T('A szabályok elmentve.','Pravidlá sú uložené.'));
+      renderAdminRules();
+    }).catch(function(e){
+      alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + e.message
+        + '\n\n' + T('Ha most először menti, a Firebase szabályai még nem engedik. Szóljon a weblap készítőjének.',
+                      'Ak ukladáte prvýkrát, pravidlá Firebase to ešte nepovoľujú. Kontaktujte tvorcu webu.'));
+    });
+  }
+  function resetRulesToDefault(){
+    var a = document.getElementById('r-card-hu'), b = document.getElementById('r-card-sk');
+    if(a) a.value = RULES_HU;
+    if(b) b.value = RULES_SK;
+  }
+
   /* --- admin: downloads --- */
   function renderAdminDownloads(){
     var body = document.getElementById('admin-body');
@@ -4458,6 +4539,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     parseAlbumBlocks: parseAlbumBlocks, blocksToText: blocksToText, htmlToBlocks: htmlToBlocks,
     selectTournament: selectTournament, lookupCode: lookupCode, resetRegForm: resetRegForm, cancelRegistration: cancelRegistration, clearRegForm: clearRegForm, useLastReg: useLastReg,
     withdrawByCode: withdrawByCode, deleteRegPublic: deleteRegPublic, adminDeleteReg: adminDeleteReg, printAttendance: printAttendance,
+    saveRules: saveRules, resetRulesToDefault: resetRulesToDefault,
     askWithdrawReg: askWithdrawReg, cancelWithdrawReg: cancelWithdrawReg, confirmWithdrawReg: confirmWithdrawReg,
     findMyRegs: findMyRegs, forgetMyReg: forgetMyReg, installApp: installApp,
     setResSeason: setResSeason, setResPlayer: setResPlayer, setImpSeason: setImpSeason,
