@@ -248,6 +248,7 @@
   .banner .btn{margin-top:.5rem}
   .footer-link{text-align:center; margin-top:2rem; font-size:.98rem; color:var(--ink-soft)}
   .footer-link a{color:var(--accent-strong)}
+  .buildline{text-align:center; margin-top:.9rem; font-size:.82rem; color:var(--ink-soft); opacity:.75}
   .toolbar{display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:1.1rem}
   .checkbox{width:1.5rem; height:1.5rem; border:2px solid var(--ink-soft); display:inline-block; border-radius:4px}
   .sheetwrap{border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:1rem}
@@ -396,6 +397,11 @@
   var db = firebase.firestore();
   var auth = firebase.auth();
   var storage = firebase.storage();
+
+  /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
+     így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
+  var BUILD = 1;
+  var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
   var OLD_SITE_URL = 'https://sites.google.com/view/mariasub';
@@ -2474,7 +2480,9 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '<div class="footer-link">'+esc(T('A régi weblap továbbra is elérhető: ','Starý web je stále dostupný: '))
         + '<a href="'+esc(OLD_SITE_URL)+'" target="_blank" rel="noopener">'+esc(T('Régi weblap (Google Sites)','Starý web (Google Sites)'))+'</a></div>'
       /* Telepítés a telefonra (PWA) – csak ha a böngésző felajánlja. */
-      + pwaFooterHtml();
+      + pwaFooterHtml()
+      /* A változat száma – apró, halvány sor a lap alján. */
+      + '<div class="buildline">MUB Portál <span class="num">v'+BUILD+'</span> · '+esc(BUILD_DATE)+'</div>';
   }
 
   /* ================= ADMIN ================= */
@@ -3391,6 +3399,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   var galleryCustomTitleSk = '';
   var galleryTitles = [];          /* a létező albumok címei (magyar) */
   var galleryTitleSk = {};         /* magyar cím -> szlovák cím */
+  var galleryCounts = {};          /* magyar cím -> hány kép van benne */
   var galleryRenameFor = '';       /* melyik albumra vonatkozik az átnevező doboz */
   var galleryTitleTimer = null;
   function renderAdminGallery(){
@@ -3400,14 +3409,16 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         var sorted = ts.slice().sort(byDateDesc);
         if(!galleryPickTid && sorted.length) galleryPickTid = sorted[0].id;
         var customTitles = [];
-        var skMap = {};
+        var skMap = {}, cntMap = {};
         photos.forEach(function(p){
           if(p.tournamentId || !p.customTitle) return;
           if(customTitles.indexOf(p.customTitle) < 0) customTitles.push(p.customTitle);
+          cntMap[p.customTitle] = (cntMap[p.customTitle] || 0) + 1;
           if(p.customTitle_sk && !skMap[p.customTitle]) skMap[p.customTitle] = p.customTitle_sk;
         });
         galleryTitles = customTitles;
         galleryTitleSk = skMap;
+        galleryCounts = cntMap;
         if(galleryRenameFor && customTitles.indexOf(galleryRenameFor) < 0) galleryRenameFor = '';
         /* A címben lévő dátum szerint, legújabb elöl. */
         customTitles.sort(function(a,b){
@@ -3481,7 +3492,19 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         + sorted.map(function(t){ return '<option value="'+t.id+'" '+(t.id===galleryPickTid?'selected':'')+'>'+esc(t.location_hu)+' ('+t.date+')</option>'; }).join('')
         + '</select></div>';
     } else {
-      el.innerHTML = '<div class="field"><label for="g-custom-title">'+esc(T('Album címe (magyar)','Názov albumu (maďarsky)'))+'</label><input id="g-custom-title" list="g-title-suggest" value="'+esc(galleryCustomTitle)+'" oninput="MUB.setGalleryCustomTitle(this.value)" placeholder="'+esc(T('pl. Évzáró vacsora','napr. Záverečná večera'))+'"><datalist id="g-title-suggest">'
+      el.innerHTML = (customTitles.length
+          ? '<div class="field"><label for="g-album-pick">'+esc(T('Melyik albumot szerkeszti?','Ktorý album upravujete?'))+'</label>'
+            + '<select id="g-album-pick" onchange="MUB.pickAlbum(this.value)">'
+            + '<option value="">'+esc(T('— válasszon a meglévő albumok közül —','— vyberte z existujúcich albumov —'))+'</option>'
+            + customTitles.map(function(ct){
+                return '<option value="'+esc(ct)+'"'+(ct===galleryCustomTitle?' selected':'')+'>'+esc(ct)+' ('+((galleryCounts[ct]||0))+' '+esc(T('kép','fotiek'))+')</option>';
+              }).join('')
+            + '</select>'
+            + '<p class="meta" style="margin-top:.4rem">'+esc(T('Válassza ki az albumot: a képei azonnal megjelennek lent, és ott tudja egyenesbe fordítani őket.','Vyberte album: jeho fotky sa hneď zobrazia nižšie a tam ich narovnáte.'))+'</p>'
+            + '</div>'
+          : '')
+        + '<details style="margin:.6rem 0 1rem"'+(galleryCustomTitle && customTitles.indexOf(galleryCustomTitle) < 0 ? ' open' : '')+'><summary class="metasum">'+esc(T('Új album létrehozása','Vytvorenie nového albumu'))+'</summary>'
+        + '<div class="field" style="margin-top:.7rem"><label for="g-custom-title">'+esc(T('Album címe (magyar)','Názov albumu (maďarsky)'))+'</label><input id="g-custom-title" list="g-title-suggest" value="'+esc(galleryCustomTitle)+'" oninput="MUB.setGalleryCustomTitle(this.value)" placeholder="'+esc(T('pl. Évzáró vacsora','napr. Záverečná večera'))+'"><datalist id="g-title-suggest">'
         + (function(){
             var all = customTitles.slice();
             for(var i = 0; i < OLD_ALBUMS.length; i++){ if(all.indexOf(OLD_ALBUMS[i]) < 0) all.push(OLD_ALBUMS[i]); }
@@ -3498,6 +3521,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         + '</div>'
         + '<div class="field"><label for="g-custom-title-sk">'+esc(T('Album címe (szlovák)','Názov albumu (slovensky)'))+'</label><input id="g-custom-title-sk" value="'+esc(galleryCustomTitleSk)+'" oninput="MUB.setGalleryCustomTitleSk(this.value)" placeholder="'+esc(T('pl. Záverečná večera','napr. Záverečná večera'))+'"></div>'
         + '<p class="meta" style="margin:-.4rem 0 .9rem">'+esc(T('A magyar cím azonosítja az albumot. Ha szlovák címet is megad, az jelenik meg a szlovák oldalon.','Maďarský názov identifikuje album. Ak zadáte aj slovenský názov, zobrazí sa na slovenskej stránke.'))+'</p>'
+        + '</details>'
         + '<details class="renamedet" id="g-rename-box" hidden style="margin-bottom:1rem"><summary class="metasum">'+esc(T('A kiválasztott album átnevezése','Premenovať vybraný album'))+'</summary>'
         + '<p class="meta" style="margin:.7rem 0 .6rem">'+esc(T('A cím itt minden képnél egyszerre módosul — a régi albumok elgépelt címeit is így javíthatja.','Názov sa tu zmení naraz pri všetkých fotkách — tak opravíte aj preklepy v názvoch starých albumov.'))+'</p>'
         + '<div class="field"><label for="g-rename-hu">'+esc(T('Új cím (magyar)','Nový názov (maďarsky)'))+'</label><input id="g-rename-hu"></div>'
@@ -3533,6 +3557,15 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   }
   function setGalleryCustomTitleSk(v){ galleryCustomTitleSk = v; updateImportTarget(); }
   function pickGalleryTournament(id){ galleryPickTid = id; updateImportTarget(); renderGalleryThumbs(); }
+  /* Album kiválasztása a listából: a képek azonnal megjelennek, ott lehet forgatni. */
+  function pickAlbum(title){
+    title = String(title || '').trim();
+    galleryMode = 'custom';
+    galleryCustomTitle = title;
+    galleryCustomTitleSk = title ? (galleryTitleSk[title] || '') : '';
+    galleryRenameFor = '';
+    renderAdminGallery();
+  }
   function currentGalleryFilter(photos){
     if(galleryMode==='tournament'){ return photos.filter(function(p){ return p.tournamentId===galleryPickTid; }); }
     var title = (galleryCustomTitle||'').trim();
@@ -4285,7 +4318,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     setGalleryMode: setGalleryMode, setGalleryCustomTitle: setGalleryCustomTitle, setGalleryCustomTitleSk: setGalleryCustomTitleSk,
     openPhoto: openPhoto, closePhoto: closePhoto, nextPhoto: nextPhoto, prevPhoto: prevPhoto,
     galleryMore: galleryMore, jumpAlbum: jumpAlbum,
-    pickGalleryTournament: pickGalleryTournament, uploadPhotos: uploadPhotos, setPodium: setPodium, deletePhoto: deletePhoto, rotatePhoto: rotatePhoto, renameAlbum: renameAlbum,
+    pickGalleryTournament: pickGalleryTournament, pickAlbum: pickAlbum, uploadPhotos: uploadPhotos, setPodium: setPodium, deletePhoto: deletePhoto, rotatePhoto: rotatePhoto, renameAlbum: renameAlbum,
     pickRegTournament: pickRegTournament, exportCsv: exportCsv,
     addPlayer: addPlayer, deletePlayer: deletePlayer, importDefaultRoster: importDefaultRoster, importPastedRoster: importPastedRoster,
     addDownload: addDownload, deleteDownload: deleteDownload
