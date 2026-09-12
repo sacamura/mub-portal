@@ -441,7 +441,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 7;
+  var BUILD = 8;
   var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1614,20 +1614,20 @@
     }).catch(function(){ cb(FEAT); });   /* ha nem olvasható, marad a biztonságos KI */
   }
   /* ---------- Szabályok (Firestore: settings/rules) ----------
-     Két rész: szervezési szabályok és kártyaszabályok. Ha nincs beírva semmi,
-     a kártyaszabályoknál a beépített szöveg jelenik meg. */
+     Két rész: szervezési szabályok és kártyaszabályok, magyarul és szlovákul.
+     A magyar szöveg a magyar oldalra kerül, a szlovák a szlovákra — pontosan az,
+     amit az adminban a mezőbe írnak, semmi más. */
   function loadRules(cb){
     if(CACHE.rules) return cb(CACHE.rules);
     db.collection('settings').doc('rules').get().then(function(d){
       var v = (d && d.exists) ? (d.data() || {}) : {};
-      var r = {
+      CACHE.rules = {
         org_hu: v.org_hu || '', org_sk: v.org_sk || '',
-        card_hu: (v.card_hu || '').trim() ? v.card_hu : RULES_HU,
-        card_sk: (v.card_sk || '').trim() ? v.card_sk : RULES_SK
+        card_hu: v.card_hu || '', card_sk: v.card_sk || ''
       };
-      CACHE.rules = r; cb(r);
+      cb(CACHE.rules);
     }).catch(function(){
-      CACHE.rules = { org_hu:'', org_sk:'', card_hu: RULES_HU, card_sk: RULES_SK };
+      CACHE.rules = { org_hu:'', org_sk:'', card_hu:'', card_sk:'' };
       cb(CACHE.rules);
     });
   }
@@ -2634,25 +2634,24 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
 
   function renderRules(el){
     /* Két rész: szervezési szabályok és kártyaszabályok.
-       A szöveget az admin felületen lehet szerkeszteni (Admin → Szabályok). */
+       A magyar oldalon csak a magyar szöveg látszik, a szlovákon csak a szlovák —
+       pontosan az, amit az adminban a mezőbe írnak (Admin → Szabályok). */
     el.innerHTML = '<h1 class="page-title">'+esc(T('Szabályok','Pravidlá'))+'</h1>'+rule()
       + '<div id="rules-body">'+esc(T('Betöltés…','Načítava sa…'))+'</div>'
       + '<div id="rules-downloads" style="margin-top:1.4rem"></div>';
     loadRules(function(r){
       var box = document.getElementById('rules-body');
       if(!box) return;
-      var section = function(title_hu, title_sk, skText, huText){
-        skText = String(skText || '').trim();
-        huText = String(huText || '').trim();
-        if(!skText && !huText) return '';
+      var section = function(title_hu, title_sk, huText, skText){
+        var txt = String((lang === 'sk' ? skText : huText) || '').trim();
+        if(!txt) return '';
         return '<div class="card" style="margin-bottom:1.2rem">'
           + '<h2 class="rulestitle">'+esc(T(title_hu, title_sk))+'</h2>'
-          + (skText ? '<div class="rules-label">'+esc(T('Szlovákul','Slovensky'))+'</div><div class="rules-main">'+nl2br(skText)+'</div>' : '')
-          + (huText ? '<div class="rules-label"'+(skText?' style="margin-top:1.5rem"':'')+'>'+esc(T('Magyarul','Po maďarsky'))+'</div><div class="rules-second">'+nl2br(huText)+'</div>' : '')
+          + '<div class="rules-main">'+nl2br(txt)+'</div>'
           + '</div>';
       };
-      var html = section('Szervezési szabályok','Organizačné pravidlá', r.org_sk, r.org_hu)
-               + section('Kártyaszabályok','Kartové pravidlá', r.card_sk, r.card_hu);
+      var html = section('Szervezési szabályok','Organizačné pravidlá', r.org_hu, r.org_sk)
+               + section('Kártyaszabályok','Kartové pravidlá', r.card_hu, r.card_sk);
       box.innerHTML = html || '<div class="card"><p class="meta">'+esc(T('A szabályok feltöltése folyamatban van.','Pravidlá sa pripravujú.'))+'</p></div>';
     });
     loadDownloads(function(items){
@@ -4560,16 +4559,17 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
           + '</div>';
       };
       body.innerHTML = rulesBox('r-org', 'Szervezési szabályok', 'Organizačné pravidlá',
-          'Ide kerül, ami a versenyek lebonyolításáról szól: nevezés, díjak, időrend, viselkedés a helyszínen. Ha üresen hagyja, ez a rész nem jelenik meg a Szabályok oldalon.',
-          'Sem patria pravidlá organizácie turnajov: prihlášky, poplatky, časový poriadok, správanie na mieste. Ak necháte prázdne, táto časť sa na stránke Pravidlá nezobrazí.',
+          'Ide kerül, ami a versenyek lebonyolításáról szól: nevezés, díjak, időrend, viselkedés a helyszínen. Ami itt nincs kitöltve, az nem jelenik meg a Szabályok oldalon.',
+          'Sem patria pravidlá organizácie turnajov: prihlášky, poplatky, časový poriadok, správanie na mieste. Čo tu nie je vyplnené, to sa na stránke Pravidlá nezobrazí.',
           r.org_hu, r.org_sk)
         + rulesBox('r-card', 'Kártyaszabályok', 'Kartové pravidlá',
-          'A játék szabályai. Ha üresen hagyja, a beépített (eredeti) szöveg jelenik meg.',
-          'Pravidlá hry. Ak necháte prázdne, zobrazí sa zabudovaný (pôvodný) text.',
+          'A játék szabályai. Ami itt nincs kitöltve, az nem jelenik meg a Szabályok oldalon.',
+          'Pravidlá hry. Čo tu nie je vyplnené, to sa na stránke Pravidlá nezobrazí.',
           r.card_hu, r.card_sk)
         + '<div class="toolbar"><div><button type="button" class="btn" onclick="MUB.saveRules()">'+esc(T('Mentés','Uložiť'))+'</button> '
         + '<button type="button" class="btn sm secondary" onclick="MUB.resetRulesToDefault()">'+esc(T('Kártyaszabályok visszaállítása az eredeti szövegre','Obnoviť pôvodné kartové pravidlá'))+'</button></div></div>'
-        + '<p class="meta">'+esc(T('A mentés után a Szabályok oldal azonnal ezt mutatja mindenkinek.','Po uložení stránka Pravidlá okamžite zobrazí tento text všetkým.'))+'</p>';
+        + '<p class="meta">'+esc(T('A magyar szöveg a magyar oldalra kerül, a szlovák a szlovákra. Mentés után a Szabályok oldal azonnal ezt mutatja mindenkinek.',
+                                  'Maďarský text sa zobrazí na maďarskej stránke, slovenský na slovenskej. Po uložení to stránka Pravidlá okamžite zobrazí všetkým.'))+'</p>';
     });
   }
   function saveRules(){
