@@ -466,7 +466,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 20;
+  var BUILD = 21;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1958,26 +1958,55 @@
     }
     return 1 - prev[n2] / Math.max(m, n2);
   }
+  /* A vezetéknév „váza”: a szlovák és magyar írásmód különbségeit eltünteti
+     (Sárközi / Šarkezi, Szidor / Sidor, Horváth / Horvát), hogy a hasonló
+     neveket fel tudjuk kínálni döntésre. */
+  /* Írásmód-egységesítés: a magyar és szlovák megfelelések (sz→s, č→c, ž→z, gy→d…). */
+  function surNorm(s){
+    return deacc(s)
+      .replace(/sz/g, 's').replace(/zs/g, 'z').replace(/cz/g, 'c').replace(/cs/g, 'c')
+      .replace(/gy/g, 'd').replace(/ny/g, 'n').replace(/ty/g, 't').replace(/ly/g, 'l')
+      .replace(/(.)\1+/g, '$1');
+  }
+  /* A vezetéknév „váza” (magánhangzók nélkül) — így a Sárközi / Šarkezi egy csoportba kerül. */
+  function surSkeleton(s){
+    var t = surNorm(s);
+    var sk = t.replace(/[aeiouy]/g, '');
+    return sk || t;
+  }
   /* Átnézendő névpárok: hasonló, de még nem egyesített nevek. */
   function nameCandidates(list){
     var NG = nameGroups(list);
-    var buckets = {}, out = [], seen = {};
+    var fam = {}, out = [], seen = {};
     NG.names.forEach(function(x){
-      var key = (NG.info[x].surname || '?').slice(0, 4);
-      (buckets[key] = buckets[key] || []).push(x);
+      var o = NG.info[x];
+      var base = surNorm(o.surname) || o.surname || '?';
+      /* Két csoportba is betesszük: az első négy betű szerint (Horváth / Horvát) és a
+         magánhangzó nélküli váz szerint (Sárközi / Šarkezi). */
+      var k1 = 'a:' + base.slice(0, 4), k2 = 'b:' + surSkeleton(o.surname);
+      (fam[k1] = fam[k1] || []).push(x);
+      if(k2 !== k1) (fam[k2] = fam[k2] || []).push(x);
     });
-    Object.keys(buckets).forEach(function(k){
-      var l = buckets[k];
+    Object.keys(fam).forEach(function(sk){
+      var l = fam[sk];
       for(var i = 0; i < l.length; i++){
         for(var j = i + 1; j < l.length; j++){
           var A = l[i], B = l[j];
           if(NG.groupOf[A] === NG.groupOf[B]) continue;      /* már egy ember */
           if(NAME_BLOCK[pairKey(A, B)]) continue;            /* már döntöttünk: külön */
           var oa = NG.info[A], ob = NG.info[B];
-          var sim = textSim(deacc(A), deacc(B));
-          var noGiven = (!oa.canon.length || !ob.canon.length);
+          var ca = oa.canon.slice().sort().join(','), cb = ob.canon.slice().sort().join(',');
+          var sameGiven = !!(ca && cb && ca === cb);
+          var noGiven = (!ca || !cb);
           var sameSur = (oa.surname === ob.surname);
-          if(!(sameSur && noGiven) && sim < 0.66) continue;
+          var sim = textSim(deacc(A), deacc(B));
+          /* Csak valóban hasonló párokat kérdezünk:
+             – azonos keresztnév ÉS azonos vezetéknév-váz (Sárközi / Šarkezi, Szidor / Sidor),
+             – vagy azonos vezetéknév, és az egyiknél nincs keresztnév,
+             – vagy azonos vezetéknév és nagyon hasonló nevek,
+             – vagy majdnem teljesen azonos a két név. */
+          var skelSame = (surSkeleton(oa.surname) === surSkeleton(ob.surname));
+          if(!(sameGiven && skelSame) && !(sameSur && noGiven) && !(sameSur && sim >= 0.66) && sim < 0.8) continue;
           var kk = pairKey(A, B);
           if(seen[kk]) continue;
           seen[kk] = 1;
@@ -2007,10 +2036,18 @@
     return a <= b ? [a, b] : [b, a];
   }
   function pairKey(a, b){ var p = normPair(a, b); return p[0] + '\u0000' + p[1]; }
+  var PAIR_SEP = '\u001f';                      /* a Firestore nem enged beágyazott listát */
+  function pairToStr(p){ return String(p[0]) + PAIR_SEP + String(p[1]); }
+  function strToPair(s){
+    var i = String(s == null ? '' : s).indexOf(PAIR_SEP);
+    if(i < 0) return null;
+    return [String(s).slice(0, i), String(s).slice(i + 1)];
+  }
   function setPairRules(same, diff){
     function clean(list){
       var seen = {}, out = [];
       (list || []).forEach(function(p){
+        if(typeof p === 'string') p = strToPair(p);
         if(!p || !p[0] || !p[1]) return;
         var q = normPair(p[0], p[1]), k = q[0] + '\u0000' + q[1];
         if(seen[k]) return;
@@ -2031,7 +2068,7 @@
   }
   function saveNameRules(same, diff, cb){
     setPairRules(same, diff);
-    db.collection('settings').doc('rules').set({ names_same: NAME_RULES.same, names_diff: NAME_RULES.diff }, { merge: true })
+    db.collection('settings').doc('rules').set({ names_same: NAME_RULES.same.map(pairToStr), names_diff: NAME_RULES.diff.map(pairToStr) }, { merge: true })
       .then(function(){ CACHE.rules = null; if(cb) cb(true); })
       .catch(function(err){ if(cb) cb(false, err); });
   }
