@@ -477,7 +477,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 30;
+  var BUILD = 32;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2031,6 +2031,8 @@
           if(NG.groupOf[A] === NG.groupOf[B]) continue;      /* már egy ember */
           if(NAME_BLOCK[pairKey(A, B)]) continue;            /* már döntöttünk: külön */
           var oa = NG.info[A], ob = NG.info[B];
+          /* ifj. ≠ id. — biztosan két különböző ember, nem kérdezünk rá */
+          if(oa.mark && ob.mark && oa.mark !== ob.mark) continue;
           var ca = oa.canon.slice().sort().join(','), cb = ob.canon.slice().sort().join(',');
           var sameGiven = !!(ca && cb && ca === cb);
           var noGiven = (!ca || !cb);
@@ -2053,6 +2055,22 @@
         }
       }
     });
+    /* Egy „név-pár” csak egyszer szerepeljen: az azonos értelmű alakok közül a legjobb marad. */
+    var byConcept = {};
+    out.forEach(function(p){
+      var oa = NG.info[p.a], ob = NG.info[p.b];
+      function ck(o){ return (o.surname || '?') + '|' + (o.canon.slice().sort().join(',') || '*') + '|' + (o.mark || ''); }
+      var key = [ck(oa), ck(ob)].sort().join('~');
+      var prev = byConcept[key];
+      function score(x){
+        var o = NG.info[x];
+        return (o.rows + o.agg) * 10 - (/\.\S/.test(x) ? 3 : 0);   /* az egybeírt „Id.Dobos” alak hátrányt kap */
+      }
+      var s = score(p.a) + score(p.b);
+      if(!prev || s > prev._s){ p._s = s; byConcept[key] = p; }
+    });
+    out = Object.keys(byConcept).map(function(k){ return byConcept[k]; });
+    out.forEach(function(p){ delete p._s; });
     out.sort(function(x, y){
       if(y.sim !== x.sim) return y.sim - x.sim;
       return (y.cntA + y.cntB) - (x.cntA + x.cntB);
