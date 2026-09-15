@@ -441,7 +441,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 8;
+  var BUILD = 9;
   var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1411,6 +1411,98 @@
     if(sc > 0 && sc >= c) return ';';
     return ',';
   }
+  /* ---------- Az összesített (bajnoki) tábla felismerése ----------
+     A szezon-tábla felépítése:
+       A: helyezés | B: név | C: azonosító (ID)
+       utána páronként minden verseny: a pénz oszlopa, majd a pont oszlopa
+       a végén: összes pénz, összes pont, részvétel
+     Egy versenyen belül a helyezést a pont adja, holtversenynél a pénz dönt. */
+  function parseAggTable(rows){
+    if(!rows || rows.length < 2) return null;
+    var head = -1, idCol = -1, nameCol = -1, rankCol = -1, i, c;
+    for(i = 0; i < Math.min(rows.length, 10); i++){
+      var probe = (rows[i] || []).join(' ').toLowerCase();
+      if(/\bid\b/.test(probe) && RES_RX.name.test(probe)){ head = i; break; }
+    }
+    if(head < 0) return null;
+    var hdr = rows[head] || [];
+    for(c = 0; c < hdr.length; c++){
+      var cell = String(hdr[c] || '').replace(/\s+/g, ' ').trim();
+      if(!cell) continue;
+      if(/^id$/i.test(cell)) idCol = c;
+      if(nameCol < 0 && RES_RX.name.test(cell)) nameCol = c;
+      if(rankCol < 0 && RES_RX.place.test(cell)) rankCol = c;
+    }
+    if(nameCol < 0) return null;
+    if(idCol < 0) idCol = nameCol + 1;
+    if(rankCol < 0) rankCol = 0;
+    /* a záró összesítő oszlopok */
+    var totMoney = -1, totPoints = -1, playedCol = -1;
+    for(c = 0; c < hdr.length; c++){
+      var t = String(hdr[c] || '').replace(/\s+/g, ' ').trim();
+      if(!t) continue;
+      var isSum = /spolu|suma|[öo]ssz|total|összes/i.test(t);
+      var isPts = /\b(pont|body|point)/i.test(t);
+      if(/r[ée]szv[ée]tel|[úu][čc]as[ťt]/i.test(t)) playedCol = c;
+      else if(isSum && !isPts && totMoney < 0) totMoney = c;
+      else if(isPts && !isSum && totPoints < 0) totPoints = c;
+    }
+    var end = hdr.length;
+    [totMoney, totPoints, playedCol].forEach(function(x){ if(x >= 0 && x < end) end = x; });
+    var tours = [];
+    for(c = idCol + 1; c + 1 < end; c += 2){
+      tours.push({ name: String(hdr[c] || '').replace(/\s+/g, ' ').trim() || ('S' + (tours.length + 1)), moneyCol: c, pointsCol: c + 1, size: 0, winner: '' });
+    }
+    if(!tours.length) return null;
+    var players = [];
+    for(i = head + 1; i < rows.length; i++){
+      var row = rows[i] || [];
+      var nm = String(row[nameCol] || '').trim();
+      if(!nm) continue;
+      var p = { name: nm, code: String(row[idCol] || '').trim(), rank: numOf(row[rankCol]), money: [], points: [], place: [], drawn: {}, totalMoney: 0, totalPoints: 0, played: 0 };
+      for(var k = 0; k < tours.length; k++){
+        p.money[k] = numOf(row[tours[k].moneyCol]) || 0;
+        p.points[k] = numOf(row[tours[k].pointsCol]) || 0;
+      }
+      p.totalMoney = totMoney >= 0 ? (numOf(row[totMoney]) || 0) : p.money.reduce(function(a, b){ return a + b; }, 0);
+      p.totalPoints = totPoints >= 0 ? (numOf(row[totPoints]) || 0) : p.points.reduce(function(a, b){ return a + b; }, 0);
+      p.played = playedCol >= 0 ? (numOf(row[playedCol]) || 0) : p.points.filter(function(x){ return x !== 0; }).length;
+      players.push(p);
+    }
+    if(!players.length) return null;
+    /* helyezés versenyenként: a pont, holtversenynél a pénz dönt */
+    tours.forEach(function(tr, ti){
+      var att = [];
+      players.forEach(function(p, pi){
+        if(p.points[ti] === 0 && p.money[ti] === 0) return;
+        att.push({ pi: pi, pts: p.points[ti], money: p.money[ti] });
+      });
+      att.sort(function(a, b){
+        return (b.pts - a.pts) || (b.money - a.money) || String(players[a.pi].name).localeCompare(String(players[b.pi].name), 'hu');
+      });
+      att.forEach(function(x, k){
+        var key = x.pts + '|' + x.money;
+        /* A táblázat egymás után sorszámoz (1., 2., 3. …): azonos pont ÉS pénz esetén
+           is külön sor, de feljegyezzük, hogy holtverseny volt (ez a „remizés"). */
+        players[x.pi].place[ti] = k + 1;
+        if((att[k - 1] && (att[k - 1].pts + '|' + att[k - 1].money) === key) ||
+           (att[k + 1] && (att[k + 1].pts + '|' + att[k + 1].money) === key)) players[x.pi].drawn[ti] = 1;
+      });
+      tr.size = att.length;
+      tr.winner = att.length ? players[att[0].pi].name : '';
+      tr.winnerCode = att.length ? players[att[0].pi].code : '';
+    });
+    var perRows = [], aggRows = [];
+    players.forEach(function(p){
+      for(var ti = 0; ti < tours.length; ti++){
+        if(p.place[ti] == null) continue;
+        perRows.push({ n: p.name, t: tours[ti].name, place: p.place[ti], points: p.points[ti], money: p.money[ti],
+                       size: tours[ti].size, drawn: p.drawn[ti] ? 1 : 0, code: p.code });
+      }
+      aggRows.push({ n: p.name, place: p.rank, points: p.totalPoints, money: p.totalMoney, played: p.played, code: p.code });
+    });
+    return { tournaments: tours, players: players, rows: perRows, aggRows: aggRows };
+  }
   /* --- oszlop-felismerés --- */
   var RES_RX = {
     name: /\b(n[ée]v|meno|name|j[áa]t[ée]kos|hr[áa][čc]|player|hráči)/i,
@@ -1669,6 +1761,7 @@
       var k = playerKey(name);
       if(!k) return null;
       return by[k] || (by[k] = { name: String(name).trim(), rows: [], tours: {}, wins: 0, podiums: 0,
+        seconds: 0, thirds: 0, money: 0, placeSum: 0, placeCount: 0, draws: 0, seasonWins: 0, sizes: [],
         points: 0, best: null, years: {}, aggPoints: null, aggRank: null });
     }
     (list||[]).forEach(function(season){
@@ -1676,14 +1769,21 @@
       (season.rows||[]).forEach(function(r){
         var p = player(r.n);
         if(!p) return;
-        p.rows.push({ t: r.t || '', place: r.place == null ? null : Number(r.place), points: r.points == null ? 0 : Number(r.points), year: season.year });
+        p.rows.push({ t: r.t || '', place: r.place == null ? null : Number(r.place), points: r.points == null ? 0 : Number(r.points),
+                      money: r.money == null ? null : Number(r.money), size: r.size == null ? null : Number(r.size), year: season.year });
         if(r.t) p.tours[String(r.t)] = 1;
         if(r.place != null){
           var pl = Number(r.place);
           if(pl === 1) p.wins++;
+          else if(pl === 2) p.seconds++;
+          else if(pl === 3) p.thirds++;
           if(pl >= 1 && pl <= 3) p.podiums++;
           if(p.best == null || pl < p.best) p.best = pl;
+          p.placeSum += pl; p.placeCount++;
         }
+        if(r.money != null) p.money += Number(r.money) || 0;
+        if(r.drawn) p.draws++;
+        if(r.size) p.sizes.push(Number(r.size));
         p.points += (r.points == null ? 0 : Number(r.points));
         if(season.year) p.years[String(season.year)] = 1;
       });
@@ -1692,7 +1792,12 @@
         var p = player(r.n);
         if(!p) return;
         if(r.points != null) p.aggPoints = (p.aggPoints == null ? 0 : p.aggPoints) + Number(r.points);
-        if(r.place != null) p.aggRank = Number(r.place);
+        if(r.place != null){
+          p.aggRank = Number(r.place);
+          if(Number(r.place) === 1) p.seasonWins++;
+        }
+        if(r.money != null) p.aggMoney = (p.aggMoney == null ? 0 : p.aggMoney) + Number(r.money);
+        if(r.played != null) p.playedTotal = (p.playedTotal == null ? 0 : p.playedTotal) + Number(r.played);
         if(season.year) p.years[String(season.year)] = 1;
       });
     });
@@ -1701,6 +1806,11 @@
       p.tournaments = Object.keys(p.tours).length;
       p.yearsArr = Object.keys(p.years).sort();
       p.hasAgg = (p.aggPoints != null || p.aggRank != null);
+      /* átlagos helyezés, pénz és az átlagos versenylétszám */
+      p.avgPlace = p.placeCount ? Math.round(p.placeSum / p.placeCount * 10) / 10 : null;
+      p.money = Math.round((p.aggMoney != null ? p.aggMoney : p.money) * 100) / 100;
+      if(p.playedTotal != null) p.played = p.playedTotal;
+      p.avgSize = p.sizes.length ? Math.round(p.sizes.reduce(function(a, b){ return a + b; }, 0) / p.sizes.length) : null;
       /* ha van hivatalos összesített pont, az a mérvadó */
       if(p.aggPoints != null) p.points = Math.round(p.aggPoints * 100) / 100;
       return p;
@@ -1833,11 +1943,16 @@
             : T('Pontok és helyezések a portálra beolvasott eredményekből.','Body a umiestnenia z výsledkov načítaných do portálu.'))+'</p>';
           html += '<div class="table-wrap"><table class="list rank"><thead><tr>'
             + '<th>#</th><th>'+esc(T('Játékos','Hráč'))+'</th>'
-            + (hasPer ? '<th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">'+esc(T('Győzelem','Výhry'))+'</th><th class="num">'+esc(T('Dobogó','Pódium'))+'</th>' : '')
+            + (hasPer ? '<th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">1.</th><th class="num">2.</th><th class="num">3.</th><th class="num">'+esc(T('Átlag hely','Priemer'))+'</th><th class="num">€</th>' : '')
             + '<th class="num">'+esc(T('Pont','Body'))+'</th></tr></thead><tbody>'
             + stats.map(function(p){
                 return '<tr><td class="num">'+p.rank+'.</td><td><button type="button" class="linkbtn" onclick="MUB.setResPlayer(\''+jsq(p.name)+'\')">'+esc(p.name)+'</button></td>'
-                  + (hasPer ? '<td class="num">'+(p.rows.length ? p.tournaments : '—')+'</td><td class="num">'+(p.rows.length ? p.wins : '—')+'</td><td class="num">'+(p.rows.length ? p.podiums : '—')+'</td>' : '')
+                  + (hasPer ? '<td class="num">'+(p.rows.length ? (p.played != null ? p.played : p.tournaments) : '—')+'</td>'
+                      + '<td class="num">'+(p.rows.length ? p.wins : '—')+'</td>'
+                      + '<td class="num">'+(p.rows.length ? p.seconds : '—')+'</td>'
+                      + '<td class="num">'+(p.rows.length ? p.thirds : '—')+'</td>'
+                      + '<td class="num">'+(p.avgPlace != null ? p.avgPlace : '—')+'</td>'
+                      + '<td class="num">'+(p.money ? (Math.round(p.money * 100) / 100) : '—')+'</td>' : '')
                   + '<td class="num"><strong>'+p.points+'</strong></td></tr>';
               }).join('')
             + '</tbody></table></div>';
@@ -3054,6 +3169,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
      Mindkettőnek külön linkje van (a #gid=… végződés jelöli a munkalapot). */
   var impRes = null;         /* versenyenkénti felismerés */
   var impAgg = null;         /* összesített felismerés */
+  var impAggTable = null;    /* a szezon-táblából kiolvasott versenylista (létszám, győztes) */
   var impSeason = '';        /* melyik szezonba kerül */
   var impKind = 'per';       /* a kézi beillesztésnél: 'per' vagy 'agg' */
   function setImpKind(v){ impKind = (v === 'agg') ? 'agg' : 'per'; }
@@ -3095,6 +3211,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         + '<button type="button" class="btn" onclick="MUB.importResultsBoth()" id="imp-btn-both">'+esc(T('Mindkét munkalap beolvasása','Načítať oba hárky'))+'</button> '
         + '<button type="button" class="btn secondary sm" onclick="MUB.importResultsLink()">'+esc(T('Csak a versenyenkénti','Iba podľa turnajov'))+'</button> '
         + '<button type="button" class="btn secondary sm" onclick="MUB.importResultsAgg()">'+esc(T('Csak az összesített','Iba súhrnný'))+'</button>'
+        + '<p class="meta" style="margin:.9rem 0 .4rem">'+esc(T('Új: a teljes szezon egyetlen linkből is beolvasható. A hivatalos szezon-tábla (a 2. munkalap) minden verseny eredményét tartalmazza, ezért abból a portál magától kiszámolja a versenyenkénti helyezéseket is.','Nové: celú sezónu možno načítať z jedného odkazu. Oficiálna tabuľka sezóny (2. hárok) obsahuje výsledky všetkých turnajov, preto z nej portál sám vypočíta umiestnenia podľa turnajov.'))+'</p>'
+        + '<button type="button" class="btn" onclick="MUB.importAggSmart()">'+esc(T('A teljes szezon beolvasása egy linkből','Načítať celú sezónu z jedného odkazu'))+'</button>'
         + '<p class="meta" id="imp-msg" style="margin:.8rem 0 .2rem"></p>'
         + '<details style="margin-top:.9rem"><summary class="metasum">'+esc(T('Vagy illessze be kézzel (Excelből másolva)','Alebo vložte ručne (skopírované z Excelu)'))+'</summary>'
         + '<p class="meta" style="margin:.6rem 0 .4rem">'+esc(T('Jelölje ki a teljes munkalapot (Ctrl+A, Ctrl+C), és illessze be ide (Ctrl+V).','Označte celý hárok (Ctrl+A, Ctrl+C) a vložte sem (Ctrl+V).'))+'</p>'
@@ -3197,6 +3315,37 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   function importResultsLink(){ importResults('per'); }
   function importResultsAgg(){ importResults('agg'); }
   function importResultsBoth(){ importResults('both'); }
+  /* ---------- A teljes szezon beolvasása EGY linkből ----------
+     A hivatalos szezon-tábla (2. munkalap) minden verseny pénzét és pontját
+     tartalmazza, ezért abból a versenyenkénti helyezések is kiszámolhatók. */
+  function importAggSmart(){
+    if(!requireFull()) return;
+    var el = document.getElementById('imp-url-agg');
+    var url = String(el ? el.value : '').trim();
+    if(!sheetId(url)){ impMsg(T('Illessze be az összesített (szezon) munkalap linkjét a 2. mezőbe.','Vložte odkaz na súhrnný (sezónny) hárok do 2. poľa.')); return; }
+    impMsg(T('Olvasás…','Načítava sa…'));
+    function use(rows){
+      var t = parseAggTable(rows);
+      if(!t){
+        impMsg(T('Ezen a munkalapon nem találtam a szezon-táblát. Ellenőrizze a linket, és hogy a táblázat „bárki számára megtekinthető” legyen.','Na tomto hárku som nenašiel tabuľku sezóny. Skontrolujte odkaz a či je tabuľka verejná.'));
+        return;
+      }
+      impRes = { ok: true, rows: t.rows, tournaments: t.tournaments.map(function(x){ return x.name; }), source: url };
+      impAgg = { ok: true, rows: t.aggRows, agg: true, source: url };
+      impAggTable = t;
+      impMsg(T('Beolvasva: ','Načítané: ') + t.tournaments.length + ' ' + T('verseny, ','turnajov, ') + t.players.length + ' ' + T('játékos, ','hráčov, ')
+        + t.rows.length + ' ' + T('versenyenkénti eredmény. Ellenőrizze az előnézetet, majd mentse.','výsledkov podľa turnajov. Skontrolujte náhľad a uložte.'));
+      renderImpPreview();
+    }
+    fetch(sheetCsvUrl(url)).then(function(r){ return r.text(); }).then(function(csv){
+      use(parseDelimited(csv, guessDelim(csv)));
+    }).catch(function(){
+      fetch(gvizUrl(url)).then(function(r){ return r.text(); }).then(function(txt){
+        var p = parseGviz(txt);
+        if(p) use(p.rows); else impMsg(T('Nem sikerült letölteni a táblázatot.','Tabuľku sa nepodarilo stiahnuť.'));
+      }).catch(function(){ impMsg(T('Nem sikerült letölteni a táblázatot.','Tabuľku sa nepodarilo stiahnuť.')); });
+    });
+  }
   function importResultsPaste(){
     if(!requireFull()) return;
     var el = document.getElementById('imp-paste');
@@ -3252,8 +3401,16 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       data.aggImportedAt = firebase.firestore.FieldValue.serverTimestamp();
       data.aggSource = impAgg.source || '';
     }
+    /* A szezon-táblából a versenyek létszáma és győztese is a portálra kerül. */
+    if(impAggTable){
+      data.aggTable = {
+        tournaments: impAggTable.tournaments.map(function(t){
+          return { name: t.name, size: t.size, winner: t.winner || '', winnerCode: t.winnerCode || '' };
+        })
+      };
+    }
     db.collection('results').doc(String(impSeason)).set(data, { merge: true }).then(function(){
-      impRes = null; impAgg = null;
+      impRes = null; impAgg = null; impAggTable = null;
       invalidate('results');
       renderAdminResults();
     }).catch(function(err){
@@ -4701,7 +4858,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     setResSeason: setResSeason, setResPlayer: setResPlayer, setImpSeason: setImpSeason,
     importResultsLink: importResultsLink, importResultsPaste: importResultsPaste,
     saveImportedResults: saveImportedResults, cancelImportedResults: cancelImportedResults, deleteImportedResults: deleteImportedResults,
-    importResultsAgg: importResultsAgg, importResultsBoth: importResultsBoth, setStatistics: setStatistics,
+    importResultsAgg: importResultsAgg, importResultsBoth: importResultsBoth, importAggSmart: importAggSmart, setStatistics: setStatistics,
     downloadBackupJson: downloadBackupJson, downloadBackupZip: downloadBackupZip, pickRestoreFile: pickRestoreFile, applyRestore: applyRestore, setImpKind: setImpKind,
     addAdminUser: addAdminUser, removeAdminUser: removeAdminUser,
     login: login, logout: logout, forgotPassword: forgotPassword, setAdminTab: setAdminTab,
