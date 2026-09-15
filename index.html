@@ -333,6 +333,11 @@
   .pcm{position:fixed; inset:0; z-index:75; background:rgba(8,10,12,.72); overflow:auto; padding:1rem; display:flex; align-items:flex-start; justify-content:center}
   .pcbox{background:var(--bg); border:1px solid var(--border); border-radius:16px; padding:1.1rem; width:100%; max-width:820px; margin:auto; box-shadow:0 12px 40px rgba(0,0,0,.35)}
   .pcclose{display:block; width:100%; margin:0 0 .9rem; background:var(--accent); color:#fff; border:none; border-radius:12px; padding:.9rem 1rem; font:inherit; font-size:1.05rem; font-weight:700; cursor:pointer; min-height:3rem}
+  /* A felső bezáró gomb a görgetésnél is látszódjon. */
+  .pcclose{position:sticky; top:0; z-index:3; box-shadow:0 6px 14px rgba(0,0,0,.22)}
+  .pcbot{margin-top:1.2rem}
+  .pcclosebot{display:block; width:100%; background:var(--accent); color:#fff; border:none; border-radius:12px; padding:.9rem 1rem; font-weight:700; min-height:3rem}
+  .pcclosebot:hover{filter:brightness(.94)}
   .pcclose:hover{filter:brightness(.94)}
   .topsearch{margin:.2rem 0 1rem}
   /* Diszkrét jelzés: a statisztikát mesterséges intelligencia dolgozta fel. */
@@ -472,7 +477,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 29;
+  var BUILD = 30;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2531,7 +2536,14 @@
   function renderResPlayer(){
     var box = document.getElementById('res-player-card');
     var mbox = document.getElementById('pc-body');
-    function put(html){ if(box) box.innerHTML = html; if(mbox && PC_OPEN) mbox.innerHTML = html; }
+    function put(html){
+      if(box) box.innerHTML = html;
+      if(mbox && PC_OPEN){
+        /* Felül és alul is be lehessen zárni. */
+        mbox.innerHTML = html
+          + '<div class="pcbot"><button type="button" class="btn pcclosebot" onclick="MUB.closePlayerCard()">✕ '+esc(T('Bezárás','Zavrieť'))+'</button></div>';
+      }
+    }
     loadResults(function(all){
       var list = resultsOfYear(all, resSeason);
       var p = findPlayer(list, resPlayerQ);
