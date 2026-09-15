@@ -456,7 +456,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 15;
+  var BUILD = 17;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -960,7 +960,7 @@
   function invalidate(key){ CACHE[key] = null; }
 
   /* ---------- router ---------- */
-  var ROUTES = ['home','naptar','galeria','jelentkezes','jelentkezesaim','jelentkezok','eredmenyek','szabalyok','admin'];
+  var ROUTES = ['home','naptar','galeria','jelentkezes','jelentkezesaim','jelentkezok','eredmenyek','statisztika','szabalyok','admin'];
   function currentRoute(){
     var h = (location.hash||'#home').replace('#','');
     var base = h.split('/')[0];
@@ -1018,11 +1018,16 @@
     var items = [
       ['home','Kezdőlap','Domov'],
       ['naptar','Versenynaptár','Kalendár'],
-      ['eredmenyek','Eredmények','Výsledky'],
+      ['eredmenyek','Eredmények','Výsledky']
+    ];
+    /* A Statisztika külön menüpont: az összesített eredmények és a játékos-adatlapok.
+       Csak akkor látszik, ha az admin bekapcsolta. */
+    if(FEAT.statistics) items.push(['statisztika','Statisztika','Štatistika']);
+    items = items.concat([
       ['galeria','Galéria','Galéria'],
       ['jelentkezes','Jelentkezés','Prihlásenie'],
       ['szabalyok','Szabályok','Pravidlá']
-    ];
+    ]);
     var html = items.map(function(it){
       return '<a href="#'+it[0]+'" class="'+(navActive===it[0]?'active':'')+'">'+esc(T(it[1],it[2]))+'</a>';
     }).join('');
@@ -1086,6 +1091,7 @@
     if(route==='jelentkezesaim') return renderRegPage('my');
     if(route==='jelentkezok') return renderRegPage('who');
     if(route==='eredmenyek') return renderResults(el);
+    if(route==='statisztika') return renderStats(el);
     if(route==='szabalyok') return renderRules(el);
     if(route==='admin') return renderAdmin(el);
   }
@@ -1793,6 +1799,9 @@
     db.collection('settings').doc('features').set({ statistics: val }, { merge: true }).then(function(){
       FEAT.statistics = val; CACHE.features = FEAT;
       renderAdminResults();
+      /* A menüben azonnal jelenjen meg / tűnjön el a Statisztika gomb. */
+      renderNav();
+      if(currentRoute() === 'statisztika' || currentRoute() === 'eredmenyek') render();
       alert(val
         ? T('A statisztika bekapcsolva: a látogatók látják a ranglistát és a játékos-adatlapokat.','Štatistiky zapnuté: návštevníci vidia rebríček a karty hráčov.')
         : T('A statisztika kikapcsolva: a látogatók csak a régi táblázatot látják.','Štatistiky vypnuté: návštevníci vidia len starú tabuľku.'));
@@ -2000,7 +2009,7 @@
   /* ---------- EREDMÉNYEK oldal: ranglista + játékos-adatlap + régi táblázat ---------- */
   var resSeason = 'all';
   var resPlayerQ = '';
-  function setResSeason(y){ resSeason = String(y||'all'); renderResults(document.getElementById('view')); }
+  function setResSeason(y){ resSeason = String(y||'all'); renderStats(document.getElementById('view')); }
   function setResPlayer(v){ resPlayerQ = String(v||''); renderResPlayer(); }
   var PC_OPEN = false;   /* nyitva van-e a játékos előugró adatlapja */
   /* A nevekre kattintva előugró ablakban nyílik meg az adatlap – így nem kell
@@ -2114,27 +2123,38 @@
         + '</div>';
     }).join('');
   }
+  /* EREDMÉNYEK: a szervező által feltöltött hivatalos Google-táblázatok,
+     szezononként beágyazva a weblapba. Ez mindig elérhető. */
   function renderResults(el){
     el.innerHTML = '<h1 class="page-title">'+esc(T('Eredmények','Výsledky'))+'</h1>'+rule()+'<div id="res-body">'+esc(T('Betöltés…','Načítava sa…'))+'</div>';
     loadFeatures(function(){
       loadSeasons(function(seasons){
-        var sortedSeasonsOff = seasons.slice().sort(bySeasonDesc);
-        if(!FEAT.statistics){
-          /* A statisztika ki van kapcsolva: csak a régi táblázat látszik. */
-          var boxOff = document.getElementById('res-body');
-          if(!boxOff) return;
-          boxOff.innerHTML = '<p class="meta">'+esc(T('Az eredmények a szokásos Google-táblázatban érhetők el.','Výsledky nájdete v obvyklej Google tabuľke.'))+'</p>'
-            + resultsSheetsHtml(sortedSeasonsOff);
-          return;
-        }
-        renderResultsStats(sortedSeasonsOff);
+        var box = document.getElementById('res-body');
+        if(!box) return;
+        box.innerHTML = '<p class="meta">'+esc(T('A versenyek hivatalos eredménytáblázatai szezononként. A táblázatban görgetni és lapozni is lehet.',
+                                                  'Oficiálne výsledkové tabuľky turnajov podľa sezón. V tabuľke sa dá posúvať a listovať.'))+'</p>'
+          + resultsSheetsHtml(seasons.slice().sort(bySeasonDesc))
+          + (FEAT.statistics ? '<p class="meta" style="margin-top:1.4rem"><a href="#statisztika">'+esc(T('Összesített statisztika és játékos-adatlapok →','Súhrnná štatistika a karty hráčov →'))+'</a></p>' : '');
       });
+    });
+  }
+  /* STATISZTIKA: a mesterséges intelligencia által feldolgozott összesített
+     eredmények, ranglista és játékos-adatlapok. */
+  function renderStats(el){
+    el.innerHTML = '<h1 class="page-title">'+esc(T('Statisztika','Štatistika'))+'</h1>'+rule()+'<div id="stat-body">'+esc(T('Betöltés…','Načítava sa…'))+'</div>';
+    loadFeatures(function(){
+      var box = document.getElementById('stat-body');
+      if(!FEAT.statistics){
+        if(box) box.innerHTML = '<div class="banner" role="status">'+esc(T('A statisztika jelenleg ki van kapcsolva.','Štatistika je momentálne vypnutá.'))+'</div>';
+        return;
+      }
+      loadSeasons(function(seasons){ renderResultsStats(seasons.slice().sort(bySeasonDesc)); });
     });
   }
   function renderResultsStats(sortedSeasons){
     loadResults(function(all){
       loadSeasons(function(seasons){
-        var box = document.getElementById('res-body');
+        var box = document.getElementById('stat-body') || document.getElementById('res-body');
         if(!box) return;
         var years = seasonYears(all);
         var list = resultsOfYear(all, resSeason);
@@ -2193,8 +2213,8 @@
           html += '<div class="banner" role="status">'+esc(T('A portálra még nincs beolvasva eredmény. Az admin felületen (Eredmények fül) egy kattintással beolvasható a szokásos Google-táblázatból.','Do portálu ešte nie sú načítané výsledky. V administrácii (karta Výsledky) ich možno načítať z bežnej Google tabuľky.'))+'</div>';
         }
         /* 3) a régi táblázat-nézet (lenyitható, ha a statisztika be van kapcsolva) */
-        html += '<details class="whobox" style="margin-top:1.6rem"><summary>'+esc(T('A Google-táblázat megnyitása (régi nézet)','Otvoriť Google tabuľku (starý náhľad)'))+'</summary>'
-          + '<div class="whobody">' + resultsSheetsHtml(sortedSeasons) + '</div></details>';
+        html += '<p class="meta" style="margin-top:1.6rem">'+esc(T('A hivatalos Google-táblázatok az ','Oficiálne Google tabuľky sú v '))
+          + '<a href="#eredmenyek">'+esc(T('Eredmények','Výsledky'))+'</a>'+esc(T(' menüben érhetők el.',' menu.'))+'</p>';
         box.innerHTML = html;
         renderResPlayer();
       });
@@ -5226,6 +5246,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
   };
 
   render();
+  /* A menüben a Statisztika gomb csak akkor jelenik meg, ha be van kapcsolva. */
+  loadFeatures(function(){ renderNav(); });
 })();
 </script>
 </body>
