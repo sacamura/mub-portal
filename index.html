@@ -489,7 +489,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 36;
+  var BUILD = 37;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2734,7 +2734,7 @@
             + '</select></div>';
           /* Kereső rögtön a statisztika tetején */
           html += '<div class="topsearch"><div class="field"><label for="res-player-top">'+esc(T('Játékos keresése (név vagy azonosító szám)','Hľadanie hráča (meno alebo identifikačné číslo)'))+'</label>'
-            + '<input id="res-player-top" type="search" placeholder="'+esc(T('pl. Juhász János vagy 3','napr. Juhász János alebo 3'))+'" oninput="MUB.openPlayerCard(this.value)"></div></div>'
+            + '<input id="res-player-top" type="search" placeholder="'+esc(T('pl. Sárközi Ferenc vagy 1','napr. Sárközi Ferenc alebo 1'))+'" oninput="MUB.openPlayerCard(this.value)"></div></div>'
             + '<p class="ainote">'+esc(T('Ezt a statisztikát a mesterséges intelligencia dolgozta fel a Google-táblázatokból, ezért előfordulhat benne hiba. A ugyanazon játékos magyar és szlovák névalakjait (pl. László / Ladislav, becenevek) egy személyként számoljuk. Ha valami nem stimmel, jelezze a szervezőnek — köszönjük!',
                                         'Túto štatistiku spracovala umelá inteligencia z Google tabuliek, preto sa v nej môže vyskytnúť chyba. Maďarské a slovenské varianty toho istého mena (napr. László / Ladislav, prezývky) počítame ako jednu osobu. Ak niečo nesedí, dajte vedieť organizátorovi — ďakujeme!'))+'</p>';
           var hasPer = stats.some(function(p){ return p.rows && p.rows.length; });
@@ -2767,7 +2767,7 @@
             + '<div class="pcbox">'
             + '<button type="button" class="pcclose" onclick="MUB.closePlayerCard()" aria-label="'+esc(T('Bezárás','Zavrieť'))+'">✕ '+esc(T('Bezárás','Zavrieť'))+'</button>'
             + '<div class="field" style="margin-bottom:.8rem"><label for="pc-search">'+esc(T('Játékos keresése (név vagy azonosító szám)','Hľadanie hráča (meno alebo identifikačné číslo)'))+'</label>'
-            + '<input id="pc-search" type="search" value="'+esc(resPlayerQ)+'" placeholder="'+esc(T('pl. Juhász János vagy 3','napr. Juhász János alebo 3'))+'" oninput="MUB.openPlayerCard(this.value)"></div>'
+            + '<input id="pc-search" type="search" value="'+esc(resPlayerQ)+'" placeholder="'+esc(T('pl. Sárközi Ferenc vagy 1','napr. Sárközi Ferenc alebo 1'))+'" oninput="MUB.openPlayerCard(this.value)"></div>'
             + '<div id="pc-body"></div>'
             + '</div></div>';
         } else {
