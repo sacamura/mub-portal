@@ -465,7 +465,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 22;
+  var BUILD = 24;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1836,6 +1836,30 @@
     try{ t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }catch(e){}
     return t.replace(/\s+/g, ' ').trim();
   }
+  /* A név szokásos írásmódja: nagy kezdőbetű, utána kis betűk.
+     A csupa nagybetűs alak ugyanaz a személy, csak csúnyán van írva. */
+  var NAME_MARK = /^(ifj|if|id|ml|jun|junior|st|senior)$/i;
+  function niceName(raw){
+    var s = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim();
+    if(!s) return s;
+    /* „Id.Dobos” / „IFJ.Dobos” → „id. Dobos” (csak ha tényleg egybe van írva) */
+    s = s.replace(/^(ifj|if|id|ml|jun|junior)\.(?=[^\s.])/i, function(m){ return m.toLowerCase() + ' '; })
+         .replace(/^(ifj|if|id|ml|jun|junior)(?=\s)/i, function(m){ return m.toLowerCase() + '. '; });
+    var parts = s.split(' ');
+    var out = parts.map(function(t){
+      if(!t) return t;
+      var bare = t.replace(/\.+$/, '');
+      if(NAME_MARK.test(bare)) return bare.toLowerCase() + '.';
+      if(/[†✝]/.test(t)) return t;
+      var isCaps = (bare === bare.toUpperCase() && bare !== bare.toLowerCase());
+      if(!isCaps) return t;
+      var low = bare.toLowerCase();
+      /* a kötőjeles nevek mindkét tagja nagy kezdőbetűt kap */
+      var nice = low.split('-').map(function(w){ return w ? (w.charAt(0).toUpperCase() + w.slice(1)) : w; }).join('-');
+      return nice + (/\.$/.test(t) ? '.' : '');
+    });
+    return out.join(' ').trim();
+  }
   function playerKey(n){ return deacc(n); }
   /* ---------- Név-egyesítés ----------
      Ugyanaz a személy több alakban szerepelhet a táblázatokban: magyar és szlovák
@@ -1923,11 +1947,13 @@
     s = s.replace(/[†✝]/g, ' ');
     var par = s.match(/\(([^)]*)\)/);
     if(par){ out.paren = par[1]; s = s.replace(/\([^)]*\)/g, ' '); }
-    var rest = [];
+    var rest = [], hadMark = false;
     pToks(s).forEach(function(t){
       var bare = deacc(t.replace(/\.+$/, ''));
-      if(PNAME_ID.test(bare)){ out.mark = 'id'; return; }
-      if(PNAME_IFJ.test(bare)){ out.mark = 'ifj'; return; }
+      if(PNAME_ID.test(bare)){ out.mark = 'id'; hadMark = true; return; }
+      if(PNAME_IFJ.test(bare)){ out.mark = 'ifj'; hadMark = true; return; }
+      /* „ifj. j. Név” / „if. j. Név” — a jelző utáni magányos „j” a jelzőhöz tartozik */
+      if(hadMark && /^j$/.test(bare)) return;
       rest.push(t);
     });
     if(!rest.length) return out;
@@ -2166,14 +2192,18 @@
       list2.forEach(function(x){
         var o = info[x];
         if(o.deceased) dec = true;
-        var score = (Object.keys(o.ids).length ? 1000 : 0) + (o.rows + o.agg) * 10
+        /* A csupa nagybetűs és a furcsán írt alak hátrányt kap, a szép, gyakori alak nyer. */
+        var words = x.replace(/[†✝]/g, ' ').split(/\s+/).filter(Boolean);
+        var lone = words.filter(function(w){ return w.replace(/\.+$/, '').length === 1; }).length;
+        var caps = words.filter(function(w){ var b = w.replace(/\.+$/, ''); return b.length > 1 && b === b.toUpperCase() && b !== b.toLowerCase(); }).length;
+        var score = (o.rows + o.agg) * 10
           + (/[áéíóöőúüűčšžťďňľĺřě]/i.test(x) ? 5 : 0) - (o.deceased ? 40 : 0)
-          - (/^(ifj|id)\./i.test(x) ? 2 : 0);
+          - lone * 60 - caps * 25 - (/^(ifj|id)\./i.test(x) ? 2 : 0);
         if(score > bestScore){ bestScore = score; best = x; }
       });
       var ids = idsOf(r);
       list2.forEach(function(x){ groupOf[x] = best; });
-      var g = { name: best, aliases: list2.slice().sort(), ids: ids, deceased: dec,
+      var g = { name: niceName(best), raw: best, aliases: list2.slice().sort(), ids: ids, deceased: dec,
                 rows: list2.reduce(function(a, x){ return a + info[x].rows; }, 0),
                 agg: list2.reduce(function(a, x){ return a + info[x].agg; }, 0) };
       byName[best] = g;
@@ -2201,7 +2231,7 @@
       if(!k) return null;
       if(!by[k]){
         var g = NG.byName[canon] || null;
-        by[k] = { name: canon, rows: [], tours: {}, wins: 0, podiums: 0,
+        by[k] = { name: niceName(canon), rows: [], tours: {}, wins: 0, podiums: 0,
           seconds: 0, thirds: 0, money: 0, placeSum: 0, placeCount: 0, draws: 0, seasonWins: 0, sizes: [],
           points: 0, best: null, years: {}, aggPoints: null, aggRank: null, roundsPlayed: 0,
           aliases: {}, deceased: !!(g && g.deceased), groupIds: (g && g.ids) ? g.ids.slice() : [] };
@@ -2345,6 +2375,16 @@
       p.roundsPlayed = roundsSum;
       /* A csoport összes névformája és azonosítója (a keresés és a megjelenítés miatt). */
       p.aliasList = Object.keys(p.aliases || {}).sort();
+      /* Megjelenítéshez: szép írásmód, ismétlődések nélkül. */
+      (function(){
+        var seen2 = {}, nice = [];
+        p.aliasList.forEach(function(a){
+          var v = niceName(a);
+          if(seen2[v]) return;
+          seen2[v] = 1; nice.push(v);
+        });
+        p.aliasNice = nice;
+      })();
       if(p.groupIds && p.groupIds.length){
         p.codes = (p.codes || []).slice();
         p.groupIds.forEach(function(c){ if(p.codes.indexOf(c) < 0) p.codes.push(c); });
@@ -2446,7 +2486,7 @@
         + '<div class="pcard-rank">'+esc(T('Ranglista: ','Rebríček: '))+'<strong>'+p.rank+'.</strong>'
         + (p.codes && p.codes.length ? ' · '+esc(T('azonosító: ','ID: '))+esc(p.codes.join(', ')) : '')+'</div>'
         + ((p.aliasList && p.aliasList.length > 1)
-            ? '<div class="meta">'+esc(T('Névváltozatok a táblázatokban: ','Názvové varianty v tabuľkách: '))+esc(p.aliasList.join(' · '))+'</div>'
+            ? '<div class="meta">'+esc(T('Névváltozatok a táblázatokban: ','Názvové varianty v tabuľkách: '))+esc((p.aliasNice || p.aliasList).join(' · '))+'</div>'
             : '')+'</div>'
         + (p.deceased ? '<div class="pcard-mem">'+esc(T('Emlékezünk.','Spomíname.'))+'</div>' : '')
         + '<div class="pcard-grid">'
@@ -3267,7 +3307,7 @@
             + '<span class="badge">'+mine.length+' '+esc(T('jelentkező','prihlásených'))+'</span></summary>'
             + '<div class="table-wrap"><table class="list"><thead><tr><th>#</th><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Azonosító szám','Identifikačné číslo'))+'</th><th class="noprint">'+esc(T('Kijelentkezés','Odhlásenie'))+'</th></tr></thead><tbody>'
             + mine.map(function(r,i){
-                return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td class="num">'+esc(r.code||'')+'</td>'
+                return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(niceName(r.name))+'</td><td class="num">'+esc(r.code||'')+'</td>'
                   + '<td class="noprint"><button type="button" class="btn sm secondary withdrawbtn" title="'+esc(T('Kijelentkezés a versenyről','Odhlásenie z turnaja'))+'" onclick="MUB.askWithdrawReg(\''+jsq(r.id)+'\',\''+jsq(r.name)+'\')">'+esc(T('Kijelentkezés','Odhlásenie'))+'</button></td></tr>';
               }).join('')
             + '</tbody></table></div></details>';
@@ -5320,7 +5360,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       listBox.innerHTML = regs.length
         ? ('<div class="table-wrap"><table class="list"><thead><tr><th>#</th><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Kód','Kód'))+'</th><th class="noprint">'+esc(T('Jelen','Prítomný'))+'</th><th class="noprint"></th></tr></thead><tbody>'
           + regs.map(function(r,i){
-              return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.code||'')+'</td><td class="noprint"><span class="checkbox"></span></td>'
+              return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(niceName(r.name))+'</td><td>'+esc(r.code||'')+'</td><td class="noprint"><span class="checkbox"></span></td>'
                 + '<td class="noprint"><button type="button" class="btn sm danger" onclick="MUB.adminDeleteReg(\''+jsq(r.id)+'\',\''+jsq(r.name)+'\')">'+esc(T('Törlés','Zmazať'))+'</button></td></tr>';
             }).join('') + '</tbody></table></div>'
           + '<div class="meta" style="margin-top:.5rem">'+regs.length+' '+esc(T('jelentkező','prihlásených'))+'</div>')
@@ -5562,7 +5602,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
           + '<div class="namepairs">'
           + decided.map(function(d){
               return '<div class="namepair decided '+(d.same ? 'ok' : 'no')+'">'
-                + '<div class="npnames">'+(d.same ? '✓ ' : '✕ ')+esc(d.p[0])+' <span class="npvs">=</span> '+esc(d.p[1])
+                + '<div class="npnames">'+(d.same ? '✓ ' : '✕ ')+esc(niceName(d.p[0]))+' <span class="npvs">=</span> '+esc(niceName(d.p[1]))
                 + ' <span class="meta">'+esc(d.same ? T('ugyanaz a személy','tá istá osoba') : T('két külön ember','dve rôzne osoby'))+'</span></div>'
                 + '<div class="npbtns"><button type="button" class="btn sm secondary" onclick="MUB.nameUndo(\''+jsq(d.p[0])+'\',\''+jsq(d.p[1])+'\')">'+esc(T('Visszavonás','Zrušiť'))+'</button></div>'
                 + '</div>';
@@ -5594,7 +5634,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
         html += '<div class="namepairs">'
           + pairs.slice(0, nameLimit).map(function(p){
               return '<div class="namepair">'
-                + '<div class="npnames">'+esc(p.a)+' '+meta({ cnt: p.cntA, ids: p.idsA })+' <span class="npvs">↔</span> '+esc(p.b)+' '+meta({ cnt: p.cntB, ids: p.idsB })+'</div>'
+                + '<div class="npnames">'+esc(niceName(p.a))+' '+meta({ cnt: p.cntA, ids: p.idsA })+' <span class="npvs">↔</span> '+esc(niceName(p.b))+' '+meta({ cnt: p.cntB, ids: p.idsB })+'</div>'
                 + '<div class="npbtns">'
                 + '<button type="button" class="btn sm" onclick="MUB.nameDecide(\''+jsq(p.a)+'\',\''+jsq(p.b)+'\',true)">'+esc(T('Ugyanaz a személy','Tá istá osoba'))+'</button>'
                 + '<button type="button" class="btn sm secondary" onclick="MUB.nameDecide(\''+jsq(p.a)+'\',\''+jsq(p.b)+'\',false)">'+esc(T('Két külön ember','Dve rôzne osoby'))+'</button>'
@@ -5613,7 +5653,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
         + '<details class="whobox"><summary>'+esc(T('Az összevont nevek listája','Zoznam zlúčených mien'))+'</summary><div class="whobody">'
         + '<div class="table-wrap"><table class="list"><thead><tr><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Változatok','Varianty'))+'</th><th class="num">ID</th></tr></thead><tbody>'
         + merged.slice(0, 200).map(function(g2){
-            return '<tr><td>'+esc(g2.name)+'</td><td>'+esc(g2.aliases.join(' · '))+'</td><td class="num">'+esc(g2.ids.join(', '))+'</td></tr>';
+            return '<tr><td>'+esc(g2.name)+'</td><td>'+esc((function(){ var seen3 = {}, o = []; g2.aliases.forEach(function(a){ var v = niceName(a); if(seen3[v]) return; seen3[v] = 1; o.push(v); }); return o; })().join(' · '))+'</td><td class="num">'+esc(g2.ids.join(', '))+'</td></tr>';
           }).join('')
         + '</tbody></table></div></div></details>';
 
