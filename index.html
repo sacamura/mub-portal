@@ -333,6 +333,7 @@
   /* Diszkrét jelzés: a statisztikát mesterséges intelligencia dolgozta fel. */
   .ainote{margin:.2rem 0 1.2rem; font-size:.92rem; color:var(--ink-soft); background:var(--surface-2); border-left:3px solid var(--border); border-radius:8px; padding:.5rem .8rem; line-height:1.5}
   .dagger{color:var(--ink); font-weight:700}
+  .pcard-sub{margin:1rem 0 .4rem; font-size:1.05rem; color:var(--accent-strong)}
   .pcard-mem{background:var(--surface-2); border-left:4px solid var(--ink); padding:.5rem .8rem; border-radius:8px; margin:.2rem 0 .8rem; font-size:1rem}
   .pcard{border:1px solid var(--border); border-radius:14px; padding:1.1rem; background:var(--surface)}
   .pcard-head{display:flex; align-items:baseline; justify-content:space-between; gap:.6rem; flex-wrap:wrap; margin-bottom:.7rem}
@@ -451,7 +452,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 13;
+  var BUILD = 14;
   var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1849,6 +1850,16 @@
           p.aggRank = Number(r.place);
           if(Number(r.place) === 1) p.seasonWins++;
         }
+        /* Szezononkénti helyezés: hogyan állt az adott szezonban. */
+        if(season.year){
+          p.seasonRanks = p.seasonRanks || {};
+          p.seasonRanks[String(season.year)] = {
+            rank: (r.place == null ? null : Number(r.place)),
+            points: (r.points == null ? 0 : Number(r.points)),
+            money: (r.money == null ? 0 : Math.round(Number(r.money) * 100) / 100),
+            played: (r.played == null ? null : Number(r.played))
+          };
+        }
         if(r.money != null) p.aggMoney = (p.aggMoney == null ? 0 : p.aggMoney) + Number(r.money);
         if(r.code != null && String(r.code).trim()){
           p.codes = p.codes || [];
@@ -1971,6 +1982,27 @@
         + (p.draws ? '<div class="pstat"><span class="pnum">'+p.draws+'</span><span class="plabel">'+esc(T('holtverseny','remíza'))+'</span></div>' : '')
         + '</div>'
         + '<div class="meta">'+esc(T('Szezonok: ','Sezóny: '))+esc(p.yearsArr.join(', ') || '—')+'</div>'
+        /* Szezononkénti helyezés: hogyan végzett az egyes szezonokban. */
+        + (function(){
+            var sr = p.seasonRanks || {};
+            var ys = Object.keys(sr).sort(function(a, b){ return Number(b) - Number(a); });
+            if(!ys.length) return '';
+            return '<h4 class="pcard-sub">'+esc(T('Helyezése szezononként','Umiestnenie podľa sezón'))+'</h4>'
+              + '<div class="table-wrap"><table class="list"><thead><tr>'
+              + '<th>'+esc(T('Szezon','Sezóna'))+'</th><th class="num">'+esc(T('Helyezés','Umiestnenie'))+'</th>'
+              + '<th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">'+esc(T('Pont','Body'))+'</th><th class="num">€</th>'
+              + '</tr></thead><tbody>'
+              + ys.map(function(y){
+                  var x = sr[y];
+                  var medal = (x.rank === 1) ? ' 🥇' : (x.rank === 2 ? ' 🥈' : (x.rank === 3 ? ' 🥉' : ''));
+                  return '<tr><td class="num">'+esc(y)+'</td>'
+                    + '<td class="num">'+(x.rank == null ? '—' : esc(String(x.rank)+'.')+medal)+'</td>'
+                    + '<td class="num">'+(x.played == null ? '—' : esc(String(x.played)))+'</td>'
+                    + '<td class="num">'+esc(String(x.points))+'</td>'
+                    + '<td class="num">'+esc(String(x.money))+'</td></tr>';
+                }).join('')
+              + '</tbody></table></div>';
+          })()
         + (rows.length
             ? '<div class="table-wrap" style="margin-top:.8rem"><table class="list"><thead><tr><th>'+esc(T('Szezon','Sezóna'))+'</th><th>'+esc(T('Verseny','Turnaj'))+'</th><th>'+esc(T('Helyezés','Umiestnenie'))+'</th><th>'+esc(T('Pont','Body'))+'</th></tr></thead><tbody>'
               + rows.map(function(r){
