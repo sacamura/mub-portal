@@ -465,7 +465,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 24;
+  var BUILD = 26;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2241,12 +2241,17 @@
     (list||[]).forEach(function(season){
       /* 0) Versenyenként a körök tényleges befizetése: a körben összegyűlt pénz / a körben játszók száma.
             Általában pontosan 5 €, de néhány versenyen 3 € volt — így nem tippelünk, hanem a táblázatból számoljuk. */
-      var tourFee = {};
+      var tourFee = {}, tourAvg = {};
       (function(){
         var byTour = {};
         (season.rows||[]).forEach(function(r){ var t = String(r.t || ''); (byTour[t] = byTour[t] || []).push(r); });
         Object.keys(byTour).forEach(function(t){
           var rs = byTour[t], fees = [];
+          /* ha ehhez a versenyhez nincs köradat: a kifizetett összeg / résztvevők */
+          var tot = rs.reduce(function(a, x){ return a + (Number(x.money) || 0); }, 0);
+          var avg = rs.length ? (tot / rs.length) : 0;
+          var w2 = Math.round(avg);
+          tourAvg[t] = rs.length ? ((Math.abs(avg - w2) < 0.2) ? w2 : (Math.round(avg * 100) / 100)) : 0;
           for(var k = 0; k < 5; k++){
             var pot = 0, cnt = 0;
             rs.forEach(function(x){
@@ -2271,10 +2276,10 @@
         var rcount = rr.length;
         var rfees = tourFee[String(r.t || '')] || [];
         /* a sorra jutó részvételi díj: a lejátszott körök befizetése;
-           ha ehhez a versenyhez nincs köradat, a szokásos 5 kör × 5 € = 25 € */
+           ha ehhez a versenyhez nincs köradat, a táblázat szerinti átlag (általában 25 €) */
         var rowFee = 0;
         if(rcount){ for(var k = 0; k < rcount; k++) rowFee += Number(rfees[k] || 0); }
-        else rowFee = FEE_PER_ROUND * 5;
+        else rowFee = (tourAvg[String(r.t || '')] != null) ? tourAvg[String(r.t || '')] : (FEE_PER_ROUND * 5);
         p.rows.push({ t: r.t || '', place: r.place == null ? null : Number(r.place), points: r.points == null ? 0 : Number(r.points),
                       money: r.money == null ? null : Number(r.money), size: r.size == null ? null : Number(r.size), year: season.year,
                       rounds: rcount });
@@ -2358,11 +2363,28 @@
       var grossSum = 0, feeSum = 0, roundsSum = 0;
       Object.keys(smAll).forEach(function(y){
         var sm = smAll[y];
-        var gross = (sm.aggMoney != null) ? sm.aggMoney : sm.rowGross;
-        var tours = Math.max(sm.rowCount, sm.aggPlayed || 0);
-        var rounds = sm.rowRounds + 5 * Math.max(0, tours - sm.rowCount);
-        /* a versenyekből számolt díj + a hiányzó (csak összesített táblázatban szereplő) versenyek 25 €-ja */
-        var fee = (sm.rowFee || 0) + FEE_PER_ROUND * 5 * Math.max(0, tours - sm.rowCount);
+        var gross, fee, rounds;
+        if(sm.rowCount){
+          /* amit a verseny-táblákban nyert, és ami ott a befizetése volt */
+          gross = sm.rowGross;
+          fee = sm.rowFee || 0;
+          rounds = sm.rowRounds;
+          /* ha a szezon-tábla szerint több versenyen játszott, mint amennyihez sor van,
+             a hiányzó versenyekre a szokásos 25 €-t számoljuk (és a nyereményét is hozzávesszük) */
+          var extra = Math.max(0, (sm.aggPlayed || 0) - sm.rowCount);
+          if(extra){
+            fee += FEE_PER_ROUND * 5 * extra;
+            rounds += 5 * extra;
+            gross += Math.max(0, (Number(sm.aggMoney) || 0) - sm.rowGross);
+          }
+        } else {
+          /* csak a szezon-táblában szerepel */
+          gross = Number(sm.aggMoney) || 0;
+          var pt = Number(sm.aggPlayed) || 0;
+          rounds = 5 * pt;
+          fee = FEE_PER_ROUND * 5 * pt;
+        }
+        var tours = Math.round(rounds / 5);
         sm.gross = Math.round(gross * 100) / 100;
         sm.fee = Math.round(fee * 100) / 100;
         sm.net = Math.round((sm.gross - sm.fee) * 100) / 100;
