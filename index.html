@@ -343,7 +343,6 @@
   .pstat.net{border-color:var(--accent); background:var(--accent-soft)}
   .netplus{color:#1c7c3a}
   .netminus{color:#b3261e}
-  .moneyinfo{margin:.6rem 0 0; font-size:.95rem; color:var(--ink-soft)}
   .adminsub{margin:1.4rem 0 .5rem; font-size:1.05rem; color:var(--accent-strong)}
   .namepairs{display:flex; flex-direction:column; gap:.5rem; margin:.4rem 0 .8rem}
   .namepair{display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; justify-content:space-between; border:1px solid var(--border); border-radius:12px; padding:.55rem .7rem; background:var(--surface-2)}
@@ -466,7 +465,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 21;
+  var BUILD = 22;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2457,10 +2456,8 @@
               + '<div class="pstat"><span class="pnum">'+p.seconds+'</span><span class="plabel">'+esc(T('2. hely','2. miesto'))+'</span></div>'
               + '<div class="pstat"><span class="pnum">'+p.thirds+'</span><span class="plabel">'+esc(T('3. hely','3. miesto'))+'</span></div>'
               + (p.avgPlace == null ? '' : '<div class="pstat"><span class="pnum">'+p.avgPlace+'</span><span class="plabel">'+esc(T('átlagos helyezés','priemerné umiestnenie'))+'</span></div>')
-              + (p.grossMoney ? '<div class="pstat"><span class="pnum">'+fmtMoney(p.grossMoney)+'</span><span class="plabel">'+esc(T('nyeremény (€)','výhra (€)'))+'</span></div>' : '')
-              + (p.feePaid ? '<div class="pstat"><span class="pnum">−'+fmtMoney(p.feePaid)+'</span><span class="plabel">'+esc(T('részvételi díj (€)','vklady (€)'))+'</span></div>' : '')
-              + ((p.grossMoney || p.feePaid) ? '<div class="pstat net"><span class="pnum">'+fmtMoney(p.netMoney)+'</span><span class="plabel">'+esc(T('egyenleg (€)','zostatok (€)'))+'</span></div>' : '')
-              + (p.roundsPlayed ? '<div class="pstat"><span class="pnum">'+p.roundsPlayed+'</span><span class="plabel">'+esc(T('lejátszott kör','odohraných kôl'))+'</span></div>' : '')
+              + (p.grossMoney ? '<div class="pstat"><span class="pnum">'+fmtMoney(p.grossMoney)+'</span><span class="plabel">'+esc(T('nyeremény','výhra'))+'</span></div>' : '')
+              + ((p.grossMoney || p.feePaid) ? '<div class="pstat net"><span class="pnum">'+fmtMoney(p.netMoney)+'</span><span class="plabel">'+esc(T('tiszta nyeremény','čistá výhra'))+'</span></div>' : '')
             : '')
         + '<div class="pstat"><span class="pnum">'+p.points+'</span><span class="plabel">'+esc(T('összpontszám','spolu bodov'))+'</span></div>'
         + (p.best == null ? '' : '<div class="pstat"><span class="pnum">'+p.best+'.</span><span class="plabel">'+esc(T('legjobb helyezés','najlepšie umiestnenie'))+'</span></div>')
@@ -2477,7 +2474,7 @@
               + '<div class="table-wrap"><table class="list"><thead><tr>'
               + '<th>'+esc(T('Szezon','Sezóna'))+'</th><th class="num">'+esc(T('Helyezés','Umiestnenie'))+'</th>'
               + '<th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">'+esc(T('Pont','Body'))+'</th>'
-              + '<th class="num">'+esc(T('Nyeremény','Výhra'))+'</th><th class="num">'+esc(T('Díj','Vklady'))+'</th><th class="num">'+esc(T('Egyenleg','Zostatok'))+'</th>'
+              + '<th class="num">'+esc(T('Nyeremény','Výhra'))+'</th><th class="num">'+esc(T('Tiszta nyeremény','Čistá výhra'))+'</th>'
               + '</tr></thead><tbody>'
               + ys.map(function(y){
                   var x = sr[y];
@@ -2488,12 +2485,9 @@
                     + '<td class="num">'+(x.played == null ? '—' : esc(String(x.played)))+'</td>'
                     + '<td class="num">'+esc(String(x.points))+'</td>'
                     + '<td class="num">'+(sm.gross == null ? '—' : esc(fmtMoney(sm.gross)))+'</td>'
-                    + '<td class="num">'+(sm.fee == null ? '—' : esc('−'+fmtMoney(sm.fee)))+'</td>'
                     + '<td class="num"><strong>'+(sm.net == null ? '—' : esc(fmtMoney(sm.net)))+'</strong></td></tr>';
                 }).join('')
-              + '</tbody></table></div>'
-              + '<p class="meta">'+esc(T('A „nyeremény” a körökben összegyűlt összeg, a „díj” pedig a körönkénti 5 € részvételi díj (versenyenként 25 €). Az egyenleg a kettő különbsége.',
-                                       '„Výhra” je suma vyhraná v kolách, „vklady” sú vklady 5 € za kolo (25 € za turnaj). Zostatok je ich rozdiel.'))+'</p>';
+              + '</tbody></table></div>';
           })()
         + (rows.length
             ? '<div class="table-wrap" style="margin-top:.8rem"><table class="list"><thead><tr><th>'+esc(T('Szezon','Sezóna'))+'</th><th>'+esc(T('Verseny','Turnaj'))+'</th><th>'+esc(T('Helyezés','Umiestnenie'))+'</th><th>'+esc(T('Pont','Body'))+'</th></tr></thead><tbody>'
@@ -2579,7 +2573,7 @@
           html += '<div class="table-wrap"><table class="list rank"><thead><tr>'
             + '<th>#</th><th>'+esc(T('Játékos','Hráč'))+'</th>'
             + (hasPer ? '<th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">1.</th><th class="num">2.</th><th class="num">3.</th><th class="num">'+esc(T('Átlag hely','Priemer'))+'</th>'
-                + '<th class="num">'+esc(T('Nyeremény','Výhra'))+'</th><th class="num">'+esc(T('Egyenleg','Zostatok'))+'</th>' : '')
+                + '<th class="num">'+esc(T('Nyeremény','Výhra'))+'</th><th class="num">'+esc(T('Tiszta nyeremény','Čistá výhra'))+'</th>' : '')
             + '<th class="num">'+esc(T('Pont','Body'))+'</th></tr></thead><tbody>'
             + stats.map(function(p){
                 return '<tr><td class="num">'+p.rank+'.</td><td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard(\''+jsq(p.name)+'\')">'+esc(p.name)+(p.deceased ? ' <span class="dagger">†</span>' : '')+'</button></td>'
@@ -2593,8 +2587,6 @@
                   + '<td class="num"><strong>'+p.points+'</strong></td></tr>';
               }).join('')
             + '</tbody></table></div>';
-          html += '<p class="moneyinfo">'+esc(T('A táblázatokban a körökben nyert összeg szerepel. A versenyeken minden kör kezdetén 5 € a részvételi díj (egy versenyen 5 kör, azaz 25 €).',
-                                                'V tabuľkách je suma vyhraná v kolách. Na turnajoch je na začiatku každého kola vklad 5 € (5 kôl = 25 € za turnaj).'))+'</p>';
           /* 2) játékos-adatlap – előugró ablakban (a nevekre kattintva) */
           html += '<p class="meta">'+esc(T('Kattintson bármelyik névre: az adatlapja előugró ablakban nyílik meg.','Kliknite na ktorékoľvek meno: karta hráča sa otvorí v okne.'))+'</p>'
             + '<div id="res-player-card"></div>'
