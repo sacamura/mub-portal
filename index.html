@@ -456,7 +456,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 17;
+  var BUILD = 18;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1828,6 +1828,206 @@
     return t.replace(/\s+/g, ' ').trim();
   }
   function playerKey(n){ return deacc(n); }
+  /* ---------- Név-egyesítés ----------
+     Ugyanaz a személy több alakban szerepelhet a táblázatokban: magyar és szlovák
+     keresztnév (László / Ladislav), becenév (Laci, Miki, Zoli, Öcsi), hiányzó vagy
+     plusz ékezet, † jelölés, ifj./id. előtag. A biztos kapcsolat az azonosító szám;
+     ha nincs, a vezetéknév és a keresztnév azonossága dönt. Amit nem lehet biztosan
+     eldönteni, az az admin „Név-egyesítés” fülén átnézhető. */
+  var NAME_VARIANTS = {
+    laszlo:    ['lászló','laszlo','ladislav','laci','laca','ladko'],
+    janos:     ['jános','janos','ján','jan','jani','janko'],
+    istvan:    ['istván','istvan','štefan','stefan','štefán','stefán','pisti','pista','stano','stepan'],
+    ferenc:    ['ferenc','františek','frantisek','feri','ferko','franto'],
+    jozsef:    ['józsef','jozsef','jozef','jóska','joska','öcsi','ocsi','jozsi','józsi','jožko','jozko'],
+    miklos:    ['miklós','miklos','mikuláš','mikulas','mikulás','miki'],
+    zoltan:    ['zoltán','zoltan','zoli','zolika'],
+    gabor:     ['gábor','gabor','gabi','gabika'],
+    barnabas:  ['barnabás','barnabas','barna'],
+    rudolf:    ['rudolf','rudi','rudko'],
+    tibor:     ['tibor','tibi'],
+    pal:       ['pál','pal','pavol','pali','palko','pavlik'],
+    andras:    ['andrás','andras','andrej','ondrej','andor','bandi','ondro'],
+    gyorgy:    ['györgy','gyorgy','juraj','gyuri','ďuro','duro','jurko'],
+    karoly:    ['károly','karoly','karol','karcsi','karel'],
+    denes:     ['dénes','denes','denis','denko'],
+    geza:      ['géza','geza','gejza'],
+    anton:     ['antal','anton','antón','antonín','toni','tóni'],
+    julius:    ['július','julius','gyula','gyuszi'],
+    ludovit:   ['ľudovít','ludovít','ludovit','ludo','lajos','lajko'],
+    vladimir:  ['vladimír','vladimir','vlado','vladko'],
+    jaroslav:  ['jaroslav','jarosláv','jaro','jarek'],
+    stanislav: ['stanislav','stanisláv','standa'],
+    lubos:     ['ľuboš','luboš','lubos','lubo'],
+    robert:    ['róbert','robert','robi','robko'],
+    milan:     ['milan','milán','milo'],
+    daniel:    ['dániel','daniel','dano','dani'],
+    marek:     ['marek','maroš','maros'],
+    matej:     ['matej','mátyás','matyas','matyi','máté'],
+    dusan:     ['dušan','dusan','dušán','dusko'],
+    peter:     ['péter','peter','peti'],
+    zdeno:     ['zdeno','zdeněk','zdenek','zdenko'],
+    arpad:     ['árpád','arpad','arpi','árpi'],
+    lorant:    ['lóránt','lorant'],
+    dezso:     ['dezső','dezso'],
+    sandor:    ['sándor','sandor','alexander','sanyi'],
+    attila:    ['attila','ati'],
+    mihaly:    ['mihály','mihaly','michal','misi','miško','misko'],
+    gustav:    ['gusztáv','gusztav','gustáv','gustav','guszti'],
+    viliam:    ['vilmos','viliam','vili'],
+    otto:      ['ottó','otto'],
+    richard:   ['richárd','richard','rišo','riso'],
+    radovan:   ['radovan','rado'],
+    miroslav:  ['miroslav','mirek','miro'],
+    bohus:     ['bohuslav','bohuš','bohus'],
+    blazsej:   ['balázs','balazs','blažej','blazej'],
+    emil:      ['emil'],
+    kornel:    ['kornél','kornel'],
+    igor:      ['igor'],
+    patrik:    ['patrik'],
+    erik:      ['erik'],
+    anna:      ['anna','anni'],
+    adam:      ['ádám','adam']
+  };
+  var NAME_CANON = (function(){
+    var m = {};
+    Object.keys(NAME_VARIANTS).forEach(function(c){
+      m[c] = c;
+      (NAME_VARIANTS[c] || []).forEach(function(v){ if(!m[v]) m[v] = c; });
+    });
+    return m;
+  })();
+  var PNAME_ID = /^(id|st|senior)$/;
+  var PNAME_IFJ = /^(ifj|ml|jun|junior)$/;
+  /* Pusztán számokból álló „név” nem ember (a táblázat hibás sora). */
+  function isPersonName(n){
+    var s = String(n == null ? '' : n).replace(/[†✝]/g, ' ').trim();
+    return !!s && /[A-Za-zÀ-ž]/.test(s);
+  }
+  function pToks(s){
+    return String(s || '').replace(/[.,;]/g, ' ').split(/\s+/).map(function(x){ return x.trim(); }).filter(Boolean);
+  }
+  /* Név szétbontása: vezetéknév, keresztnév-egységek, ifj./id. jelző, †. */
+  function parsePName(raw){
+    var s = String(raw == null ? '' : raw);
+    var out = { surname: '', canon: [], mark: '', deceased: /[†✝]/.test(s) };
+    s = s.replace(/[†✝]/g, ' ');
+    var par = s.match(/\(([^)]*)\)/);
+    if(par){ out.paren = par[1]; s = s.replace(/\([^)]*\)/g, ' '); }
+    var rest = [];
+    pToks(s).forEach(function(t){
+      var bare = deacc(t.replace(/\.+$/, ''));
+      if(PNAME_ID.test(bare)){ out.mark = 'id'; return; }
+      if(PNAME_IFJ.test(bare)){ out.mark = 'ifj'; return; }
+      rest.push(t);
+    });
+    if(!rest.length) return out;
+    out.surname = deacc(rest[0]);
+    var givens = rest.slice(1).map(deacc).filter(Boolean);
+    if(out.paren) pToks(out.paren).forEach(function(x){ givens.push(deacc(x)); });
+    givens.forEach(function(g){
+      var c = NAME_CANON[g] || g;
+      if(out.canon.indexOf(c) < 0) out.canon.push(c);
+    });
+    return out;
+  }
+  /* Nyers nevek csoportosítása. Visszaadja a csoportokat és a név -> csoportnevet képet. */
+  function nameGroups(list){
+    var info = {}, names = [];
+    function add(n, code, kind){
+      n = String(n == null ? '' : n).trim();
+      if(!isPersonName(n)) return;
+      var o = info[n];
+      if(!o){
+        var p = parsePName(n);
+        o = info[n] = { n: n, ids: {}, rows: 0, agg: 0, surname: p.surname, canon: p.canon.slice(), mark: p.mark, deceased: p.deceased };
+        names.push(n);
+      }
+      if(code != null && String(code).trim()) o.ids[String(code).trim()] = 1;
+      if(kind === 'agg') o.agg++; else o.rows++;
+    }
+    (list||[]).forEach(function(s){
+      (s.rows||[]).forEach(function(r){ add(r.n, r.code, 'row'); });
+      (s.aggRows||[]).forEach(function(r){ add(r.n, r.code, 'agg'); });
+    });
+    var parent = {};
+    names.forEach(function(x){ parent[x] = x; });
+    function find(x){ while(parent[x] !== x){ parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+    function idsOf(root){
+      var seen = {};
+      names.forEach(function(x){ if(find(x) === root) Object.keys(info[x].ids).forEach(function(i){ seen[i] = 1; }); });
+      return Object.keys(seen);
+    }
+    function clash(a, b){
+      var ia = idsOf(a), ib = idsOf(b);
+      for(var i = 0; i < ia.length; i++) for(var j = 0; j < ib.length; j++) if(ia[i] !== ib[j]) return true;
+      return false;
+    }
+    function join(a, b){
+      a = find(a); b = find(b);
+      if(a === b || clash(a, b)) return false;
+      parent[b] = a; return true;
+    }
+    /* 1) azonosító szám szerint (ez a biztos kapcsolat) */
+    var byId = {};
+    names.forEach(function(x){ Object.keys(info[x].ids).forEach(function(i){ (byId[i] = byId[i] || []).push(x); }); });
+    Object.keys(byId).forEach(function(i){ var l = byId[i]; for(var k = 1; k < l.length; k++) join(l[0], l[k]); });
+    /* 2) névalak szerint: vezetéknév + keresztnév-egység + ifj./id. jelző */
+    var byKey = {};
+    names.forEach(function(x){
+      var o = info[x];
+      var key = o.canon.length ? ('k:' + o.surname + '|' + o.canon.slice().sort().join(',') + '|' + (o.mark || ''))
+                               : ('only:' + o.surname);
+      (byKey[key] = byKey[key] || []).push(x);
+    });
+    Object.keys(byKey).forEach(function(k){
+      var l = byKey[k];
+      for(var i = 1; i < l.length; i++) join(l[0], l[i]);
+    });
+    /* 3) csak vezetéknévvel szereplő sor: ha a vezetéknévhez csak EGY keresztnév-csoport
+          tartozik, biztosan ahhoz a személyhez tartozik. */
+    var surClasses = {};
+    names.forEach(function(x){
+      var o = info[x];
+      if(!o.canon.length || o.mark) return;
+      var ck = o.canon.slice().sort().join(',');
+      (surClasses[o.surname] = surClasses[o.surname] || {})[ck] = (surClasses[o.surname] || {})[ck] || [];
+      surClasses[o.surname][ck].push(x);
+    });
+    names.forEach(function(x){
+      var o = info[x];
+      if(o.canon.length || o.mark) return;
+      var cls = surClasses[o.surname];
+      if(!cls) return;
+      var keys = Object.keys(cls);
+      if(keys.length === 1) join(cls[keys[0]][0], x);
+    });
+    /* csoportok + a legjobb névforma kiválasztása */
+    var members = {};
+    names.forEach(function(x){ var r = find(x); (members[r] = members[r] || []).push(x); });
+    var groupOf = {}, byName = {}, groups = [];
+    Object.keys(members).forEach(function(r){
+      var list2 = members[r], best = list2[0], bestScore = -1e9;
+      var dec = false;
+      list2.forEach(function(x){
+        var o = info[x];
+        if(o.deceased) dec = true;
+        var score = (Object.keys(o.ids).length ? 1000 : 0) + (o.rows + o.agg) * 10
+          + (/[áéíóöőúüűčšžťďňľĺřě]/i.test(x) ? 5 : 0) - (o.deceased ? 40 : 0)
+          - (/^(ifj|id)\./i.test(x) ? 2 : 0);
+        if(score > bestScore){ bestScore = score; best = x; }
+      });
+      var ids = idsOf(r);
+      list2.forEach(function(x){ groupOf[x] = best; });
+      var g = { name: best, aliases: list2.slice().sort(), ids: ids, deceased: dec,
+                rows: list2.reduce(function(a, x){ return a + info[x].rows; }, 0),
+                agg: list2.reduce(function(a, x){ return a + info[x].agg; }, 0) };
+      byName[best] = g;
+      groups.push(g);
+    });
+    groups.sort(function(a, b){ return (b.rows + b.agg) - (a.rows + a.agg); });
+    return { groupOf: groupOf, byName: byName, groups: groups, info: info, names: names };
+  }
   /* Egy kör nevezési díja (a versenyeken körönként ennyit tesznek be a játékosok). */
   var FEE_PER_ROUND = 5;
   function seasonMoneyOf(p, year){
@@ -1838,12 +2038,21 @@
   }
   function buildStats(list){
     var by = {};
+    /* Előbb a névformák összevonása: egy ember egy sorban. */
+    var NG = nameGroups(list);
     function player(name){
-      var k = playerKey(name);
+      var raw = String(name == null ? '' : name).trim();
+      var canon = NG.groupOf[raw] || raw;
+      var k = playerKey(canon);
       if(!k) return null;
-      return by[k] || (by[k] = { name: String(name).trim(), rows: [], tours: {}, wins: 0, podiums: 0,
-        seconds: 0, thirds: 0, money: 0, placeSum: 0, placeCount: 0, draws: 0, seasonWins: 0, sizes: [],
-        points: 0, best: null, years: {}, aggPoints: null, aggRank: null, roundsPlayed: 0 });
+      if(!by[k]){
+        var g = NG.byName[canon] || null;
+        by[k] = { name: canon, rows: [], tours: {}, wins: 0, podiums: 0,
+          seconds: 0, thirds: 0, money: 0, placeSum: 0, placeCount: 0, draws: 0, seasonWins: 0, sizes: [],
+          points: 0, best: null, years: {}, aggPoints: null, aggRank: null, roundsPlayed: 0,
+          aliases: {}, deceased: !!(g && g.deceased), groupIds: (g && g.ids) ? g.ids.slice() : [] };
+      }
+      return by[k];
     }
     (list||[]).forEach(function(season){
       /* 0) Versenyenként a körök tényleges befizetése: a körben összegyűlt pénz / a körben játszók száma.
@@ -1870,8 +2079,10 @@
       })();
       /* 1) versenyenkénti eredmények */
       (season.rows||[]).forEach(function(r){
+        if(!isPersonName(r.n)) return;                 /* a számokból álló hibás sorok kimaradnak */
         var p = player(r.n);
         if(!p) return;
+        p.aliases[String(r.n).trim()] = 1;
         var rr = (Array.isArray(r.rounds) ? r.rounds : []);
         var rcount = rr.length;
         var rfees = tourFee[String(r.t || '')] || [];
@@ -1902,41 +2113,55 @@
         p.points += (r.points == null ? 0 : Number(r.points));
         if(season.year) p.years[String(season.year)] = 1;
       });
-      /* 2) összesített (bajnoki) ranglista: innen a hivatalos pont és helyezés */
+      /* 2) összesített (bajnoki) ranglista: innen a hivatalos pont és helyezés.
+            Szezononként csak EGY sor érvényes: ha a táblában ugyanaz a személy kétszer
+            szerepel (előfordul), akkor a valódi adatot tartalmazó sor nyer. */
       (season.aggRows||[]).forEach(function(r){
+        if(!isPersonName(r.n)) return;                 /* a számokból álló hibás sorok kimaradnak */
         var p = player(r.n);
         if(!p) return;
-        if(r.points != null) p.aggPoints = (p.aggPoints == null ? 0 : p.aggPoints) + Number(r.points);
-        if(r.place != null){
-          p.aggRank = Number(r.place);
-          if(Number(r.place) === 1) p.seasonWins++;
-        }
-        /* Szezononkénti helyezés: hogyan állt az adott szezonban. */
-        if(season.year){
-          p.seasonRanks = p.seasonRanks || {};
-          p.seasonRanks[String(season.year)] = {
-            rank: (r.place == null ? null : Number(r.place)),
-            points: (r.points == null ? 0 : Number(r.points)),
-            money: (r.money == null ? 0 : Math.round(Number(r.money) * 100) / 100),
-            played: (r.played == null ? null : Number(r.played))
-          };
-        }
-        if(r.money != null) p.aggMoney = (p.aggMoney == null ? 0 : p.aggMoney) + Number(r.money);
-        var smA = seasonMoneyOf(p, season.year);
-        if(smA){
-          if(r.money != null) smA.aggMoney = (smA.aggMoney == null ? 0 : smA.aggMoney) + Number(r.money);
-          if(r.played != null) smA.aggPlayed = (smA.aggPlayed == null ? 0 : smA.aggPlayed) + Number(r.played);
-        }
-        if(r.code != null && String(r.code).trim()){
-          p.codes = p.codes || [];
-          if(p.codes.indexOf(String(r.code).trim()) < 0) p.codes.push(String(r.code).trim());
-        }
-        if(r.played != null) p.playedTotal = (p.playedTotal == null ? 0 : p.playedTotal) + Number(r.played);
+        p.aliases[String(r.n).trim()] = 1;
+        p.aggPick = p.aggPick || {};
+        var ykey = String(season.year || '');
+        var cur = {
+          year: season.year,
+          points: (r.points == null ? 0 : Number(r.points)),
+          place: (r.place == null ? null : Number(r.place)),
+          money: (r.money == null ? 0 : Number(r.money)),
+          played: (r.played == null ? null : Number(r.played)),
+          code: (r.code == null ? '' : String(r.code).trim())
+        };
+        var prev = p.aggPick[ykey];
+        if(!prev || cur.points > prev.points || (cur.points === prev.points && prev.place == null)) p.aggPick[ykey] = cur;
         if(season.year) p.years[String(season.year)] = 1;
       });
     });
     var arr = Object.keys(by).map(function(k){
       var p = by[k];
+      /* Az összesített táblából származó értékek (szezononként a valódi sor). */
+      var picks = p.aggPick || {};
+      var yearsOf = Object.keys(picks).sort();
+      yearsOf.forEach(function(y){
+        var x = picks[y];
+        p.aggPoints = (p.aggPoints == null ? 0 : p.aggPoints) + x.points;
+        p.aggMoney = (p.aggMoney == null ? 0 : p.aggMoney) + x.money;
+        p.playedTotal = (p.playedTotal == null ? 0 : p.playedTotal) + (x.played == null ? 0 : x.played);
+        if(x.place != null && x.place === 1) p.seasonWins++;
+        if(x.code){
+          p.codes = p.codes || [];
+          if(p.codes.indexOf(x.code) < 0) p.codes.push(x.code);
+        }
+        p.seasonRanks = p.seasonRanks || {};
+        p.seasonRanks[y] = { rank: x.place, points: x.points, money: Math.round(x.money * 100) / 100, played: x.played };
+        var smA2 = seasonMoneyOf(p, x.year != null ? x.year : y);
+        if(smA2){
+          smA2.aggMoney = (smA2.aggMoney == null ? 0 : smA2.aggMoney) + x.money;
+          if(x.played != null) smA2.aggPlayed = (smA2.aggPlayed == null ? 0 : smA2.aggPlayed) + x.played;
+        }
+      });
+      /* A ranglista-hely a legutóbbi szezonból (nem az utoljára beolvasottból). */
+      if(yearsOf.length){ var last = picks[yearsOf[yearsOf.length - 1]]; if(last.place != null) p.aggRank = last.place; }
+      if(p.aggPoints != null) p.hasAggFlag = true;
       p.tournaments = Object.keys(p.tours).length;
       p.yearsArr = Object.keys(p.years).sort();
       p.hasAgg = (p.aggPoints != null || p.aggRank != null);
@@ -1964,6 +2189,12 @@
       p.feePaid = Math.round(feeSum * 100) / 100;
       p.netMoney = Math.round((p.grossMoney - p.feePaid) * 100) / 100;
       p.roundsPlayed = roundsSum;
+      /* A csoport összes névformája és azonosítója (a keresés és a megjelenítés miatt). */
+      p.aliasList = Object.keys(p.aliases || {}).sort();
+      if(p.groupIds && p.groupIds.length){
+        p.codes = (p.codes || []).slice();
+        p.groupIds.forEach(function(c){ if(p.codes.indexOf(c) < 0) p.codes.push(c); });
+      }
       if(p.playedTotal != null) p.played = p.playedTotal;
       p.avgSize = p.sizes.length ? Math.round(p.sizes.reduce(function(a, b){ return a + b; }, 0) / p.sizes.length) : null;
       /* ha van hivatalos összesített pont, az a mérvadó */
@@ -1996,7 +2227,14 @@
     }
     var exact = stats.filter(function(p){ return playerKey(p.name) === qk; })[0];
     if(exact) return exact;
-    var part = stats.filter(function(p){ return playerKey(p.name).indexOf(qk) >= 0; });
+    /* A névváltozatokra is keressünk (pl. „Csizmar Laci” = „Csizmár László”). */
+    var alias = stats.filter(function(p){
+      return (p.aliasList || []).some(function(a){ return playerKey(a) === qk; });
+    })[0];
+    if(alias) return alias;
+    var part = stats.filter(function(p){
+      return playerKey(p.name).indexOf(qk) >= 0 || (p.aliasList || []).some(function(a){ return playerKey(a).indexOf(qk) >= 0; });
+    });
     return part[0] || null;
   }
   function seasonYears(list){
@@ -2052,7 +2290,10 @@
       put('<div class="pcard">'
         + '<div class="pcard-head"><div class="pcard-name">'+esc(p.name)+(p.deceased ? ' <span class="dagger" title="'+esc(T('Emlékezünk','Spomíname'))+'">†</span>' : '')+'</div>'
         + '<div class="pcard-rank">'+esc(T('Ranglista: ','Rebríček: '))+'<strong>'+p.rank+'.</strong>'
-        + (p.codes && p.codes.length ? ' · '+esc(T('azonosító: ','ID: '))+esc(p.codes.join(', ')) : '')+'</div></div>'
+        + (p.codes && p.codes.length ? ' · '+esc(T('azonosító: ','ID: '))+esc(p.codes.join(', ')) : '')+'</div>'
+        + ((p.aliasList && p.aliasList.length > 1)
+            ? '<div class="meta">'+esc(T('Névváltozatok a táblázatokban: ','Názvové varianty v tabuľkách: '))+esc(p.aliasList.join(' · '))+'</div>'
+            : '')+'</div>'
         + (p.deceased ? '<div class="pcard-mem">'+esc(T('Emlékezünk.','Spomíname.'))+'</div>' : '')
         + '<div class="pcard-grid">'
         + (rows.length
@@ -2172,8 +2413,8 @@
           /* Kereső rögtön a statisztika tetején */
           html += '<div class="topsearch"><div class="field"><label for="res-player-top">'+esc(T('Játékos keresése (név vagy azonosító szám)','Hľadanie hráča (meno alebo identifikačné číslo)'))+'</label>'
             + '<input id="res-player-top" type="search" placeholder="'+esc(T('pl. Juhász János vagy 3','napr. Juhász János alebo 3'))+'" oninput="MUB.openPlayerCard(this.value)"></div></div>'
-            + '<p class="ainote">'+esc(T('Ezt a statisztikát a mesterséges intelligencia dolgozta fel a Google-táblázatokból, ezért előfordulhat benne hiba. Ha valami nem stimmel, jelezze a szervezőnek — köszönjük!',
-                                        'Túto štatistiku spracovala umelá inteligencia z Google tabuliek, preto sa v nej môže vyskytnúť chyba. Ak niečo nesedí, dajte vedieť organizátorovi — ďakujeme!'))+'</p>';
+            + '<p class="ainote">'+esc(T('Ezt a statisztikát a mesterséges intelligencia dolgozta fel a Google-táblázatokból, ezért előfordulhat benne hiba. A ugyanazon játékos magyar és szlovák névalakjait (pl. László / Ladislav, becenevek) egy személyként számoljuk. Ha valami nem stimmel, jelezze a szervezőnek — köszönjük!',
+                                        'Túto štatistiku spracovala umelá inteligencia z Google tabuliek, preto sa v nej môže vyskytnúť chyba. Maďarské a slovenské varianty toho istého mena (napr. László / Ladislav, prezývky) počítame ako jednu osobu. Ak niečo nesedí, dajte vedieť organizátorovi — ďakujeme!'))+'</p>';
           var hasPer = stats.some(function(p){ return p.rows && p.rows.length; });
           var hasAgg = stats.some(function(p){ return p.hasAgg; });
           html += '<h2 class="resh">'+esc(T('Ranglista','Rebríček'))+'</h2>';
@@ -3593,10 +3834,40 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     }
     if(head < 0) return null;
     var hdr = rows[head] || [];
+    var codeCol = -1, strict = [], loose = [];
     for(c = 0; c < hdr.length; c++){
-      if(nameCol < 0 && RES_RX.name.test(String(hdr[c] || ''))) nameCol = c;
+      var h = String(hdr[c] || '').replace(/\s+/g, ' ').trim();
+      if(!h) continue;
+      var isName = /\b(n[ée]v|meno|name|hr[áa][čc]|player)/i.test(h);
+      if(RES_RX.code.test(h) && !isName){ if(codeCol < 0) codeCol = c; continue; }
+      if(isName) strict.push(c);
+      else if(RES_RX.name.test(h)) loose.push(c);
     }
-    if(nameCol < 0) return null;
+    var cand = strict.concat(loose);
+    if(!cand.length) return null;
+    /* Amelyik oszlopban valódi nevek vannak — nem puszta számok. */
+    function nameScore(col){
+      var good = 0, all2 = 0;
+      for(var k = head + 1; k < rows.length && all2 < 12; k++){
+        var v = String((rows[k] || [])[col] || '').trim();
+        if(!v) continue;
+        all2++;
+        if(/[A-Za-zÀ-ž]/.test(v)) good++;
+      }
+      return all2 ? good / all2 : 0;
+    }
+    for(c = 0; c < cand.length; c++){
+      if(nameScore(cand[c]) >= 0.5){ nameCol = cand[c]; break; }
+    }
+    if(nameCol < 0) nameCol = cand[0];
+    if(codeCol === nameCol) codeCol = -1;
+    /* A helyezés oszlopa: a fejléc szerint (Helyezés / Poradie / Umiestnenie). */
+    var placeCol = -1;
+    for(c = 0; c < hdr.length; c++){
+      if(c === nameCol || c === codeCol) continue;
+      if(RES_RX.place.test(String(hdr[c] || ''))){ placeCol = c; break; }
+    }
+    if(placeCol < 0){ placeCol = (nameCol - 1 >= 0) ? (nameCol - 1) : 0; if(placeCol === codeCol) placeCol = 0; }
     var rounds = [], totMoney = -1, totPoints = -1;
     for(c = nameCol + 1; c < hdr.length; c++){
       var t = String(hdr[c] || '').replace(/\s+/g, ' ').trim();
@@ -3609,14 +3880,15 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     for(i = head + 1; i < rows.length; i++){
       var row = rows[i] || [];
       var nm = String(row[nameCol] || '').trim();
-      if(!nm) continue;
-      var place = numOf(row[nameCol - 1 >= 0 ? nameCol - 1 : 0]);
+      if(!nm || !isPersonName(nm)) continue;         /* üres vagy számokból álló sor: nem játékos */
+      var code = codeCol >= 0 ? String(row[codeCol] || '').trim() : '';
+      var place = numOf(row[placeCol]);
       var rr = rounds.map(function(x){ return { money: numOf(row[x.moneyCol]) || 0, points: numOf(row[x.pointsCol]) || 0 }; });
       var sumP = rr.reduce(function(a, b){ return a + b.points; }, 0);
       var sumM = rr.reduce(function(a, b){ return a + b.money; }, 0);
       if(place && place > maxPlace) maxPlace = place;
       players.push({
-        name: nm, place: place || null, rounds: rr,
+        name: nm, code: code, place: place || null, rounds: rr,
         money: totMoney >= 0 ? (numOf(row[totMoney]) || 0) : sumM,
         points: totPoints >= 0 ? (numOf(row[totPoints]) || 0) : sumP
       });
@@ -3674,7 +3946,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
               var drawn = false;
               t.players.forEach(function(q){ if(q !== p && q.place === p.place) drawn = true; });
               allRows.push({ n: p.name, t: t.name, place: p.place, points: p.points, money: p.money,
-                             size: t.size, drawn: drawn ? 1 : 0, rounds: p.rounds });
+                             size: t.size, drawn: drawn ? 1 : 0, rounds: p.rounds, code: p.code || '' });
             });
           } else failed++;
           done++;
