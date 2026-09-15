@@ -355,6 +355,17 @@
   .netminus{color:#b3261e}
   .moneymini{margin:.25rem 0 0; font-size:.92rem; color:var(--ink-soft); opacity:.85}
   .banner.ok{border-color:var(--accent); background:var(--accent-soft); color:var(--accent-strong); font-weight:600}
+  /* Admin: játékosok táblázata (beírható mezők) */
+  table.players td{padding:.35rem .3rem; vertical-align:middle}
+  table.players input.pin{width:100%; min-width:5.5rem; padding:.35rem .45rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; font-size:.98rem}
+  table.players td.pactions{white-space:nowrap}
+  /* Elhunyt jelölése: visszafogott lista apró kereszt-gombokkal */
+  .deadlist{display:flex; flex-direction:column; gap:.15rem; max-height:24rem; overflow:auto; margin-top:.5rem; border:1px solid var(--border); border-radius:10px; padding:.4rem}
+  .deadrow{display:flex; align-items:center; gap:.5rem; padding:.15rem .2rem}
+  .deadname{flex:1 1 auto}
+  .deadbtn{width:2rem; height:2rem; min-height:0; padding:0; line-height:1; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink-soft); font-size:1rem; cursor:pointer; opacity:.55}
+  .deadbtn:hover{opacity:1; border-color:var(--accent)}
+  .deadbtn.on{background:var(--accent-soft); color:var(--accent-strong); border-color:var(--accent); opacity:1}
   td.moneycol,th.moneycol{color:var(--ink-soft); font-weight:400}
   .adminsub{margin:1.4rem 0 .5rem; font-size:1.05rem; color:var(--accent-strong)}
   .namepairs{display:flex; flex-direction:column; gap:.5rem; margin:.4rem 0 .8rem}
@@ -478,7 +489,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 35;
+  var BUILD = 36;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -5522,30 +5533,63 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       var q = deacc(deadQuery);
       var list = stats.slice().sort(function(a, b){ return a.name.localeCompare(b.name, 'hu'); });
       if(q) list = list.filter(function(p){ return deacc(p.name).indexOf(q) >= 0 || (p.aliasList || []).some(function(a){ return deacc(a).indexOf(q) >= 0; }); });
-      var html = '<div class="field" style="max-width:26rem"><label for="dead-q">'+esc(T('Játékos keresése','Hľadanie hráča'))+'</label>'
+      var html = '<p class="meta">'+esc(T('Akinek a neve mellett kereszt (†) legyen a ranglistán és az adatlapján. Ha a Google-táblázatban már ott van a †, azt a portál magától felismeri.','Komu má byť pri mene krížik (†) v rebríčku a na karte. Ak je † už v Google tabuľke, portál ho rozpozná sám.'))+'</p>'
+        + '<div class="field" style="max-width:22rem"><label for="dead-q">'+esc(T('Játékos keresése','Hľadanie hráča'))+'</label>'
         + '<input id="dead-q" type="search" value="'+esc(deadQuery)+'" placeholder="'+esc(T('pl. Sárközi','napr. Sárközi'))+'" oninput="MUB.setDeadQuery(this.value)"></div>'
-        + '<div class="table-wrap"><table class="list"><thead><tr><th>'+esc(T('Játékos','Hráč'))+'</th><th>'+esc(T('Állapot','Stav'))+'</th><th></th></tr></thead><tbody>'
+        + '<div class="deadlist">'
         + list.slice(0, 300).map(function(p){
             var marked = isMarkedDead(p);
-            return '<tr><td>'+esc(p.name)+(p.deceased ? ' <span class="dagger">†</span>' : '')+'</td>'
-              + '<td>'+(p.deceased ? '<span class="dagger">†</span> '+esc(T('megjelölve','označené')) : '<span class="meta">—</span>')+'</td>'
-              + '<td><button type="button" class="btn sm '+(p.deceased ? 'secondary' : '')+'" onclick="MUB.deadToggle(\''+jsq(p.name)+'\')">'
-              + esc(p.deceased ? T('Jelölés visszavonása','Zrušiť označenie') : T('† Elhunyt','† Zosnulý'))+'</button>'
-              + (p.deceased && !marked ? ' <span class="meta">'+esc(T('a táblázatban van †','v tabuľke je †'))+'</span>' : '')
-              + '</td></tr>';
+            return '<div class="deadrow"><span class="deadname">'+esc(p.name)+(p.deceased ? ' <span class="dagger">†</span>' : '')+'</span>'
+              + (p.deceased && !marked ? '<span class="meta">'+esc(T('a táblázatban van †','v tabuľke je †'))+'</span>' : '')
+              + '<button type="button" class="deadbtn'+(p.deceased ? ' on' : '')+'" title="'+esc(p.deceased ? T('Jelölés visszavonása','Zrušiť označenie') : T('† Elhunyt','† Zosnulý'))+'"'
+              + ' aria-label="'+esc(p.deceased ? T('Jelölés visszavonása','Zrušiť označenie') : T('† Elhunyt','† Zosnulý'))+'"'
+              + ' onclick="MUB.deadToggle(\''+jsq(p.name)+'\')">†</button></div>';
           }).join('')
-        + '</tbody></table></div>'
-        + '<p class="meta">'+esc(T('A megjelölt játékos neve mellett kereszt (†) látszik a ranglistán és az adatlapján. Ha a Google-táblázatban már ott van a †, azt a portál magától felismeri.','Pri označenom hráčovi sa v rebríčku a na jeho karte zobrazí krížik (†). Ak je † už v Google tabuľke, portál ho rozpozná sám.'))+'</p>';
+        + '</div>';
       box2.innerHTML = html;
+    });
+  }
+  /* ---------- Admin: játékosok (sorszám, azonosító, elérhetőségek) ---------- */
+  var playerQuery = '', playerLimit = 30;
+  function setPlayerQuery(v){ playerQuery = String(v == null ? '' : v); playerLimit = 30; renderAdminPlayers(); }
+  function playerShowMore(){ playerLimit += 40; renderAdminPlayers(); }
+  function val(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
+  function savePlayer(code){
+    if(!currentUser) return;
+    var data = {
+      name: val('pl-name-' + code),
+      nfcCode: val('pl-nfc-' + code),
+      phone: val('pl-phone-' + code),
+      email: val('pl-mail-' + code),
+      village: val('pl-vill-' + code)
+    };
+    db.collection('players').doc(String(code)).set(data, { merge: true }).then(function(){
+      invalidate('players');
+      lastImportStatus = T('Elmentve: ','Uložené: ') + (data.name || code);
+      renderAdminPlayers();
+    }).catch(function(err){
+      alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + err.message);
+    });
+  }
+  /* Névjegyzék letöltése (későbbi SMS / e-mail értesítéshez). */
+  function exportContacts(){
+    loadAllPlayers(function(players){
+      var rows = [['Sorszám', 'Név', 'Azonosító', 'Telefon', 'E-mail', 'Község']];
+      players.slice().sort(function(a, b){ return String(a.code).localeCompare(String(b.code), undefined, { numeric: true }); })
+        .forEach(function(p){ rows.push([p.code, p.name || '', p.nfcCode || '', p.phone || '', p.email || '', p.village || '']); });
+      var csv = rows.map(function(r){ return r.map(function(v){ return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+      var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a'); a.href = url; a.download = 'jatekosok-nevjegyzek.csv';
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     });
   }
   function renderAdminPlayers(){
     var body = document.getElementById('admin-body');
-    body.innerHTML = '<div class="card" style="margin-bottom:1.2rem"><h3 style="margin-bottom:.6rem">'+esc(T('Elhunyt játékos jelölése (†)','Označenie zosnulého hráča (†)'))+'</h3>'
-      + '<div id="dead-list"></div></div>'
-      + '<div class="card" style="margin-bottom:1.2rem"><h3 style="margin-bottom:.8rem">'+esc(T('Új játékos','Nový hráč'))+'</h3>'
+    body.innerHTML = '<div class="card" style="margin-bottom:1.2rem"><h3 style="margin-bottom:.8rem">'+esc(T('Új játékos','Nový hráč'))+'</h3>'
       + '<div class="row2"><div class="field"><label for="p-code">'+esc(T('Sorszám (1–100)','Poradové číslo (1–100)'))+'</label><input id="p-code" inputmode="numeric"></div><div class="field"><label for="p-name">'+esc(T('Név','Meno'))+'</label><input id="p-name"></div></div>'
-      + '<div class="field"><label for="p-nfc">'+esc(T('Azonosító szám (nem kötelező)','Identifikačné číslo (nepovinné)'))+'</label><input id="p-nfc" inputmode="numeric"></div>'
+      + '<div class="row2"><div class="field"><label for="p-nfc">'+esc(T('Azonosító szám (ID)','Identifikačné číslo (ID)'))+'</label><input id="p-nfc" inputmode="numeric"></div><div class="field"><label for="p-phone">'+esc(T('Telefonszám','Telefónne číslo'))+'</label><input id="p-phone" inputmode="tel"></div></div>'
+      + '<div class="row2"><div class="field"><label for="p-mail">E-mail</label><input id="p-mail" type="email"></div><div class="field"><label for="p-vill">'+esc(T('Község','Obec'))+'</label><input id="p-vill"></div></div>'
       + '<button type="button" class="btn sm" onclick="MUB.addPlayer()">'+esc(T('Hozzáadás','Pridať'))+'</button></div>'
       + '<div class="card" style="margin-bottom:1.2rem"><h3 style="margin-bottom:.6rem">'+esc(T('Tömeges felvétel','Hromadné pridanie'))+'</h3>'
       + '<p class="meta" style="margin-bottom:.6rem">'+esc(T('Az alap 100 fős játékoslista importálása egy kattintással (csak azokat a sorszámokat veszi fel, amelyek még nincsenek benne).','Import základného zoznamu 100 hráčov jedným kliknutím (pridajú sa iba poradové čísla, ktoré tam ešte nie sú).'))+'</p>'
@@ -5553,37 +5597,72 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       + '<div class="field" style="margin-top:1rem"><label for="p-paste">'+esc(T('Vagy illesszen be listát (soronként: sorszám, azonosító szám, név – tabbal vagy több szóközzel elválasztva)','Alebo vložte zoznam (na každý riadok: poradové číslo, identifikačné číslo, meno – oddelené tabulátorom alebo viacerými medzerami)'))+'</label><textarea id="p-paste" rows="4" placeholder="1	3046748439	Sárközi Ferenc"></textarea></div>'
       + '<button type="button" class="btn sm secondary" onclick="MUB.importPastedRoster()">'+esc(T('Beillesztett lista importálása','Importovať vložený zoznam'))+'</button>'
       + '<p id="import-status" class="meta" style="margin-top:.5rem">'+esc(lastImportStatus)+'</p>'
-      + '</div><div id="p-list"></div>';
+      + '</div>'
+      + '<div class="card" style="margin-bottom:1.2rem"><h3 style="margin-bottom:.6rem">'+esc(T('Játékosok','Hráči'))+'</h3>'
+      + '<div class="toolbar" style="align-items:flex-end"><div class="field" style="flex:1 1 18rem"><label for="pl-q">'+esc(T('Keresés (név, sorszám, azonosító, község)','Hľadanie (meno, číslo, ID, obec)'))+'</label>'
+      + '<input id="pl-q" type="search" value="'+esc(playerQuery)+'" oninput="MUB.setPlayerQuery(this.value)"></div>'
+      + '<button type="button" class="btn sm secondary" onclick="MUB.exportContacts()">'+esc(T('Névjegyzék letöltése (CSV)','Stiahnuť zoznam kontaktov (CSV)'))+'</button></div>'
+      + '<div id="p-list"></div></div>'
+      + '<details class="whobox"><summary>'+esc(T('Elhunyt játékos jelölése (†)','Označenie zosnulého hráča (†)'))+'</summary><div class="whobody"><div id="dead-list"></div></div></details>';
     invalidate('players');
     renderAdminDeadList();
     loadAllPlayers(function(players){
       var sorted = players.slice().sort(function(a,b){ return String(a.code).localeCompare(String(b.code), undefined, {numeric:true}); });
+      var q = deacc(playerQuery);
+      if(q){
+        sorted = sorted.filter(function(p){
+          return deacc(p.name).indexOf(q) >= 0 || deacc(p.code).indexOf(q) >= 0
+            || deacc(p.nfcCode || '').indexOf(q) >= 0 || deacc(p.village || '').indexOf(q) >= 0;
+        });
+      }
       var pList = document.getElementById('p-list');
       if(!pList) return;
       var notSaved = sorted.filter(function(p){ return p.fromRoster; }).length;
+      var shown = sorted.slice(0, playerLimit);
+      function inp(id, v, extra){
+        return '<input id="'+id+'" class="pin" value="'+esc(v || '')+'"'+(extra || '')+'>';
+      }
       pList.innerHTML = sorted.length
-        ? ('<div class="table-wrap"><table class="list"><thead><tr><th>'+esc(T('Sorszám','Poradové číslo'))+'</th><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Azonosító szám','Identifikačné číslo'))+'</th><th></th></tr></thead><tbody>'
-          + sorted.map(function(p){
-              return '<tr><td class="num">'+esc(p.code)+'</td>'
-                + '<td>'+(String(p.name||'').trim() ? esc(p.name) : '<span class="meta">'+esc(T('nincs név','bez mena'))+'</span>')+'</td>'
-                + '<td class="num">'+esc(p.nfcCode||'')+'</td>'
-                + '<td><button type="button" class="btn sm danger" onclick="MUB.deletePlayer(\''+jsq(p.code)+'\')">'+esc(T('Törlés','Zmazať'))+'</button></td></tr>';
+        ? ('<div class="table-wrap"><table class="list players"><thead><tr>'
+          + '<th class="num">'+esc(T('Sorsz.','Č.'))+'</th><th>'+esc(T('Név','Meno'))+'</th>'
+          + '<th>'+esc(T('Azonosító (ID)','ID'))+'</th><th>'+esc(T('Telefon','Telefón'))+'</th><th>E-mail</th><th>'+esc(T('Község','Obec'))+'</th><th></th>'
+          + '</tr></thead><tbody>'
+          + shown.map(function(p){
+              var c = esc(p.code);
+              return '<tr><td class="num">'+c+(p.fromRoster ? '<div class="meta" style="font-size:.75rem">'+esc(T('nincs mentve','neuložené'))+'</div>' : '')+'</td>'
+                + '<td>'+inp('pl-name-'+p.code, p.name)+'</td>'
+                + '<td>'+inp('pl-nfc-'+p.code, p.nfcCode, ' inputmode="numeric"')+'</td>'
+                + '<td>'+inp('pl-phone-'+p.code, p.phone, ' inputmode="tel"')+'</td>'
+                + '<td>'+inp('pl-mail-'+p.code, p.email)+'</td>'
+                + '<td>'+inp('pl-vill-'+p.code, p.village)+'</td>'
+                + '<td class="pactions"><button type="button" class="btn sm" onclick="MUB.savePlayer(\''+jsq(p.code)+'\')">'+esc(T('Mentés','Uložiť'))+'</button>'
+                + ' <button type="button" class="btn sm danger" onclick="MUB.deletePlayer(\''+jsq(p.code)+'\')">'+esc(T('Törlés','Zmazať'))+'</button></td></tr>';
             }).join('')
           + '</tbody></table></div>'
+          + (sorted.length > shown.length
+              ? '<p class="meta"><button type="button" class="btn sm secondary" onclick="MUB.playerShowMore()">'+esc(T('Több megjelenítése','Zobraziť viac'))+' (' + (sorted.length - shown.length) + ')</button></p>'
+              : '')
           + '<p class="meta" style="margin-top:.6rem">'+sorted.length+' '+esc(T('játékos','hráčov'))
-          + (notSaved ? ' · ' + notSaved + ' ' + esc(T('még csak a beépített listában van, nincs elmentve a Firebase-be — használja az „Alap lista importálása” gombot.','je zatiaľ iba v zabudovanom zozname, nie je uložených vo Firebase — použite tlačidlo „Importovať základný zoznam”.')) : '')
+          + (notSaved ? ' · ' + notSaved + ' ' + esc(T('még csak a beépített listában van, nincs elmentve a Firebase-be — használja a „Mentés” gombot, vagy az „Alap lista importálása” gombot.','je zatiaľ iba v zabudovanom zozname, nie je uložených vo Firebase — použite „Uložiť” alebo „Importovať základný zoznam”.')) : '')
           + '</p>')
-        : '<p class="meta">'+esc(T('Még nincs felvett játékos.','Zatiaľ nie je pridaný žiadny hráč.'))+'</p>';
+        : '<p class="meta">'+esc(T('Nincs a keresésnek megfelelő játékos.','Žiadny hráč nezodpovedá hľadaniu.'))+'</p>';
     });
   }
   function addPlayer(){
-    var code = document.getElementById('p-code').value.trim();
-    var name = document.getElementById('p-name').value.trim();
-    var nfc = document.getElementById('p-nfc').value.trim();
-    if(!code || !name) return;
-    var data = {name:name};
+    var code = val('p-code');
+    var name = val('p-name');
+    if(!code || !name){ alert(T('A sorszám és a név kell.','Číslo a meno sú povinné.')); return; }
+    var data = { name: name };
+    var nfc = val('p-nfc'), phone = val('p-phone'), mail = val('p-mail'), vill = val('p-vill');
     if(nfc) data.nfcCode = nfc;
-    db.collection('players').doc(code).set(data, {merge:true}).then(function(){ invalidate('players'); renderAdminPlayers(); });
+    if(phone) data.phone = phone;
+    if(mail) data.email = mail;
+    if(vill) data.village = vill;
+    db.collection('players').doc(code).set(data, {merge:true}).then(function(){
+      invalidate('players');
+      lastImportStatus = T('Felvéve: ','Pridané: ') + name;
+      renderAdminPlayers();
+    });
   }
   function deletePlayer(code){
     if(!confirm(T('Biztosan törli?','Naozaj to chcete zmazať?'))) return;
@@ -6006,7 +6085,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     addPlayer: addPlayer, deletePlayer: deletePlayer, importDefaultRoster: importDefaultRoster, importPastedRoster: importPastedRoster,
     addDownload: addDownload, deleteDownload: deleteDownload,
     nameDecide: nameDecide, nameUndo: nameUndo, nameClearAll: nameClearAll, setNameQuery: setNameQuery, nameShowMore: nameShowMore, nameManual: nameManual,
-    deadToggle: deadToggle, setDeadQuery: setDeadQuery
+    deadToggle: deadToggle, setDeadQuery: setDeadQuery,
+    savePlayer: savePlayer, setPlayerQuery: setPlayerQuery, playerShowMore: playerShowMore, exportContacts: exportContacts
   };
 
   render();
