@@ -352,6 +352,8 @@
   .npnames{font-size:1.02rem}
   .npvs{color:var(--ink-soft); padding:0 .2rem}
   .npbtns{display:flex; gap:.4rem}
+  .namemanual{display:flex; flex-wrap:wrap; gap:.4rem; align-items:center; margin:.3rem 0 .6rem}
+  .namemanual input{flex:1 1 12rem; min-width:9rem; padding:.45rem .6rem; border:1px solid var(--border); border-radius:10px; background:var(--surface); color:var(--ink); font-size:1rem}
   .pstat{flex:1 1 6.5rem; border:1px solid var(--border); border-radius:12px; padding:.6rem .5rem; text-align:center; background:var(--surface-2)}
   .pstat .pnum{display:block; font-family:"IBM Plex Mono",monospace; font-size:1.45rem; font-weight:700; color:var(--accent-strong)}
   .pstat .plabel{display:block; font-size:.86rem; color:var(--ink-soft); line-height:1.25}
@@ -464,7 +466,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 19;
+  var BUILD = 20;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -5488,6 +5490,14 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
         renderAdminNames();
       });
   }
+  /* Kézzel beírt pár eldöntése (ha valahol olyat lát, amit a lista nem kínál fel). */
+  function nameManual(same){
+    var a = document.getElementById('name-a'), b = document.getElementById('name-b');
+    var na = String(a && a.value || '').trim(), nb = String(b && b.value || '').trim();
+    if(!na || !nb){ alert(T('Írja be mindkét nevet.','Zadajte obe mená.')); return; }
+    if(deacc(na) === deacc(nb)){ alert(T('A két név ugyanaz.','Obe mená sú rovnaké.')); return; }
+    nameDecide(na, nb, !!same);
+  }
   function nameClearAll(){
     if(!currentUser) return;
     if(!confirm(T('Biztosan törli az összes név-döntést? A statisztika újra a saját felismerését használja.','Naozaj vymazať všetky rozhodnutia o menách?'))) return;
@@ -5531,6 +5541,19 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
           + '</div>'
           + '<p class="meta"><button type="button" class="btn sm secondary" onclick="MUB.nameClearAll()">'+esc(T('Összes döntés törlése','Vymazať všetky rozhodnutia'))+'</button></p>';
       }
+
+      /* kézi megadás */
+      var allNames = cand.ng.names.slice().sort(function(x, y){ return x.localeCompare(y, 'hu'); });
+      html += '<h3 class="adminsub">'+esc(T('Pár beírása kézzel','Zadať pár ručne'))+'</h3>'
+        + '<p class="meta">'+esc(T('Ha olyan két nevet lát (akár a Google-táblázatban), amiről tudja, hogy ugyanaz a személy, írja be ide, és döntse el.','Ak vidíte dve mená (napr. v Google tabuľke), o ktorých viete, že je to tá istá osoba, zadajte ich sem.'))+'</p>'
+        + '<div class="namemanual">'
+        + '<input id="name-a" list="name-list" type="text" placeholder="'+esc(T('első név','prvé meno'))+'">'
+        + '<span class="npvs">↔</span>'
+        + '<input id="name-b" list="name-list" type="text" placeholder="'+esc(T('második név','druhé meno'))+'">'
+        + '<button type="button" class="btn sm" onclick="MUB.nameManual(true)">'+esc(T('Ugyanaz a személy','Tá istá osoba'))+'</button>'
+        + '<button type="button" class="btn sm secondary" onclick="MUB.nameManual(false)">'+esc(T('Két külön ember','Dve rôzne osoby'))+'</button>'
+        + '</div>'
+        + '<datalist id="name-list">' + allNames.map(function(x){ return '<option value="'+esc(x)+'"></option>'; }).join('') + '</datalist>';
 
       /* átnézendő párok */
       html += '<h3 class="adminsub">'+esc(T('Átnézendő párok','Páry na kontrolu'))+' (' + pairs.length + ')</h3>'
@@ -5738,7 +5761,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     pickRegTournament: pickRegTournament, exportCsv: exportCsv,
     addPlayer: addPlayer, deletePlayer: deletePlayer, importDefaultRoster: importDefaultRoster, importPastedRoster: importPastedRoster,
     addDownload: addDownload, deleteDownload: deleteDownload,
-    nameDecide: nameDecide, nameUndo: nameUndo, nameClearAll: nameClearAll, setNameQuery: setNameQuery, nameShowMore: nameShowMore
+    nameDecide: nameDecide, nameUndo: nameUndo, nameClearAll: nameClearAll, setNameQuery: setNameQuery, nameShowMore: nameShowMore, nameManual: nameManual
   };
 
   render();
