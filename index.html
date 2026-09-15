@@ -498,7 +498,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 38;
+  var BUILD = 39;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1533,6 +1533,30 @@
       else if(isSum && !isPts && totMoney < 0) totMoney = c;
       else if(isPts && !isSum && totPoints < 0) totPoints = c;
     }
+    /* A hivatalos szezon-pont: a kör-pontokat ÉS a helyezési bónuszt tartalmazó
+       összeg („BODY MUBL PONT MUBL”). A hivatalos helyezés e szerint készült,
+       ezért ez a mérvadó. A legrégebbi táblában ez az oszlop fejléc nélkül,
+       közvetlenül a pont-oszlop mellett van. */
+    if(totPoints >= 0){
+      var mubCol = -1;
+      for(c = 0; c < hdr.length; c++){
+        var hm = String(hdr[c] || '').replace(/\s+/g, ' ').trim();
+        if(hm && /\b(pont|body|point)/i.test(hm) && /mubl/i.test(hm)){ mubCol = c; break; }
+      }
+      if(mubCol < 0){
+        for(c = totPoints + 1; c < hdr.length && c <= totPoints + 2; c++){
+          if(c === playedCol) break;
+          var ge = 0, cnt = 0;
+          for(i = head + 1; i < rows.length; i++){
+            var pv = numOf((rows[i] || [])[totPoints]), mv = numOf((rows[i] || [])[c]);
+            if(pv == null || mv == null) continue;
+            cnt++; if(mv >= pv - 0.01) ge++;
+          }
+          if(cnt > 3 && ge / cnt >= 0.9){ mubCol = c; break; }
+        }
+      }
+      if(mubCol >= 0 && mubCol !== totPoints) totPoints = mubCol;
+    }
     /* honnan meddig vannak a verseny-oszlopok */
     if(totMoney === nameCol + 1) idCol = -1;   /* nincs azonosító oszlop (a legrégebbi táblában) */
     var startCol = idCol >= 0 ? idCol + 1 : nameCol + 1, stopCol = hdr.length;
@@ -2523,10 +2547,12 @@
        utána a több győzelem, végül a hivatalos helyezés és a név. */
     arr.sort(function(a, b){
       if(b.points !== a.points) return b.points - a.points;
+      /* azonos pontnál a hivatalos helyezés a mérvadó (a táblázat így sorolja) */
+      var ra = (a.aggRank == null ? 99999 : a.aggRank), rb = (b.aggRank == null ? 99999 : b.aggRank);
+      if(ra !== rb) return ra - rb;
       if(b.grossMoney !== a.grossMoney) return b.grossMoney - a.grossMoney;
       if(b.wins !== a.wins) return b.wins - a.wins;
       if(b.podiums !== a.podiums) return b.podiums - a.podiums;
-      if(a.hasAgg && b.hasAgg && a.aggRank != null && b.aggRank != null && a.aggRank !== b.aggRank) return a.aggRank - b.aggRank;
       return a.name.localeCompare(b.name, 'hu');
     });
     arr.forEach(function(p, i){ p.rank = i + 1; p.officialRank = (p.hasAgg && p.aggRank != null) ? p.aggRank : null; });
