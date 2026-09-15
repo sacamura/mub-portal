@@ -472,7 +472,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 28;
+  var BUILD = 29;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2062,6 +2062,38 @@
      annak megfelelően számol. */
   var NAME_RULES = { same: [], diff: [] };
   var NAME_BLOCK = {};
+  /* A szervező által elhunytnak jelölt játékosok († a név mellett). */
+  var DEAD = {};
+  function setDeadList(list){
+    DEAD = {};
+    (list || []).forEach(function(x){
+      var k = deacc(x);
+      if(k) DEAD[k] = 1;
+    });
+  }
+  function deadNames(){ return Object.keys(DEAD); }
+  function isMarkedDead(p){
+    if(!p) return false;
+    var names = [p.name].concat(p.aliasList || []);
+    for(var i = 0; i < names.length; i++){ if(DEAD[deacc(names[i])]) return true; }
+    return false;
+  }
+  function saveDeadList(list, cb){
+    setDeadList(list);
+    db.collection('settings').doc('rules').set({ names_dead: deadNames() }, { merge: true })
+      .then(function(){ CACHE.rules = null; if(cb) cb(true); })
+      .catch(function(err){ if(cb) cb(false, err); });
+  }
+  function deadToggle(name){
+    if(!currentUser) return;
+    var k = deacc(name);
+    var list = deadNames().filter(function(x){ return deacc(x) !== k; });
+    if(!DEAD[k]) list.push(String(name).trim());
+    saveDeadList(list, function(ok2, err){
+      if(!ok2){ alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + ((err && err.message) || '')); return; }
+      renderAdminPlayers();
+    });
+  }
   function normPair(a, b){
     a = String(a == null ? '' : a).trim(); b = String(b == null ? '' : b).trim();
     return a <= b ? [a, b] : [b, a];
@@ -2094,6 +2126,7 @@
     db.collection('settings').doc('rules').get().then(function(d){
       var v = (d && d.exists) ? (d.data() || {}) : {};
       setPairRules(v.names_same, v.names_diff);
+      setDeadList(v.names_dead);
       if(cb) cb(NAME_RULES);
     }).catch(function(){ if(cb) cb(NAME_RULES); });
   }
@@ -2403,6 +2436,8 @@
       p.roundsPlayed = roundsSum;
       /* A csoport összes névformája és azonosítója (a keresés és a megjelenítés miatt). */
       p.aliasList = Object.keys(p.aliases || {}).sort();
+      /* A szervező jelölése: elhunyt († a név mellett). */
+      if(!p.deceased && isMarkedDead({ name: p.name, aliasList: p.aliasList })) p.deceased = true;
       /* Megjelenítéshez: szép írásmód, ismétlődések nélkül. */
       (function(){
         var seen2 = {}, nice = [];
@@ -5426,9 +5461,41 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
   }
 
   /* --- admin: players (codes) --- */
+  var deadQuery = '';
+  function setDeadQuery(v){ deadQuery = String(v == null ? '' : v); renderAdminDeadList(); }
+  function renderAdminDeadList(){
+    var box = document.getElementById('dead-list');
+    if(!box) return;
+    box.innerHTML = '<p class="meta">'+esc(T('Betöltés…','Načítava sa…'))+'</p>';
+    loadResults(function(all){
+      var box2 = document.getElementById('dead-list');
+      if(!box2) return;
+      var stats = buildStats(all);
+      var q = deacc(deadQuery);
+      var list = stats.slice().sort(function(a, b){ return a.name.localeCompare(b.name, 'hu'); });
+      if(q) list = list.filter(function(p){ return deacc(p.name).indexOf(q) >= 0 || (p.aliasList || []).some(function(a){ return deacc(a).indexOf(q) >= 0; }); });
+      var html = '<div class="field" style="max-width:26rem"><label for="dead-q">'+esc(T('Játékos keresése','Hľadanie hráča'))+'</label>'
+        + '<input id="dead-q" type="search" value="'+esc(deadQuery)+'" placeholder="'+esc(T('pl. Sárközi','napr. Sárközi'))+'" oninput="MUB.setDeadQuery(this.value)"></div>'
+        + '<div class="table-wrap"><table class="list"><thead><tr><th>'+esc(T('Játékos','Hráč'))+'</th><th>'+esc(T('Állapot','Stav'))+'</th><th></th></tr></thead><tbody>'
+        + list.slice(0, 300).map(function(p){
+            var marked = isMarkedDead(p);
+            return '<tr><td>'+esc(p.name)+(p.deceased ? ' <span class="dagger">†</span>' : '')+'</td>'
+              + '<td>'+(p.deceased ? '<span class="dagger">†</span> '+esc(T('megjelölve','označené')) : '<span class="meta">—</span>')+'</td>'
+              + '<td><button type="button" class="btn sm '+(p.deceased ? 'secondary' : '')+'" onclick="MUB.deadToggle(\''+jsq(p.name)+'\')">'
+              + esc(p.deceased ? T('Jelölés visszavonása','Zrušiť označenie') : T('† Elhunyt','† Zosnulý'))+'</button>'
+              + (p.deceased && !marked ? ' <span class="meta">'+esc(T('a táblázatban van †','v tabuľke je †'))+'</span>' : '')
+              + '</td></tr>';
+          }).join('')
+        + '</tbody></table></div>'
+        + '<p class="meta">'+esc(T('A megjelölt játékos neve mellett kereszt (†) látszik a ranglistán és az adatlapján. Ha a Google-táblázatban már ott van a †, azt a portál magától felismeri.','Pri označenom hráčovi sa v rebríčku a na jeho karte zobrazí krížik (†). Ak je † už v Google tabuľke, portál ho rozpozná sám.'))+'</p>';
+      box2.innerHTML = html;
+    });
+  }
   function renderAdminPlayers(){
     var body = document.getElementById('admin-body');
-    body.innerHTML = '<div class="card" style="margin-bottom:1.2rem"><h3 style="margin-bottom:.8rem">'+esc(T('Új játékos','Nový hráč'))+'</h3>'
+    body.innerHTML = '<div class="card" style="margin-bottom:1.2rem"><h3 style="margin-bottom:.6rem">'+esc(T('Elhunyt játékos jelölése (†)','Označenie zosnulého hráča (†)'))+'</h3>'
+      + '<div id="dead-list"></div></div>'
+      + '<div class="card" style="margin-bottom:1.2rem"><h3 style="margin-bottom:.8rem">'+esc(T('Új játékos','Nový hráč'))+'</h3>'
       + '<div class="row2"><div class="field"><label for="p-code">'+esc(T('Sorszám (1–100)','Poradové číslo (1–100)'))+'</label><input id="p-code" inputmode="numeric"></div><div class="field"><label for="p-name">'+esc(T('Név','Meno'))+'</label><input id="p-name"></div></div>'
       + '<div class="field"><label for="p-nfc">'+esc(T('Azonosító szám (nem kötelező)','Identifikačné číslo (nepovinné)'))+'</label><input id="p-nfc" inputmode="numeric"></div>'
       + '<button type="button" class="btn sm" onclick="MUB.addPlayer()">'+esc(T('Hozzáadás','Pridať'))+'</button></div>'
@@ -5440,6 +5507,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       + '<p id="import-status" class="meta" style="margin-top:.5rem">'+esc(lastImportStatus)+'</p>'
       + '</div><div id="p-list"></div>';
     invalidate('players');
+    renderAdminDeadList();
     loadAllPlayers(function(players){
       var sorted = players.slice().sort(function(a,b){ return String(a.code).localeCompare(String(b.code), undefined, {numeric:true}); });
       var pList = document.getElementById('p-list');
@@ -5869,7 +5937,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     pickRegTournament: pickRegTournament, exportCsv: exportCsv,
     addPlayer: addPlayer, deletePlayer: deletePlayer, importDefaultRoster: importDefaultRoster, importPastedRoster: importPastedRoster,
     addDownload: addDownload, deleteDownload: deleteDownload,
-    nameDecide: nameDecide, nameUndo: nameUndo, nameClearAll: nameClearAll, setNameQuery: setNameQuery, nameShowMore: nameShowMore, nameManual: nameManual
+    nameDecide: nameDecide, nameUndo: nameUndo, nameClearAll: nameClearAll, setNameQuery: setNameQuery, nameShowMore: nameShowMore, nameManual: nameManual,
+    deadToggle: deadToggle, setDeadQuery: setDeadQuery
   };
 
   render();
