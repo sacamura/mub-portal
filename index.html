@@ -441,7 +441,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 9;
+  var BUILD = 10;
   var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1424,45 +1424,80 @@
       var probe = (rows[i] || []).join(' ').toLowerCase();
       if(/\bid\b/.test(probe) && RES_RX.name.test(probe)){ head = i; break; }
     }
-    if(head < 0) return null;
-    var hdr = rows[head] || [];
-    for(c = 0; c < hdr.length; c++){
-      var cell = String(hdr[c] || '').replace(/\s+/g, ' ').trim();
-      if(!cell) continue;
-      if(/^id$/i.test(cell)) idCol = c;
-      if(nameCol < 0 && RES_RX.name.test(cell)) nameCol = c;
-      if(rankCol < 0 && RES_RX.place.test(cell)) rankCol = c;
+    var hdr;
+    if(head < 0){
+      /* Régi táblák: a fejléc hiányos (nincs ID/NÉV felirat). Ilyenkor az
+         általános elrendezést feltételezzük: A helyezés, B név, C azonosító. */
+      for(i = 0; i < Math.min(rows.length, 6); i++){
+        if(/^\s*\d+\s*[.)]?\s*$/.test(String((rows[i] || [])[0] || ''))){ head = i - 1; break; }
+      }
+      if(head < -1) head = -1;
+      if(head < 0) return null;
+      hdr = rows[head] || [];
+      nameCol = 1; idCol = 2; rankCol = 0;
+    } else {
+      hdr = rows[head] || [];
+      for(c = 0; c < hdr.length; c++){
+        var cell = String(hdr[c] || '').replace(/\s+/g, ' ').trim();
+        if(!cell) continue;
+        if(/^id$/i.test(cell)) idCol = c;
+        if(nameCol < 0 && RES_RX.name.test(cell)) nameCol = c;
+        if(rankCol < 0 && RES_RX.place.test(cell)) rankCol = c;
+      }
+      if(nameCol < 0) return null;
+      if(idCol < 0) idCol = nameCol + 1;
+      if(rankCol < 0) rankCol = 0;
     }
-    if(nameCol < 0) return null;
-    if(idCol < 0) idCol = nameCol + 1;
-    if(rankCol < 0) rankCol = 0;
-    /* a záró összesítő oszlopok */
+    /* a záró (vagy a régi táblákban elöl lévő) összesítő oszlopok */
     var totMoney = -1, totPoints = -1, playedCol = -1;
     for(c = 0; c < hdr.length; c++){
       var t = String(hdr[c] || '').replace(/\s+/g, ' ').trim();
       if(!t) continue;
+      if(/^B\d*$/i.test(t) || /^MUBL/i.test(t)) continue;
       var isSum = /spolu|suma|[öo]ssz|total|összes/i.test(t);
       var isPts = /\b(pont|body|point)/i.test(t);
       if(/r[ée]szv[ée]tel|[úu][čc]as[ťt]/i.test(t)) playedCol = c;
       else if(isSum && !isPts && totMoney < 0) totMoney = c;
       else if(isPts && !isSum && totPoints < 0) totPoints = c;
     }
-    var end = hdr.length;
-    [totMoney, totPoints, playedCol].forEach(function(x){ if(x >= 0 && x < end) end = x; });
-    var tours = [];
-    for(c = idCol + 1; c + 1 < end; c += 2){
-      tours.push({ name: String(hdr[c] || '').replace(/\s+/g, ' ').trim() || ('S' + (tours.length + 1)), moneyCol: c, pointsCol: c + 1, size: 0, winner: '' });
+    /* honnan meddig vannak a verseny-oszlopok */
+    if(totMoney === nameCol + 1) idCol = -1;   /* nincs azonosító oszlop (a legrégebbi táblában) */
+    var startCol = idCol >= 0 ? idCol + 1 : nameCol + 1, stopCol = hdr.length;
+    var totCols = [totMoney, totPoints, playedCol].filter(function(x){ return x >= 0; });
+    if(totCols.length){
+      var minTot = Math.min.apply(null, totCols), maxTot = Math.max.apply(null, totCols);
+      if(minTot <= nameCol + 1) startCol = Math.max(startCol, maxTot + 1);   /* régi tábla: az összesítők elöl vannak */
+      else stopCol = minTot;
     }
+    /* Oszlopcsoportok: minden versenyhez a pénz oszlopa, majd a pont (`B1`) és
+       néha a helyezési bónusz (`MUBL1`) oszlopa. A régi szezonokban van bónusz,
+       a 2025–2026-osban már nincs. */
+    var tours = [];
+    for(c = startCol; c < stopCol; c++){
+      var lab = String(hdr[c] || '').replace(/\s+/g, ' ').trim();
+      if(!lab) continue;
+      if(/^B\d*$/i.test(lab)){ if(tours.length && tours[tours.length - 1].pointsCol < 0) tours[tours.length - 1].pointsCol = c; continue; }
+      if(/^MUBL/i.test(lab)){ if(tours.length && tours[tours.length - 1].bonusCol < 0) tours[tours.length - 1].bonusCol = c; continue; }
+      if(!tours.length || looksTournament(lab) || /^S\d+$/i.test(lab)){
+        tours.push({ name: lab, moneyCol: c, pointsCol: -1, bonusCol: -1, size: 0, winner: '' });
+      } else {
+        var gprev = tours[tours.length - 1];
+        if(gprev.pointsCol < 0) gprev.pointsCol = c;
+        else if(gprev.bonusCol < 0) gprev.bonusCol = c;
+      }
+    }
+    tours.forEach(function(t){ if(t.pointsCol < 0) t.pointsCol = t.moneyCol + 1; });
     if(!tours.length) return null;
     var players = [];
     for(i = head + 1; i < rows.length; i++){
       var row = rows[i] || [];
       var nm = String(row[nameCol] || '').trim();
       if(!nm) continue;
-      var p = { name: nm, code: String(row[idCol] || '').trim(), rank: numOf(row[rankCol]), money: [], points: [], place: [], drawn: {}, totalMoney: 0, totalPoints: 0, played: 0 };
+      var p = { name: nm, code: String(idCol >= 0 ? (row[idCol] || '') : '').trim(), rank: numOf(row[rankCol]), money: [], points: [], bonus: [], place: [], drawn: {}, totalMoney: 0, totalPoints: 0, played: 0 };
       for(var k = 0; k < tours.length; k++){
         p.money[k] = numOf(row[tours[k].moneyCol]) || 0;
-        p.points[k] = numOf(row[tours[k].pointsCol]) || 0;
+        p.points[k] = tours[k].pointsCol >= 0 ? (numOf(row[tours[k].pointsCol]) || 0) : 0;
+        p.bonus[k] = tours[k].bonusCol >= 0 ? (numOf(row[tours[k].bonusCol]) || 0) : 0;
       }
       p.totalMoney = totMoney >= 0 ? (numOf(row[totMoney]) || 0) : p.money.reduce(function(a, b){ return a + b; }, 0);
       p.totalPoints = totPoints >= 0 ? (numOf(row[totPoints]) || 0) : p.points.reduce(function(a, b){ return a + b; }, 0);
@@ -1470,25 +1505,33 @@
       players.push(p);
     }
     if(!players.length) return null;
-    /* helyezés versenyenként: a pont, holtversenynél a pénz dönt */
+    /* Helyezés versenyenként.
+       A régi szezonokban volt helyezési bónusz (MUBL): a győztes annyi pontot
+       kapott, ahányan voltak, a többi eggyel kevesebbet. Ezért a bónuszból a
+       hivatalos helyezés pontosan visszaszámolható: hely = létszám − bónusz + 1.
+       Ahol nincs bónusz, ott a pont, holtversenynél a pénz dönt. */
     tours.forEach(function(tr, ti){
       var att = [];
       players.forEach(function(p, pi){
-        if(p.points[ti] === 0 && p.money[ti] === 0) return;
-        att.push({ pi: pi, pts: p.points[ti], money: p.money[ti] });
+        if(p.points[ti] === 0 && p.money[ti] === 0 && !p.bonus[ti]) return;
+        att.push({ pi: pi, pts: p.points[ti], money: p.money[ti], bonus: p.bonus[ti] || 0 });
       });
       att.sort(function(a, b){
         return (b.pts - a.pts) || (b.money - a.money) || String(players[a.pi].name).localeCompare(String(players[b.pi].name), 'hu');
       });
+      var maxBonus = 0;
+      att.forEach(function(x){ if(x.bonus > maxBonus) maxBonus = x.bonus; });
+      tr.size = Math.max(att.length, maxBonus);
       att.forEach(function(x, k){
-        var key = x.pts + '|' + x.money;
-        /* A táblázat egymás után sorszámoz (1., 2., 3. …): azonos pont ÉS pénz esetén
-           is külön sor, de feljegyezzük, hogy holtverseny volt (ez a „remizés"). */
-        players[x.pi].place[ti] = k + 1;
-        if((att[k - 1] && (att[k - 1].pts + '|' + att[k - 1].money) === key) ||
-           (att[k + 1] && (att[k + 1].pts + '|' + att[k + 1].money) === key)) players[x.pi].drawn[ti] = 1;
+        players[x.pi].place[ti] = (maxBonus > 0 && x.bonus > 0) ? (maxBonus - x.bonus + 1) : (k + 1);
       });
-      tr.size = att.length;
+      /* holtverseny: akinek ugyanaz a helye, mint valamelyik szomszédjáé */
+      att.forEach(function(x, k){
+        var pl = players[x.pi].place[ti];
+        var a = k > 0 ? players[att[k - 1].pi].place[ti] : null;
+        var b = k + 1 < att.length ? players[att[k + 1].pi].place[ti] : null;
+        if(pl === a || pl === b) players[x.pi].drawn[ti] = 1;
+      });
       tr.winner = att.length ? players[att[0].pi].name : '';
       tr.winnerCode = att.length ? players[att[0].pi].code : '';
     });
@@ -1497,7 +1540,7 @@
       for(var ti = 0; ti < tours.length; ti++){
         if(p.place[ti] == null) continue;
         perRows.push({ n: p.name, t: tours[ti].name, place: p.place[ti], points: p.points[ti], money: p.money[ti],
-                       size: tours[ti].size, drawn: p.drawn[ti] ? 1 : 0, code: p.code });
+                       bonus: p.bonus[ti] || 0, size: tours[ti].size, drawn: p.drawn[ti] ? 1 : 0, code: p.code });
       }
       aggRows.push({ n: p.name, place: p.rank, points: p.totalPoints, money: p.totalMoney, played: p.played, code: p.code });
     });
