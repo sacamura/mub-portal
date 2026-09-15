@@ -438,10 +438,36 @@
   #print-area th.boxh,#print-area td.box{width:2.4cm}
   #print-area tbody tr{height:1.05cm}
   @media print{
-    @page{margin:12mm}
-    html,body{background:#fff !important; color:#000 !important}
-    body.printing > *{display:none !important}
-    body.printing #print-area{display:block !important}
+    /* Mindig A4, fehér alapon fekete szöveg — a sötét téma különben olvashatatlanul nyomtat. */
+    @page{ size:A4 portrait; margin:11mm }
+    html,body{ background:#fff !important; background-image:none !important; color:#000 !important }
+    body, body *{ color:#000 !important; box-shadow:none !important; text-shadow:none !important; border-radius:0 !important }
+    .card,.table-wrap,table,thead,tbody,tr,td,th,.pstat,.nextup,.galalbum,details,summary,.whobox,.whobody,.banner,.ainote,.poll,.rulestitle,.pcard,.pcbox{ background:#fff !important }
+    /* Csak a tartalom maradjon: menü, gombok, űrlapok, beágyazott táblázatok nélkül. */
+    header.top, footer.sitefoot, nav.mainnav, .noprint, .toolbar, .tabs, .resbar, .topsearch,
+    .skip, #pc-modal, .pcm, #photo-box, .iframes, iframe, .sheetwrap, .pactions, .searchbox, .dragbox{ display:none !important }
+    .btn,.toolbtn,.pcclosebot,.deadbtn,button:not(.linkbtn):not(.thbtn){ display:none !important }
+    .linkbtn,.thbtn{ display:inline !important; width:auto !important; padding:0 !important; border:none !important; background:none !important; font-weight:700 !important; text-decoration:none !important; color:#000 !important }
+    .wrap{ max-width:none !important; width:auto !important; margin:0 !important; padding:0 !important }
+    .table-wrap{ overflow:visible !important; max-width:none !important; border:none !important }
+    table.list{ width:100% !important; font-size:9.5pt !important; border-collapse:collapse !important }
+    table.list th, table.list td{ border:1px solid #555 !important; padding:.2rem .28rem !important; white-space:normal !important; background:#fff !important }
+    table.list thead{ display:table-header-group }
+    table.list tr{ page-break-inside:avoid }
+    h1.page-title{ font-size:15pt !important; margin:0 0 .25rem }
+    h2{ font-size:12pt !important; margin:.5rem 0 .2rem }
+    h3{ font-size:11pt !important; margin:.4rem 0 .2rem }
+    .meta,.ainote{ color:#333 !important; font-size:9pt !important }
+    .pstat{border:1px solid #888 !important}
+    input,select,textarea{ border:none !important; background:#fff !important; color:#000 !important; padding:0 !important; font-size:9.5pt !important; width:auto !important; min-width:0 !important }
+    a{ color:#000 !important; text-decoration:none !important }
+    /* A jelenléti ív külön lapon, csak az látszik */
+    body.printing > *{ display:none !important }
+    body.printing #print-area{ display:block !important }
+    body.printing #print-area thead{ display:table-header-group }
+    body.printing #print-area tr{ page-break-inside:avoid }
+    body.printing #print-area table{ width:100% !important; font-size:11pt !important }
+    body.printing #print-area th, body.printing #print-area td{ border:1px solid #000 !important; padding:.3rem .4rem !important; background:#fff !important; color:#000 !important }
   }
 </style>
 </head>
@@ -496,7 +522,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 41;
+  var BUILD = 42;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -5505,6 +5531,11 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
         + '</select></div>'
         + '<div class="toolbar noprint"><div><button type="button" class="btn sm" onclick="MUB.printAttendance()">🖨 '+esc(T('Jelenléti ív nyomtatása','Vytlačiť prezenčnú listinu'))+'</button></div>'
         + '<div><button type="button" class="btn sm secondary" onclick="window.print()">'+esc(T('Az oldal nyomtatása','Tlačiť stránku'))+'</button> <button type="button" class="btn sm secondary" onclick="MUB.exportCsv()">CSV '+esc(T('exportálás','export'))+'</button></div></div>'
+        + '<div class="toolbar noprint" style="margin-bottom:.4rem"><div class="field" style="margin:0"><label for="reg-sort">'+esc(T('Sorrend','Poradie'))+'</label>'
+        + '<select id="reg-sort" onchange="MUB.setRegSort(this.value)">'
+        + '<option value="name"'+(regSort === 'name' ? ' selected' : '')+'>'+esc(T('név szerint','podľa mena'))+'</option>'
+        + '<option value="time"'+(regSort === 'time' ? ' selected' : '')+'>'+esc(T('jelentkezés ideje szerint','podľa času prihlásenia'))+'</option>'
+        + '</select></div></div>'
         + '<div id="reg-list"></div>';
       renderRegList();
     });
@@ -5515,6 +5546,11 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     renderRegList();
   }
   var lastRegList = [];
+  var regSort = 'name';            /* 'name' = névsor, 'time' = jelentkezés ideje */
+  function setRegSort(v){
+    regSort = (v === 'time') ? 'time' : 'name';
+    renderRegList();
+  }
   var regTournaments = [];        /* a jelentkezők fülön betöltött versenyek */
   var regPickTournament = null;   /* a kiválasztott verseny (a jelenléti ívhez) */
   /* A jelentkezés időpontja: a Firestore időbélyegből. */
@@ -5578,14 +5614,24 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
   function renderRegList(){
     db.collection('registrations').where('tournamentId','==',regPickTid).get().then(function(snap){
       var regs = []; snap.forEach(function(d){ regs.push(Object.assign({id:d.id}, d.data())); });
-      regs.sort(function(a,b){ return (a.name||'').localeCompare(b.name||'', 'hu'); });
+      /* Alapból névsorban; a jelentkezés ideje szerint is rendezhető. */
+      regs.sort(function(a,b){
+        if(regSort === 'time'){
+          var ta = regDate(a), tb2 = regDate(b);
+          var va = ta ? ta.getTime() : 0, vb = tb2 ? tb2.getTime() : 0;
+          return (vb - va) || (a.name||'').localeCompare(b.name||'', 'hu');
+        }
+        return (a.name||'').localeCompare(b.name||'', 'hu');
+      });
       lastRegList = regs;
       var listBox = document.getElementById('reg-list');
       if(!listBox) return;
       listBox.innerHTML = regs.length
-        ? ('<div class="table-wrap"><table class="list"><thead><tr><th>#</th><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Kód','Kód'))+'</th><th class="noprint">'+esc(T('Jelen','Prítomný'))+'</th><th class="noprint"></th></tr></thead><tbody>'
+        ? ('<div class="table-wrap"><table class="list"><thead><tr><th>#</th><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Kód','Kód'))+'</th><th>'+esc(T('Jelentkezés ideje','Čas prihlásenia'))+'</th><th class="noprint">'+esc(T('Jelen','Prítomný'))+'</th><th class="noprint"></th></tr></thead><tbody>'
           + regs.map(function(r,i){
-              return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(niceName(r.name))+'</td><td>'+esc(r.code||'')+'</td><td class="noprint"><span class="checkbox"></span></td>'
+              return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(niceName(r.name))+'</td><td>'+esc(r.code||'')+'</td>'
+                + '<td class="num">'+esc(fmtDateTime(regDate(r)))+'</td>'
+                + '<td class="noprint"><span class="checkbox"></span></td>'
                 + '<td class="noprint"><button type="button" class="btn sm danger" onclick="MUB.adminDeleteReg(\''+jsq(r.id)+'\',\''+jsq(r.name)+'\')">'+esc(T('Törlés','Zmazať'))+'</button></td></tr>';
             }).join('') + '</tbody></table></div>'
           + '<div class="meta" style="margin-top:.5rem">'+regs.length+' '+esc(T('jelentkező','prihlásených'))+'</div>')
@@ -5603,7 +5649,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     });
   }
   function exportCsv(){
-    var rows = [[T('Név','Meno'), T('Kód','Kód')]].concat(lastRegList.map(function(r){ return [r.name||'', r.code||'']; }));
+    var rows = [[T('Név','Meno'), T('Kód','Kód'), T('Jelentkezés ideje','Čas prihlásenia')]].concat(lastRegList.map(function(r){ return [r.name||'', r.code||'', fmtDateTime(regDate(r))]; }));
     var csv = rows.map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
     var blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
     var url = URL.createObjectURL(blob);
@@ -6178,7 +6224,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     addDownload: addDownload, deleteDownload: deleteDownload,
     nameDecide: nameDecide, nameUndo: nameUndo, nameClearAll: nameClearAll, setNameQuery: setNameQuery, nameShowMore: nameShowMore, nameManual: nameManual,
     deadToggle: deadToggle, setDeadQuery: setDeadQuery,
-    savePlayer: savePlayer, setPlayerQuery: setPlayerQuery, playerShowMore: playerShowMore, exportContacts: exportContacts,
+    savePlayer: savePlayer, setPlayerQuery: setPlayerQuery, playerShowMore: playerShowMore, exportContacts: exportContacts, setRegSort: setRegSort,
     setResSort: setResSort, setResMin: setResMin
   };
 
