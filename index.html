@@ -340,6 +340,10 @@
   .pcard-name{font-family:"Fraunces",Georgia,serif; font-size:1.35rem; font-weight:700}
   .pcard-rank{color:var(--ink-soft)}
   .pcard-grid{display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:.7rem}
+  .pstat.net{border-color:var(--accent); background:var(--accent-soft)}
+  .netplus{color:#1c7c3a}
+  .netminus{color:#b3261e}
+  .moneyinfo{margin:.6rem 0 0; font-size:.95rem; color:var(--ink-soft)}
   .pstat{flex:1 1 6.5rem; border:1px solid var(--border); border-radius:12px; padding:.6rem .5rem; text-align:center; background:var(--surface-2)}
   .pstat .pnum{display:block; font-family:"IBM Plex Mono",monospace; font-size:1.45rem; font-weight:700; color:var(--accent-strong)}
   .pstat .plabel{display:block; font-size:.86rem; color:var(--ink-soft); line-height:1.25}
@@ -452,8 +456,8 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 14;
-  var BUILD_DATE = '2026-09-11';
+  var BUILD = 15;
+  var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
   var OLD_SITE_URL = 'https://sites.google.com/view/mariasub';
@@ -491,6 +495,12 @@
     try{ return d.toLocaleDateString(lang==='sk'?'sk-SK':'hu-HU', {year:'numeric', month:'long', day:'numeric'}); }catch(e){ return iso; }
   }
   function byDateAsc(a,b){ return (a.date||'').localeCompare(b.date||''); }
+  /* Pénz megjelenítése: 412,35 € / 412,35 € (mindig két tizedes, magyar/szlovák vesszővel). */
+  function fmtMoney(n){
+    var v = Math.round((Number(n) || 0) * 100) / 100;
+    var s = (Math.abs(v) % 1 === 0) ? String(Math.abs(v)) : Math.abs(v).toFixed(2).replace('.', ',');
+    return (v < 0 ? '−' : '') + s + ' €';
+  }
   function byDateDesc(a,b){ return (b.date||'').localeCompare(a.date||''); }
   /* Helyes többes szám: 1 kép / 2 kép / 5 kép — szlovákul 1 fotka / 2 fotky / 5 fotiek */
   function photoCount(n){
@@ -1809,6 +1819,14 @@
     return t.replace(/\s+/g, ' ').trim();
   }
   function playerKey(n){ return deacc(n); }
+  /* Egy kör nevezési díja (a versenyeken körönként ennyit tesznek be a játékosok). */
+  var FEE_PER_ROUND = 5;
+  function seasonMoneyOf(p, year){
+    var y = String(year || '');
+    if(!y) return null;
+    p.seasonMoney = p.seasonMoney || {};
+    return p.seasonMoney[y] || (p.seasonMoney[y] = { rowCount: 0, rowGross: 0, rowRounds: 0, rowFee: 0, aggMoney: null, aggPlayed: null });
+  }
   function buildStats(list){
     var by = {};
     function player(name){
@@ -1816,15 +1834,49 @@
       if(!k) return null;
       return by[k] || (by[k] = { name: String(name).trim(), rows: [], tours: {}, wins: 0, podiums: 0,
         seconds: 0, thirds: 0, money: 0, placeSum: 0, placeCount: 0, draws: 0, seasonWins: 0, sizes: [],
-        points: 0, best: null, years: {}, aggPoints: null, aggRank: null });
+        points: 0, best: null, years: {}, aggPoints: null, aggRank: null, roundsPlayed: 0 });
     }
     (list||[]).forEach(function(season){
+      /* 0) Versenyenként a körök tényleges befizetése: a körben összegyűlt pénz / a körben játszók száma.
+            Általában pontosan 5 €, de néhány versenyen 3 € volt — így nem tippelünk, hanem a táblázatból számoljuk. */
+      var tourFee = {};
+      (function(){
+        var byTour = {};
+        (season.rows||[]).forEach(function(r){ var t = String(r.t || ''); (byTour[t] = byTour[t] || []).push(r); });
+        Object.keys(byTour).forEach(function(t){
+          var rs = byTour[t], fees = [];
+          for(var k = 0; k < 5; k++){
+            var pot = 0, cnt = 0;
+            rs.forEach(function(x){
+              var rr = (Array.isArray(x.rounds) ? x.rounds : []);
+              if(rr.length && rr[k]){ pot += Number(rr[k].money) || 0; cnt++; }
+            });
+            /* a kerekítési maradék ne rontsa el: ami egész euróhoz közeli, azt egésznek vesszük (5 €, 3 €) */
+            var per = cnt ? (pot / cnt) : 0;
+            var whole = Math.round(per);
+            fees.push(cnt ? ((Math.abs(per - whole) < 0.2) ? whole : (Math.round(per * 100) / 100)) : 0);
+          }
+          tourFee[t] = fees;
+        });
+      })();
       /* 1) versenyenkénti eredmények */
       (season.rows||[]).forEach(function(r){
         var p = player(r.n);
         if(!p) return;
+        var rr = (Array.isArray(r.rounds) ? r.rounds : []);
+        var rcount = rr.length;
+        var rfees = tourFee[String(r.t || '')] || [];
+        /* a sorra jutó részvételi díj: a lejátszott körök befizetése;
+           ha ehhez a versenyhez nincs köradat, a szokásos 5 kör × 5 € = 25 € */
+        var rowFee = 0;
+        if(rcount){ for(var k = 0; k < rcount; k++) rowFee += Number(rfees[k] || 0); }
+        else rowFee = FEE_PER_ROUND * 5;
         p.rows.push({ t: r.t || '', place: r.place == null ? null : Number(r.place), points: r.points == null ? 0 : Number(r.points),
-                      money: r.money == null ? null : Number(r.money), size: r.size == null ? null : Number(r.size), year: season.year });
+                      money: r.money == null ? null : Number(r.money), size: r.size == null ? null : Number(r.size), year: season.year,
+                      rounds: rcount });
+        var smR = seasonMoneyOf(p, season.year);
+        if(smR){ smR.rowCount++; smR.rowGross += Number(r.money) || 0; smR.rowRounds += (rcount || 5); smR.rowFee += rowFee; }
+        p.roundsPlayed += (rcount || 5);
         if(r.t) p.tours[String(r.t)] = 1;
         if(r.place != null){
           var pl = Number(r.place);
@@ -1861,6 +1913,11 @@
           };
         }
         if(r.money != null) p.aggMoney = (p.aggMoney == null ? 0 : p.aggMoney) + Number(r.money);
+        var smA = seasonMoneyOf(p, season.year);
+        if(smA){
+          if(r.money != null) smA.aggMoney = (smA.aggMoney == null ? 0 : smA.aggMoney) + Number(r.money);
+          if(r.played != null) smA.aggPlayed = (smA.aggPlayed == null ? 0 : smA.aggPlayed) + Number(r.played);
+        }
         if(r.code != null && String(r.code).trim()){
           p.codes = p.codes || [];
           if(p.codes.indexOf(String(r.code).trim()) < 0) p.codes.push(String(r.code).trim());
@@ -1877,6 +1934,27 @@
       /* átlagos helyezés, pénz és az átlagos versenylétszám */
       p.avgPlace = p.placeCount ? Math.round(p.placeSum / p.placeCount * 10) / 10 : null;
       p.money = Math.round((p.aggMoney != null ? p.aggMoney : p.money) * 100) / 100;
+      /* Pénz: a táblázatokban a körökben nyert összeg szerepel (bruttó).
+         A részvételi díj körönként 5 €, ezért az egyenleg = bruttó − 5 € × lejátszott körök. */
+      var smAll = p.seasonMoney || {};
+      var grossSum = 0, feeSum = 0, roundsSum = 0;
+      Object.keys(smAll).forEach(function(y){
+        var sm = smAll[y];
+        var gross = (sm.aggMoney != null) ? sm.aggMoney : sm.rowGross;
+        var tours = Math.max(sm.rowCount, sm.aggPlayed || 0);
+        var rounds = sm.rowRounds + 5 * Math.max(0, tours - sm.rowCount);
+        /* a versenyekből számolt díj + a hiányzó (csak összesített táblázatban szereplő) versenyek 25 €-ja */
+        var fee = (sm.rowFee || 0) + FEE_PER_ROUND * 5 * Math.max(0, tours - sm.rowCount);
+        sm.gross = Math.round(gross * 100) / 100;
+        sm.fee = Math.round(fee * 100) / 100;
+        sm.net = Math.round((sm.gross - sm.fee) * 100) / 100;
+        sm.rounds = rounds; sm.tours = tours;
+        grossSum += sm.gross; feeSum += sm.fee; roundsSum += rounds;
+      });
+      p.grossMoney = Math.round(grossSum * 100) / 100;
+      p.feePaid = Math.round(feeSum * 100) / 100;
+      p.netMoney = Math.round((p.grossMoney - p.feePaid) * 100) / 100;
+      p.roundsPlayed = roundsSum;
       if(p.playedTotal != null) p.played = p.playedTotal;
       p.avgSize = p.sizes.length ? Math.round(p.sizes.reduce(function(a, b){ return a + b; }, 0) / p.sizes.length) : null;
       /* ha van hivatalos összesített pont, az a mérvadó */
@@ -1974,7 +2052,10 @@
               + '<div class="pstat"><span class="pnum">'+p.seconds+'</span><span class="plabel">'+esc(T('2. hely','2. miesto'))+'</span></div>'
               + '<div class="pstat"><span class="pnum">'+p.thirds+'</span><span class="plabel">'+esc(T('3. hely','3. miesto'))+'</span></div>'
               + (p.avgPlace == null ? '' : '<div class="pstat"><span class="pnum">'+p.avgPlace+'</span><span class="plabel">'+esc(T('átlagos helyezés','priemerné umiestnenie'))+'</span></div>')
-              + (p.money ? '<div class="pstat"><span class="pnum">'+(Math.round(p.money*100)/100)+'</span><span class="plabel">'+esc(T('pénz (€)','peniaze (€)'))+'</span></div>' : '')
+              + (p.grossMoney ? '<div class="pstat"><span class="pnum">'+fmtMoney(p.grossMoney)+'</span><span class="plabel">'+esc(T('nyeremény (€)','výhra (€)'))+'</span></div>' : '')
+              + (p.feePaid ? '<div class="pstat"><span class="pnum">−'+fmtMoney(p.feePaid)+'</span><span class="plabel">'+esc(T('részvételi díj (€)','vklady (€)'))+'</span></div>' : '')
+              + ((p.grossMoney || p.feePaid) ? '<div class="pstat net"><span class="pnum">'+fmtMoney(p.netMoney)+'</span><span class="plabel">'+esc(T('egyenleg (€)','zostatok (€)'))+'</span></div>' : '')
+              + (p.roundsPlayed ? '<div class="pstat"><span class="pnum">'+p.roundsPlayed+'</span><span class="plabel">'+esc(T('lejátszott kör','odohraných kôl'))+'</span></div>' : '')
             : '')
         + '<div class="pstat"><span class="pnum">'+p.points+'</span><span class="plabel">'+esc(T('összpontszám','spolu bodov'))+'</span></div>'
         + (p.best == null ? '' : '<div class="pstat"><span class="pnum">'+p.best+'.</span><span class="plabel">'+esc(T('legjobb helyezés','najlepšie umiestnenie'))+'</span></div>')
@@ -1987,21 +2068,27 @@
             var sr = p.seasonRanks || {};
             var ys = Object.keys(sr).sort(function(a, b){ return Number(b) - Number(a); });
             if(!ys.length) return '';
-            return '<h4 class="pcard-sub">'+esc(T('Helyezése szezononként','Umiestnenie podľa sezón'))+'</h4>'
+            return '<h4 class="pcard-sub">'+esc(T('Helyezése és pénze szezononként','Umiestnenie a peniaze podľa sezón'))+'</h4>'
               + '<div class="table-wrap"><table class="list"><thead><tr>'
               + '<th>'+esc(T('Szezon','Sezóna'))+'</th><th class="num">'+esc(T('Helyezés','Umiestnenie'))+'</th>'
-              + '<th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">'+esc(T('Pont','Body'))+'</th><th class="num">€</th>'
+              + '<th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">'+esc(T('Pont','Body'))+'</th>'
+              + '<th class="num">'+esc(T('Nyeremény','Výhra'))+'</th><th class="num">'+esc(T('Díj','Vklady'))+'</th><th class="num">'+esc(T('Egyenleg','Zostatok'))+'</th>'
               + '</tr></thead><tbody>'
               + ys.map(function(y){
                   var x = sr[y];
+                  var sm = (p.seasonMoney || {})[y] || {};
                   var medal = (x.rank === 1) ? ' 🥇' : (x.rank === 2 ? ' 🥈' : (x.rank === 3 ? ' 🥉' : ''));
                   return '<tr><td class="num">'+esc(y)+'</td>'
                     + '<td class="num">'+(x.rank == null ? '—' : esc(String(x.rank)+'.')+medal)+'</td>'
                     + '<td class="num">'+(x.played == null ? '—' : esc(String(x.played)))+'</td>'
                     + '<td class="num">'+esc(String(x.points))+'</td>'
-                    + '<td class="num">'+esc(String(x.money))+'</td></tr>';
+                    + '<td class="num">'+(sm.gross == null ? '—' : esc(fmtMoney(sm.gross)))+'</td>'
+                    + '<td class="num">'+(sm.fee == null ? '—' : esc('−'+fmtMoney(sm.fee)))+'</td>'
+                    + '<td class="num"><strong>'+(sm.net == null ? '—' : esc(fmtMoney(sm.net)))+'</strong></td></tr>';
                 }).join('')
-              + '</tbody></table></div>';
+              + '</tbody></table></div>'
+              + '<p class="meta">'+esc(T('A „nyeremény” a körökben összegyűlt összeg, a „díj” pedig a körönkénti 5 € részvételi díj (versenyenként 25 €). Az egyenleg a kettő különbsége.',
+                                       '„Výhra” je suma vyhraná v kolách, „vklady” sú vklady 5 € za kolo (25 € za turnaj). Zostatok je ich rozdiel.'))+'</p>';
           })()
         + (rows.length
             ? '<div class="table-wrap" style="margin-top:.8rem"><table class="list"><thead><tr><th>'+esc(T('Szezon','Sezóna'))+'</th><th>'+esc(T('Verseny','Turnaj'))+'</th><th>'+esc(T('Helyezés','Umiestnenie'))+'</th><th>'+esc(T('Pont','Body'))+'</th></tr></thead><tbody>'
@@ -2075,7 +2162,8 @@
             : T('Pontok és helyezések a portálra beolvasott eredményekből.','Body a umiestnenia z výsledkov načítaných do portálu.'))+'</p>';
           html += '<div class="table-wrap"><table class="list rank"><thead><tr>'
             + '<th>#</th><th>'+esc(T('Játékos','Hráč'))+'</th>'
-            + (hasPer ? '<th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">1.</th><th class="num">2.</th><th class="num">3.</th><th class="num">'+esc(T('Átlag hely','Priemer'))+'</th><th class="num">€</th>' : '')
+            + (hasPer ? '<th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">1.</th><th class="num">2.</th><th class="num">3.</th><th class="num">'+esc(T('Átlag hely','Priemer'))+'</th>'
+                + '<th class="num">'+esc(T('Nyeremény','Výhra'))+'</th><th class="num">'+esc(T('Egyenleg','Zostatok'))+'</th>' : '')
             + '<th class="num">'+esc(T('Pont','Body'))+'</th></tr></thead><tbody>'
             + stats.map(function(p){
                 return '<tr><td class="num">'+p.rank+'.</td><td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard(\''+jsq(p.name)+'\')">'+esc(p.name)+(p.deceased ? ' <span class="dagger">†</span>' : '')+'</button></td>'
@@ -2084,10 +2172,13 @@
                       + '<td class="num">'+(p.rows.length ? p.seconds : '—')+'</td>'
                       + '<td class="num">'+(p.rows.length ? p.thirds : '—')+'</td>'
                       + '<td class="num">'+(p.avgPlace != null ? p.avgPlace : '—')+'</td>'
-                      + '<td class="num">'+(p.money ? (Math.round(p.money * 100) / 100) : '—')+'</td>' : '')
+                      + '<td class="num">'+(p.grossMoney ? esc(fmtMoney(p.grossMoney)) : '—')+'</td>'
+                      + '<td class="num"><strong class="'+(p.netMoney > 0 ? 'netplus' : (p.netMoney < 0 ? 'netminus' : ''))+'">'+(p.grossMoney || p.feePaid ? esc(fmtMoney(p.netMoney)) : '—')+'</strong></td>' : '')
                   + '<td class="num"><strong>'+p.points+'</strong></td></tr>';
               }).join('')
             + '</tbody></table></div>';
+          html += '<p class="moneyinfo">'+esc(T('A táblázatokban a körökben nyert összeg szerepel. A versenyeken minden kör kezdetén 5 € a részvételi díj (egy versenyen 5 kör, azaz 25 €).',
+                                                'V tabuľkách je suma vyhraná v kolách. Na turnajoch je na začiatku každého kola vklad 5 € (5 kôl = 25 € za turnaj).'))+'</p>';
           /* 2) játékos-adatlap – előugró ablakban (a nevekre kattintva) */
           html += '<p class="meta">'+esc(T('Kattintson bármelyik névre: az adatlapja előugró ablakban nyílik meg.','Kliknite na ktorékoľvek meno: karta hráča sa otvorí v okne.'))+'</p>'
             + '<div id="res-player-card"></div>'
