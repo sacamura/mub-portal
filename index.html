@@ -330,6 +330,8 @@
   .pcclose{display:block; width:100%; margin:0 0 .9rem; background:var(--accent); color:#fff; border:none; border-radius:12px; padding:.9rem 1rem; font:inherit; font-size:1.05rem; font-weight:700; cursor:pointer; min-height:3rem}
   .pcclose:hover{filter:brightness(.94)}
   .topsearch{margin:.2rem 0 1rem}
+  /* Diszkrét jelzés: a statisztikát mesterséges intelligencia dolgozta fel. */
+  .ainote{margin:.2rem 0 1.2rem; font-size:.92rem; color:var(--ink-soft); background:var(--surface-2); border-left:3px solid var(--border); border-radius:8px; padding:.5rem .8rem; line-height:1.5}
   .dagger{color:var(--ink); font-weight:700}
   .pcard-mem{background:var(--surface-2); border-left:4px solid var(--ink); padding:.5rem .8rem; border-radius:8px; margin:.2rem 0 .8rem; font-size:1rem}
   .pcard{border:1px solid var(--border); border-radius:14px; padding:1.1rem; background:var(--surface)}
@@ -449,7 +451,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 12;
+  var BUILD = 13;
   var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2030,7 +2032,9 @@
             + '</select></div>';
           /* Kereső rögtön a statisztika tetején */
           html += '<div class="topsearch"><div class="field"><label for="res-player-top">'+esc(T('Játékos keresése (név vagy azonosító szám)','Hľadanie hráča (meno alebo identifikačné číslo)'))+'</label>'
-            + '<input id="res-player-top" type="search" placeholder="'+esc(T('pl. Juhász János vagy 3','napr. Juhász János alebo 3'))+'" oninput="MUB.openPlayerCard(this.value)"></div></div>';
+            + '<input id="res-player-top" type="search" placeholder="'+esc(T('pl. Juhász János vagy 3','napr. Juhász János alebo 3'))+'" oninput="MUB.openPlayerCard(this.value)"></div></div>'
+            + '<p class="ainote">'+esc(T('Ezt a statisztikát a mesterséges intelligencia dolgozta fel a Google-táblázatokból, ezért előfordulhat benne hiba. Ha valami nem stimmel, jelezze a szervezőnek — köszönjük!',
+                                        'Túto štatistiku spracovala umelá inteligencia z Google tabuliek, preto sa v nej môže vyskytnúť chyba. Ak niečo nesedí, dajte vedieť organizátorovi — ďakujeme!'))+'</p>';
           var hasPer = stats.some(function(p){ return p.rows && p.rows.length; });
           var hasAgg = stats.some(function(p){ return p.hasAgg; });
           html += '<h2 class="resh">'+esc(T('Ranglista','Rebríček'))+'</h2>';
