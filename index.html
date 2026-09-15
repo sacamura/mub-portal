@@ -496,7 +496,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 40;
+  var BUILD = 41;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2335,6 +2335,8 @@
   }
   /* Egy kör nevezési díja (a versenyeken körönként ennyit tesznek be a játékosok). */
   var FEE_PER_ROUND = 5;
+  /* Ennyi versenytől számít valaki aktív játékosnak (az átlagos helyezéshez). */
+  var MIN_ACTIVE_TOURS = 5;
   function seasonMoneyOf(p, year){
     var y = String(year || '');
     if(!y) return null;
@@ -2476,8 +2478,12 @@
       p.yearsArr = Object.keys(p.years).sort();
       p.hasAgg = (p.aggPoints != null || p.aggRank != null);
       /* átlagos helyezés, pénz és az átlagos versenylétszám */
+      /* Az átlagos helyezést csak az aktív játékosoknál mutatjuk (legalább 5 verseny):
+         aki csak itt-ott játszik, annak a statisztikája másodlagos. */
+      p.toursAll = (p.playedTotal != null) ? p.playedTotal : (p.tournaments || 0);
+      p.active = p.toursAll >= MIN_ACTIVE_TOURS;
       /* átlagos helyezés félre kerekítve (22,5 · 23) */
-      p.avgPlace = p.placeCount ? Math.round(p.placeSum / p.placeCount * 2) / 2 : null;
+      p.avgPlace = (p.placeCount && p.active) ? Math.round(p.placeSum / p.placeCount * 2) / 2 : null;
       p.money = Math.round((p.aggMoney != null ? p.aggMoney : p.money) * 100) / 100;
       /* Pénz: a táblázatokban a körökben nyert összeg szerepel (bruttó).
          A részvételi díj körönként 5 €, ezért az egyenleg = bruttó − 5 € × lejátszott körök. */
@@ -2611,6 +2617,8 @@
       if(k === 'money') return p.grossMoney || 0;
       if(k === 'net') return p.netMoney || 0;
       if(k === 'wins') return p.wins || 0;
+      if(k === 'seconds') return p.seconds || 0;
+      if(k === 'thirds') return p.thirds || 0;
       if(k === 'avgPlace') return (p.avgPlace == null ? 9999 : p.avgPlace);
       if(k === 'official') return (p.officialRank == null ? 9999 : p.officialRank);
       return p.points || 0;
@@ -2818,14 +2826,15 @@
             var t = (p.played != null ? p.played : (p.tournaments || 0));
             return !resMin || t >= resMin;
           });
-          function thn(key, label){
-            return '<th class="num sortable"><button type="button" class="thbtn" onclick="MUB.setResSort(\''+key+'\')" title="'+esc(T('Rendezés','Zoradiť'))+'">'+esc(label)+esc(sortMark(key))+'</button></th>';
+          function thn(key, label, hint){
+            var ttl = T('Rendezés','Zoradiť') + (hint ? ' · ' + hint : '');
+            return '<th class="num sortable"><button type="button" class="thbtn" onclick="MUB.setResSort(\''+key+'\')" title="'+esc(ttl)+'">'+esc(label)+esc(sortMark(key))+'</button></th>';
           }
           html += '<div class="table-wrap"><table class="list rank"><thead><tr>'
             + thn('official', '#') + '<th>'+esc(T('Játékos','Hráč'))+'</th>'
             + (hasPer ? thn('tours', T('Verseny','Turnajov'))
-                + '<th class="num">1.</th><th class="num">2.</th><th class="num">3.</th>'
-                + thn('avgPlace', T('Átl.\u00a0hely','Priem.\u00a0miesto'))
+                + thn('wins', '1.') + thn('seconds', '2.') + thn('thirds', '3.')
+                + thn('avgPlace', T('Átl.\u00a0hely','Priem.\u00a0miesto'), T('Csak az 5 vagy több versenyen indult játékosoknál.','Iba u hráčov s 5 a viac turnajmi.'))
                 + thn('money', T('Nyeremény','Výhra'))
                 + thn('net', T('Tiszta\u00a0nyer.','Čistá\u00a0výhra')) : '')
             + thn('points', T('Pont','Body'))+'</tr></thead><tbody>'
@@ -2841,7 +2850,8 @@
                   + '<td class="num"><strong>'+p.points+'</strong></td></tr>';
               }).join('')
             + '</tbody></table></div>'
-            + (resMin ? '<p class="meta">'+esc(T('Szűrés: legalább ','Filter: aspoň '))+resMin+' '+esc(T('verseny','turnajov'))+' — '+shown.length+' '+esc(T('játékos','hráčov'))+'</p>' : '');
+            + (resMin ? '<p class="meta">'+esc(T('Szűrés: legalább ','Filter: aspoň '))+resMin+' '+esc(T('verseny','turnajov'))+' — '+shown.length+' '+esc(T('játékos','hráčov'))+'</p>' : '')
+            + '<p class="meta">'+esc(T('Az átlagos helyezés csak azoknál látszik, akik legalább 5 versenyen indultak. A fejlécekre kattintva bármelyik oszlop szerint rendezhet.','Priemerné umiestnenie sa zobrazuje len u hráčov s aspoň 5 turnajmi. Kliknutím na hlavičku zoradíte podľa stĺpca.'))+'</p>';
           /* 2) játékos-adatlap – előugró ablakban (a nevekre kattintva) */
           html += '<p class="meta">'+esc(T('Kattintson bármelyik névre: az adatlapja előugró ablakban nyílik meg.','Kliknite na ktorékoľvek meno: karta hráča sa otvorí v okne.'))+'</p>'
             + '<div id="res-player-card"></div>'
