@@ -324,6 +324,14 @@
   .resh{font-size:1.25rem; margin:1.6rem 0 .5rem}
   table.rank td,table.rank th{white-space:nowrap}
   .linkbtn{background:none; border:none; padding:0; font:inherit; color:var(--accent-strong); text-decoration:underline; cursor:pointer; font-weight:700; text-align:left}
+  /* Játékos-adatlap előugró ablaka */
+  .pcm{position:fixed; inset:0; z-index:75; background:rgba(8,10,12,.72); overflow:auto; padding:1rem; display:flex; align-items:flex-start; justify-content:center}
+  .pcbox{background:var(--bg); border:1px solid var(--border); border-radius:16px; padding:1.1rem; width:100%; max-width:820px; margin:auto; box-shadow:0 12px 40px rgba(0,0,0,.35)}
+  .pcclose{display:block; width:100%; margin:0 0 .9rem; background:var(--accent); color:#fff; border:none; border-radius:12px; padding:.9rem 1rem; font:inherit; font-size:1.05rem; font-weight:700; cursor:pointer; min-height:3rem}
+  .pcclose:hover{filter:brightness(.94)}
+  .topsearch{margin:.2rem 0 1rem}
+  .dagger{color:var(--ink); font-weight:700}
+  .pcard-mem{background:var(--surface-2); border-left:4px solid var(--ink); padding:.5rem .8rem; border-radius:8px; margin:.2rem 0 .8rem; font-size:1rem}
   .pcard{border:1px solid var(--border); border-radius:14px; padding:1.1rem; background:var(--surface)}
   .pcard-head{display:flex; align-items:baseline; justify-content:space-between; gap:.6rem; flex-wrap:wrap; margin-bottom:.7rem}
   .pcard-name{font-family:"Fraunces",Georgia,serif; font-size:1.35rem; font-weight:700}
@@ -441,7 +449,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 11;
+  var BUILD = 12;
   var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1840,6 +1848,10 @@
           if(Number(r.place) === 1) p.seasonWins++;
         }
         if(r.money != null) p.aggMoney = (p.aggMoney == null ? 0 : p.aggMoney) + Number(r.money);
+        if(r.code != null && String(r.code).trim()){
+          p.codes = p.codes || [];
+          if(p.codes.indexOf(String(r.code).trim()) < 0) p.codes.push(String(r.code).trim());
+        }
         if(r.played != null) p.playedTotal = (p.playedTotal == null ? 0 : p.playedTotal) + Number(r.played);
         if(season.year) p.years[String(season.year)] = 1;
       });
@@ -1874,6 +1886,14 @@
     if(!q) return null;
     var stats = buildStats(list);
     var qk = playerKey(q);
+    /* Azonosító szám alapján is kereshető (ha a beírt szöveg csak számjegy). */
+    var digits = String(q).replace(/\D/g, '');
+    if(digits){
+      var byCode = stats.filter(function(p){
+        return (p.codes || []).some(function(c){ return String(c).replace(/\D/g, '') === digits; });
+      })[0];
+      if(byCode) return byCode;
+    }
     var exact = stats.filter(function(p){ return playerKey(p.name) === qk; })[0];
     if(exact) return exact;
     var part = stats.filter(function(p){ return playerKey(p.name).indexOf(qk) >= 0; });
@@ -1891,32 +1911,62 @@
   var resPlayerQ = '';
   function setResSeason(y){ resSeason = String(y||'all'); renderResults(document.getElementById('view')); }
   function setResPlayer(v){ resPlayerQ = String(v||''); renderResPlayer(); }
+  var PC_OPEN = false;   /* nyitva van-e a játékos előugró adatlapja */
+  /* A nevekre kattintva előugró ablakban nyílik meg az adatlap – így nem kell
+     a lap aljára lekeresgélni. */
+  function openPlayerCard(name){
+    resPlayerQ = String(name || '').trim();
+    var m = document.getElementById('pc-modal');
+    if(!m) return;
+    PC_OPEN = true;
+    m.hidden = false;
+    if(document.body && document.body.classList) document.body.classList.add('lb-on');
+    var inp = document.getElementById('pc-search');
+    if(inp && inp.value !== resPlayerQ) inp.value = resPlayerQ;
+    var top = document.getElementById('res-player-top');
+    if(top && top.value !== resPlayerQ) top.value = resPlayerQ;
+    renderResPlayer();
+  }
+  function closePlayerCard(){
+    PC_OPEN = false;
+    var m = document.getElementById('pc-modal');
+    if(m) m.hidden = true;
+    if(document.body && document.body.classList) document.body.classList.remove('lb-on');
+  }
   function renderResPlayer(){
     var box = document.getElementById('res-player-card');
-    if(!box) return;
+    var mbox = document.getElementById('pc-body');
+    function put(html){ if(box) box.innerHTML = html; if(mbox && PC_OPEN) mbox.innerHTML = html; }
     loadResults(function(all){
       var list = resultsOfYear(all, resSeason);
       var p = findPlayer(list, resPlayerQ);
-      if(!resPlayerQ){ box.innerHTML = ''; return; }
+      if(!resPlayerQ){ put(''); return; }
       if(!p){
-        box.innerHTML = '<p class="meta">'+esc(T('Ezzel a névvel nem találok eredményt. Próbálja a vezetéknevet is.','S týmto menom sa nenašli žiadne výsledky. Skúste aj priezvisko.'))+'</p>';
+        put('<p class="meta">'+esc(T('Ezzel a névvel vagy azonosító számmal nem találok eredményt. Próbálja a vezetéknevet is.','S týmto menom alebo identifikačným číslom sa nenašli žiadne výsledky. Skúste aj priezvisko.'))+'</p>');
         return;
       }
       var rows = p.rows.slice().sort(function(a, b){
         if(a.year !== b.year) return String(b.year).localeCompare(String(a.year));
         return String(a.t).localeCompare(String(b.t), 'hu');
       });
-      box.innerHTML = '<div class="pcard">'
-        + '<div class="pcard-head"><div class="pcard-name">'+esc(p.name)+'</div>'
-        + '<div class="pcard-rank">'+esc(T('Ranglista: ','Rebríček: '))+'<strong>'+p.rank+'.</strong></div></div>'
+      put('<div class="pcard">'
+        + '<div class="pcard-head"><div class="pcard-name">'+esc(p.name)+(p.deceased ? ' <span class="dagger" title="'+esc(T('Emlékezünk','Spomíname'))+'">†</span>' : '')+'</div>'
+        + '<div class="pcard-rank">'+esc(T('Ranglista: ','Rebríček: '))+'<strong>'+p.rank+'.</strong>'
+        + (p.codes && p.codes.length ? ' · '+esc(T('azonosító: ','ID: '))+esc(p.codes.join(', ')) : '')+'</div></div>'
+        + (p.deceased ? '<div class="pcard-mem">'+esc(T('Emlékezünk.','Spomíname.'))+'</div>' : '')
         + '<div class="pcard-grid">'
         + (rows.length
-            ? '<div class="pstat"><span class="pnum">'+p.tournaments+'</span><span class="plabel">'+esc(T('verseny','turnajov'))+'</span></div>'
-              + '<div class="pstat"><span class="pnum">'+p.wins+'</span><span class="plabel">'+esc(T('megnyert verseny','vyhraných turnajov'))+'</span></div>'
-              + '<div class="pstat"><span class="pnum">'+p.podiums+'</span><span class="plabel">'+esc(T('dobogós helyezés','umiestnení na stupni'))+'</span></div>'
+            ? '<div class="pstat"><span class="pnum">'+(p.played != null ? p.played : p.tournaments)+'</span><span class="plabel">'+esc(T('verseny','turnajov'))+'</span></div>'
+              + '<div class="pstat"><span class="pnum">'+p.wins+'</span><span class="plabel">'+esc(T('1. hely','1. miesto'))+'</span></div>'
+              + '<div class="pstat"><span class="pnum">'+p.seconds+'</span><span class="plabel">'+esc(T('2. hely','2. miesto'))+'</span></div>'
+              + '<div class="pstat"><span class="pnum">'+p.thirds+'</span><span class="plabel">'+esc(T('3. hely','3. miesto'))+'</span></div>'
+              + (p.avgPlace == null ? '' : '<div class="pstat"><span class="pnum">'+p.avgPlace+'</span><span class="plabel">'+esc(T('átlagos helyezés','priemerné umiestnenie'))+'</span></div>')
+              + (p.money ? '<div class="pstat"><span class="pnum">'+(Math.round(p.money*100)/100)+'</span><span class="plabel">'+esc(T('pénz (€)','peniaze (€)'))+'</span></div>' : '')
             : '')
         + '<div class="pstat"><span class="pnum">'+p.points+'</span><span class="plabel">'+esc(T('összpontszám','spolu bodov'))+'</span></div>'
         + (p.best == null ? '' : '<div class="pstat"><span class="pnum">'+p.best+'.</span><span class="plabel">'+esc(T('legjobb helyezés','najlepšie umiestnenie'))+'</span></div>')
+        + (p.seasonWins ? '<div class="pstat"><span class="pnum">'+p.seasonWins+'</span><span class="plabel">'+esc(T('megnyert szezon','vyhraných sezón'))+'</span></div>' : '')
+        + (p.draws ? '<div class="pstat"><span class="pnum">'+p.draws+'</span><span class="plabel">'+esc(T('holtverseny','remíza'))+'</span></div>' : '')
         + '</div>'
         + '<div class="meta">'+esc(T('Szezonok: ','Sezóny: '))+esc(p.yearsArr.join(', ') || '—')+'</div>'
         + (rows.length
@@ -1929,7 +1979,7 @@
                 }).join('')
               + '</tbody></table></div>'
             : '<p class="meta" style="margin-top:.7rem">'+esc(T('Ehhez a játékoshoz csak az összesített ranglista van feltöltve; a versenyenkénti eredmények akkor jelennek meg, ha azt a táblázatot is beolvassák.','Pre tohto hráča je načítaný len súhrnný rebríček; výsledky podľa turnajov sa zobrazia po načítaní tej tabuľky.'))+'</p>')
-        + '</div>';
+        + '</div>');
     });
   }
   /* A régi (Google-táblázatos) eredménynézet – ez látszik, ha a statisztika ki van kapcsolva. */
@@ -1978,6 +2028,9 @@
             + '<option value="all"'+(resSeason === 'all' ? ' selected' : '')+'>'+esc(T('összes szezon','všetky sezóny'))+'</option>'
             + years.map(function(y){ return '<option value="'+esc(y)+'"'+(String(resSeason) === y ? ' selected' : '')+'>'+esc(y)+'</option>'; }).join('')
             + '</select></div>';
+          /* Kereső rögtön a statisztika tetején */
+          html += '<div class="topsearch"><div class="field"><label for="res-player-top">'+esc(T('Játékos keresése (név vagy azonosító szám)','Hľadanie hráča (meno alebo identifikačné číslo)'))+'</label>'
+            + '<input id="res-player-top" type="search" placeholder="'+esc(T('pl. Juhász János vagy 3','napr. Juhász János alebo 3'))+'" oninput="MUB.openPlayerCard(this.value)"></div></div>';
           var hasPer = stats.some(function(p){ return p.rows && p.rows.length; });
           var hasAgg = stats.some(function(p){ return p.hasAgg; });
           html += '<h2 class="resh">'+esc(T('Ranglista','Rebríček'))+'</h2>';
@@ -1989,7 +2042,7 @@
             + (hasPer ? '<th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">1.</th><th class="num">2.</th><th class="num">3.</th><th class="num">'+esc(T('Átlag hely','Priemer'))+'</th><th class="num">€</th>' : '')
             + '<th class="num">'+esc(T('Pont','Body'))+'</th></tr></thead><tbody>'
             + stats.map(function(p){
-                return '<tr><td class="num">'+p.rank+'.</td><td><button type="button" class="linkbtn" onclick="MUB.setResPlayer(\''+jsq(p.name)+'\')">'+esc(p.name)+'</button></td>'
+                return '<tr><td class="num">'+p.rank+'.</td><td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard(\''+jsq(p.name)+'\')">'+esc(p.name)+(p.deceased ? ' <span class="dagger">†</span>' : '')+'</button></td>'
                   + (hasPer ? '<td class="num">'+(p.rows.length ? (p.played != null ? p.played : p.tournaments) : '—')+'</td>'
                       + '<td class="num">'+(p.rows.length ? p.wins : '—')+'</td>'
                       + '<td class="num">'+(p.rows.length ? p.seconds : '—')+'</td>'
@@ -1999,11 +2052,16 @@
                   + '<td class="num"><strong>'+p.points+'</strong></td></tr>';
               }).join('')
             + '</tbody></table></div>';
-          /* 2) játékos-adatlap */
-          html += '<h2 class="resh">'+esc(T('Játékos adatlapja','Karta hráča'))+'</h2>'
-            + '<div class="searchbox"><div class="field"><label for="res-player">'+esc(T('Írja be a játékos nevét','Zadajte meno hráča'))+'</label>'
-            + '<input id="res-player" type="search" value="'+esc(resPlayerQ)+'" placeholder="'+esc(T('pl. Kovács','napr. Kovács'))+'" oninput="MUB.setResPlayer(this.value)"></div></div>'
-            + '<div id="res-player-card"></div>';
+          /* 2) játékos-adatlap – előugró ablakban (a nevekre kattintva) */
+          html += '<p class="meta">'+esc(T('Kattintson bármelyik névre: az adatlapja előugró ablakban nyílik meg.','Kliknite na ktorékoľvek meno: karta hráča sa otvorí v okne.'))+'</p>'
+            + '<div id="res-player-card"></div>'
+            + '<div id="pc-modal" class="pcm" hidden role="dialog" aria-modal="true" aria-label="'+esc(T('Játékos adatlapja','Karta hráča'))+'">'
+            + '<div class="pcbox">'
+            + '<button type="button" class="pcclose" onclick="MUB.closePlayerCard()" aria-label="'+esc(T('Bezárás','Zavrieť'))+'">✕ '+esc(T('Bezárás','Zavrieť'))+'</button>'
+            + '<div class="field" style="margin-bottom:.8rem"><label for="pc-search">'+esc(T('Játékos keresése (név vagy azonosító szám)','Hľadanie hráča (meno alebo identifikačné číslo)'))+'</label>'
+            + '<input id="pc-search" type="search" value="'+esc(resPlayerQ)+'" placeholder="'+esc(T('pl. Juhász János vagy 3','napr. Juhász János alebo 3'))+'" oninput="MUB.openPlayerCard(this.value)"></div>'
+            + '<div id="pc-body"></div>'
+            + '</div></div>';
         } else {
           html += '<div class="banner" role="status">'+esc(T('A portálra még nincs beolvasva eredmény. Az admin felületen (Eredmények fül) egy kattintással beolvasható a szokásos Google-táblázatból.','Do portálu ešte nie sú načítané výsledky. V administrácii (karta Výsledky) ich možno načítať z bežnej Google tabuľky.'))+'</div>';
         }
@@ -5020,7 +5078,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     saveRules: saveRules, resetRulesToDefault: resetRulesToDefault,
     askWithdrawReg: askWithdrawReg, cancelWithdrawReg: cancelWithdrawReg, confirmWithdrawReg: confirmWithdrawReg,
     findMyRegs: findMyRegs, forgetMyReg: forgetMyReg, installApp: installApp,
-    setResSeason: setResSeason, setResPlayer: setResPlayer, setImpSeason: setImpSeason,
+    setResSeason: setResSeason, setResPlayer: setResPlayer, openPlayerCard: openPlayerCard, closePlayerCard: closePlayerCard, setImpSeason: setImpSeason,
     importResultsLink: importResultsLink, importResultsPaste: importResultsPaste,
     saveImportedResults: saveImportedResults, cancelImportedResults: cancelImportedResults, deleteImportedResults: deleteImportedResults,
     importResultsAgg: importResultsAgg, importResultsBoth: importResultsBoth, importAggSmart: importAggSmart, importSeasonSheets: importSeasonSheets, setStatistics: setStatistics,
