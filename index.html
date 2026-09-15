@@ -478,7 +478,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 34;
+  var BUILD = 35;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -517,6 +517,11 @@
     try{ return d.toLocaleDateString(lang==='sk'?'sk-SK':'hu-HU', {year:'numeric', month:'long', day:'numeric'}); }catch(e){ return iso; }
   }
   function byDateAsc(a,b){ return (a.date||'').localeCompare(b.date||''); }
+  /* Félre kerekített szám megjelenítése: 22 vagy 22,5 */
+  function fmtHalf(v){
+    if(v == null) return '—';
+    return (v % 1 === 0) ? String(v) : String(v).replace('.', ',');
+  }
   /* A nyeremény megjelenítése egész euróra kerekítve (rövid, áttekinthető). */
   function fmtEur(n){
     var v = Math.round(Number(n) || 0);
@@ -2429,7 +2434,8 @@
       p.yearsArr = Object.keys(p.years).sort();
       p.hasAgg = (p.aggPoints != null || p.aggRank != null);
       /* átlagos helyezés, pénz és az átlagos versenylétszám */
-      p.avgPlace = p.placeCount ? Math.round(p.placeSum / p.placeCount * 10) / 10 : null;
+      /* átlagos helyezés félre kerekítve (22,5 · 23) */
+      p.avgPlace = p.placeCount ? Math.round(p.placeSum / p.placeCount * 2) / 2 : null;
       p.money = Math.round((p.aggMoney != null ? p.aggMoney : p.money) * 100) / 100;
       /* Pénz: a táblázatokban a körökben nyert összeg szerepel (bruttó).
          A részvételi díj körönként 5 €, ezért az egyenleg = bruttó − 5 € × lejátszott körök. */
@@ -2600,7 +2606,7 @@
               + '<div class="pstat"><span class="pnum">'+p.wins+'</span><span class="plabel">'+esc(T('1. hely','1. miesto'))+'</span></div>'
               + '<div class="pstat"><span class="pnum">'+p.seconds+'</span><span class="plabel">'+esc(T('2. hely','2. miesto'))+'</span></div>'
               + '<div class="pstat"><span class="pnum">'+p.thirds+'</span><span class="plabel">'+esc(T('3. hely','3. miesto'))+'</span></div>'
-              + (p.avgPlace == null ? '' : '<div class="pstat"><span class="pnum">'+p.avgPlace+'</span><span class="plabel">'+esc(T('átlagos helyezés','priemerné umiestnenie'))+'</span></div>')
+              + (p.avgPlace == null ? '' : '<div class="pstat"><span class="pnum">'+esc(fmtHalf(p.avgPlace))+'</span><span class="plabel">'+esc(T('átlagos helyezés','priemerné umiestnenie'))+'</span></div>')
             : '')
         + '<div class="pstat"><span class="pnum">'+p.points+'</span><span class="plabel">'+esc(T('összpontszám','spolu bodov'))+'</span></div>'
         + (p.best == null ? '' : '<div class="pstat"><span class="pnum">'+p.best+'.</span><span class="plabel">'+esc(T('legjobb helyezés','najlepšie umiestnenie'))+'</span></div>')
@@ -2728,7 +2734,7 @@
             : T('Pontok és helyezések a portálra beolvasott eredményekből.','Body a umiestnenia z výsledkov načítaných do portálu.'))+'</p>';
           html += '<div class="table-wrap"><table class="list rank"><thead><tr>'
             + '<th>#</th><th>'+esc(T('Játékos','Hráč'))+'</th>'
-            + (hasPer ? '<th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">1.</th><th class="num">2.</th><th class="num">3.</th><th class="num">'+esc(T('Átlag hely','Priemer'))+'</th>'
+            + (hasPer ? '<th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">1.</th><th class="num">2.</th><th class="num">3.</th><th class="num">'+esc(T('Átl. hely','Priem. miesto'))+'</th>'
                 + '<th class="num">'+esc(T('Nyeremény','Výhra'))+'</th><th class="num">'+esc(T('Tiszta nyeremény','Čistá výhra'))+'</th>' : '')
             + '<th class="num">'+esc(T('Pont','Body'))+'</th></tr></thead><tbody>'
             + stats.map(function(p){
@@ -2737,7 +2743,7 @@
                       + '<td class="num">'+(p.rows.length ? p.wins : '—')+'</td>'
                       + '<td class="num">'+(p.rows.length ? p.seconds : '—')+'</td>'
                       + '<td class="num">'+(p.rows.length ? p.thirds : '—')+'</td>'
-                      + '<td class="num">'+(p.avgPlace != null ? p.avgPlace : '—')+'</td>'
+                      + '<td class="num">'+esc(fmtHalf(p.avgPlace))+'</td>'
                       + '<td class="num moneycol">'+(p.grossMoney ? esc(fmtEur(p.grossMoney)) : '—')+'</td>'
                       + '<td class="num moneycol">'+(p.grossMoney || p.feePaid ? esc(fmtEur(p.netMoney)) : '—')+'</td>' : '')
                   + '<td class="num"><strong>'+p.points+'</strong></td></tr>';
