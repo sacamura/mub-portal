@@ -441,7 +441,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 10;
+  var BUILD = 11;
   var BUILD_DATE = '2026-09-11';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -3256,6 +3256,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         + '<button type="button" class="btn secondary sm" onclick="MUB.importResultsAgg()">'+esc(T('Csak az összesített','Iba súhrnný'))+'</button>'
         + '<p class="meta" style="margin:.9rem 0 .4rem">'+esc(T('Új: a teljes szezon egyetlen linkből is beolvasható. A hivatalos szezon-tábla (a 2. munkalap) minden verseny eredményét tartalmazza, ezért abból a portál magától kiszámolja a versenyenkénti helyezéseket is.','Nové: celú sezónu možno načítať z jedného odkazu. Oficiálna tabuľka sezóny (2. hárok) obsahuje výsledky všetkých turnajov, preto z nej portál sám vypočíta umiestnenia podľa turnajov.'))+'</p>'
         + '<button type="button" class="btn" onclick="MUB.importAggSmart()">'+esc(T('A teljes szezon beolvasása egy linkből','Načítať celú sezónu z jedného odkazu'))+'</button>'
+        + '<p class="meta" style="margin:.9rem 0 .4rem">'+esc(T('A legjobb út: az 1. mezőben a versenyenkénti táblázat linkje legyen (abban van egy munkalap minden versenyhez), a 2. mezőben pedig a szezon-tábla. A portál magától megtalálja az összes munkalapot, kihagyja a „NO MUB" jelzésűeket, és beolvassa a körönkénti eredményeket is.','Najlepšia cesta: v 1. poli nech je odkaz na tabuľku s výsledkami podľa turnajov (hárok pre každý turnaj), v 2. poli tabuľka sezóny. Portál sám nájde všetky hárky, vynechá označené „NO MUB" a načíta aj výsledky po kolách.'))+'</p>'
+        + '<button type="button" class="btn" onclick="MUB.importSeasonSheets()">'+esc(T('A teljes szezon beolvasása minden munkalapról','Načítať celú sezónu zo všetkých hárkov'))+'</button>'
         + '<p class="meta" id="imp-msg" style="margin:.8rem 0 .2rem"></p>'
         + '<details style="margin-top:.9rem"><summary class="metasum">'+esc(T('Vagy illessze be kézzel (Excelből másolva)','Alebo vložte ručne (skopírované z Excelu)'))+'</summary>'
         + '<p class="meta" style="margin:.6rem 0 .4rem">'+esc(T('Jelölje ki a teljes munkalapot (Ctrl+A, Ctrl+C), és illessze be ide (Ctrl+V).','Označte celý hárok (Ctrl+A, Ctrl+C) a vložte sem (Ctrl+V).'))+'</p>'
@@ -3358,6 +3360,126 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   function importResultsLink(){ importResults('per'); }
   function importResultsAgg(){ importResults('agg'); }
   function importResultsBoth(){ importResults('both'); }
+  /* Google Sheets API kulcs – csak olvasásra, csak a Google Sheets-re, csak a mub.sk címekről. */
+  var SHEETS_KEY = 'AIzaSyDIV5EnZ8C0jVYRv6ibL9wtjTr2IrzMaPM';
+
+  /* ---------- A teljes szezon beolvasása a versenyenkénti táblából ----------
+     A Google Sheets API-val a portál magától felsorolja a táblázat összes
+     munkalapját (minden verseny egy munkalap), és beolvassa valamennyit.
+     A „NO MUB" feliratú munkalapokat kihagyja (azok nem ligaversenyek). */
+  function sheetsApiList(sheetId, cb){
+    var url = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '?key=' + SHEETS_KEY + '&fields=properties.title,sheets.properties';
+    fetch(url).then(function(r){ return r.json(); }).then(function(j){
+      if(!j || j.error || !j.sheets){ cb(null, (j && j.error) ? j.error.message : '?'); return; }
+      cb({
+        title: j.properties ? j.properties.title : '',
+        sheets: j.sheets.map(function(s){
+          return { gid: s.properties.sheetId, name: s.properties.title, league: !/NO\s*MUB|mimo\s*ligy/i.test(s.properties.title) };
+        })
+      });
+    }).catch(function(e){ cb(null, e.message); });
+  }
+  /* Egy versenyenkénti munkalap: helyezés, név, 5 kör (pénz, pont), összesítés. */
+  function parseTourSheet(rows, fallbackName){
+    if(!rows || rows.length < 2) return null;
+    var head = -1, nameCol = -1, i, c;
+    for(i = 0; i < Math.min(rows.length, 6); i++){
+      if(RES_RX.name.test((rows[i] || []).join(' '))){ head = i; break; }
+    }
+    if(head < 0) return null;
+    var hdr = rows[head] || [];
+    for(c = 0; c < hdr.length; c++){
+      if(nameCol < 0 && RES_RX.name.test(String(hdr[c] || ''))) nameCol = c;
+    }
+    if(nameCol < 0) return null;
+    var rounds = [], totMoney = -1, totPoints = -1;
+    for(c = nameCol + 1; c < hdr.length; c++){
+      var t = String(hdr[c] || '').replace(/\s+/g, ' ').trim();
+      if(!t) continue;
+      if(/k[öo]r|kolo|round/i.test(t)){ rounds.push({ moneyCol: c, pointsCol: c + 1 }); c++; continue; }
+      if(/spolu|suma|∑|[öo]ssz|s\s*p\s*o/i.test(t)){ if(totMoney < 0) totMoney = c; continue; }
+      if(/\b(pont|body)/i.test(t) && totPoints < 0) totPoints = c;
+    }
+    var players = [], maxPlace = 0;
+    for(i = head + 1; i < rows.length; i++){
+      var row = rows[i] || [];
+      var nm = String(row[nameCol] || '').trim();
+      if(!nm) continue;
+      var place = numOf(row[nameCol - 1 >= 0 ? nameCol - 1 : 0]);
+      var rr = rounds.map(function(x){ return { money: numOf(row[x.moneyCol]) || 0, points: numOf(row[x.pointsCol]) || 0 }; });
+      var sumP = rr.reduce(function(a, b){ return a + b.points; }, 0);
+      var sumM = rr.reduce(function(a, b){ return a + b.money; }, 0);
+      if(place && place > maxPlace) maxPlace = place;
+      players.push({
+        name: nm, place: place || null, rounds: rr,
+        money: totMoney >= 0 ? (numOf(row[totMoney]) || 0) : sumM,
+        points: totPoints >= 0 ? (numOf(row[totPoints]) || 0) : sumP
+      });
+    }
+    if(!players.length) return null;
+    players.forEach(function(p){ p.size = maxPlace; });
+    return { name: String(fallbackName || '').trim() || 'Verseny', players: players, size: maxPlace };
+  }
+  function importSeasonSheets(){
+    if(!requireFull()) return;
+    var perEl = document.getElementById('imp-url');
+    var aggEl = document.getElementById('imp-url-agg');
+    var perUrl = String(perEl ? perEl.value : '').trim();
+    var aggUrl = String(aggEl ? aggEl.value : '').trim();
+    var id = sheetId(perUrl);
+    if(!id){ impMsg(T('Illessze be az 1. mezőbe a versenyenkénti táblázat linkjét.','Vložte do 1. poľa odkaz na tabuľku s výsledkami podľa turnajov.')); return; }
+    impMsg(T('Munkalapok keresése…','Hľadám hárky…'));
+    sheetsApiList(id, function(info, err){
+      if(!info){
+        impMsg(T('Nem sikerült a munkalapokat kiolvasni — ellenőrizze, hogy a táblázat „bárki számára megtekinthető”, és hogy a Sheets API be van kapcsolva. (','Nepodarilo sa načítať hárky — skontrolujte, či je tabuľka verejná a či je Sheets API zapnuté. (') + err + ')');
+        return;
+      }
+      var league = info.sheets.filter(function(s){ return s.league; });
+      if(!league.length){ impMsg(T('Ebben a táblázatban nincs beolvasható munkalap.','V tejto tabuľke nie sú žiadne načítateľné hárky.')); return; }
+      var allRows = [], tourNames = [], done = 0, failed = 0;
+      impMsg(T('Olvasás: ','Načítava sa: ') + league.length + ' ' + T('munkalap…','hárkov…'));
+      function finish(){
+        var msg = T('Beolvasva: ','Načítané: ') + tourNames.length + ' ' + T('verseny, ','turnajov, ') + allRows.length + ' ' + T('eredmény.','výsledkov.');
+        if(failed) msg += ' ' + T('Kimaradt: ','Vynechané: ') + failed + '.';
+        msg += ' ' + T('Ellenőrizze az előnézetet, majd mentse.','Skontrolujte náhľad a uložte.');
+        impMsg(msg);
+        renderImpPreview();
+        if(sheetId(aggUrl)){
+          fetch(sheetCsvUrl(aggUrl)).then(function(r){ return r.text(); }).then(function(csv){
+            var at = parseAggTable(parseDelimited(csv, guessDelim(csv)));
+            if(at){
+              impAgg = { ok: true, rows: at.aggRows, agg: true, source: aggUrl };
+              impAggTable = at;
+              impMsg(msg + ' ' + T('Az összesített ranglista is beolvasva.','Súhrnný rebríček je tiež načítaný.'));
+              renderImpPreview();
+            }
+          }).catch(function(){});
+        }
+      }
+      function next(k){
+        if(k >= league.length){ finish(); return; }
+        var s = league[k];
+        var u = 'https://docs.google.com/spreadsheets/d/' + id + '/gviz/tq?tqx=out:csv&gid=' + s.gid;
+        fetch(u).then(function(r){ return r.text(); }).then(function(csv){
+          var t = parseTourSheet(parseDelimited(csv, guessDelim(csv)), s.name);
+          if(t){
+            tourNames.push(t.name);
+            t.players.forEach(function(p){
+              if(p.place == null) return;
+              var drawn = false;
+              t.players.forEach(function(q){ if(q !== p && q.place === p.place) drawn = true; });
+              allRows.push({ n: p.name, t: t.name, place: p.place, points: p.points, money: p.money,
+                             size: t.size, drawn: drawn ? 1 : 0, rounds: p.rounds });
+            });
+          } else failed++;
+          done++;
+          if(done % 2 === 0) impMsg(T('Olvasás: ','Načítava sa: ') + done + '/' + league.length + '…');
+          next(k + 1);
+        }).catch(function(){ failed++; done++; next(k + 1); });
+      }
+      next(0);
+    });
+  }
   /* ---------- A teljes szezon beolvasása EGY linkből ----------
      A hivatalos szezon-tábla (2. munkalap) minden verseny pénzét és pontját
      tartalmazza, ezért abból a versenyenkénti helyezések is kiszámolhatók. */
@@ -4901,7 +5023,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     setResSeason: setResSeason, setResPlayer: setResPlayer, setImpSeason: setImpSeason,
     importResultsLink: importResultsLink, importResultsPaste: importResultsPaste,
     saveImportedResults: saveImportedResults, cancelImportedResults: cancelImportedResults, deleteImportedResults: deleteImportedResults,
-    importResultsAgg: importResultsAgg, importResultsBoth: importResultsBoth, importAggSmart: importAggSmart, setStatistics: setStatistics,
+    importResultsAgg: importResultsAgg, importResultsBoth: importResultsBoth, importAggSmart: importAggSmart, importSeasonSheets: importSeasonSheets, setStatistics: setStatistics,
     downloadBackupJson: downloadBackupJson, downloadBackupZip: downloadBackupZip, pickRestoreFile: pickRestoreFile, applyRestore: applyRestore, setImpKind: setImpKind,
     addAdminUser: addAdminUser, removeAdminUser: removeAdminUser,
     login: login, logout: logout, forgotPassword: forgotPassword, setAdminTab: setAdminTab,
