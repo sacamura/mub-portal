@@ -354,6 +354,7 @@
   .netplus{color:#1c7c3a}
   .netminus{color:#b3261e}
   .moneymini{margin:.25rem 0 0; font-size:.92rem; color:var(--ink-soft); opacity:.85}
+  .banner.ok{border-color:var(--accent); background:var(--accent-soft); color:var(--accent-strong); font-weight:600}
   td.moneycol,th.moneycol{color:var(--ink-soft); font-weight:400}
   .adminsub{margin:1.4rem 0 .5rem; font-size:1.05rem; color:var(--accent-strong)}
   .namepairs{display:flex; flex-direction:column; gap:.5rem; margin:.4rem 0 .8rem}
@@ -477,7 +478,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 32;
+  var BUILD = 34;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1871,6 +1872,10 @@
     });
     return out.join(' ').trim();
   }
+  /* Megjelenített név: szép írásmód, a † jel nélkül (azt a portál külön teszi ki). */
+  function displayName(raw){
+    return niceName(String(raw == null ? '' : raw).replace(/[†✝]/g, ' ')).replace(/\s+/g, ' ').trim();
+  }
   function playerKey(n){ return deacc(n); }
   /* ---------- Név-egyesítés ----------
      Ugyanaz a személy több alakban szerepelhet a táblázatokban: magyar és szlovák
@@ -2161,21 +2166,24 @@
   }
   function nameGroups(list){
     var info = {}, names = [];
-    function add(n, code, kind){
+    function add(n, code, kind, year){
       n = String(n == null ? '' : n).trim();
       if(!isPersonName(n)) return;
       var o = info[n];
       if(!o){
         var p = parsePName(n);
-        o = info[n] = { n: n, ids: {}, rows: 0, agg: 0, surname: p.surname, canon: p.canon.slice(), mark: p.mark, deceased: p.deceased };
+        o = info[n] = { n: n, ids: {}, rows: 0, agg: 0, surname: p.surname, canon: p.canon.slice(), mark: p.mark, deceased: p.deceased, last: 0 };
         names.push(n);
       }
+      /* melyik szezonban szerepelt utoljára (a legfrissebb írásmód az elsődleges) */
+      var yy = Number(year) || 0;
+      if(yy > o.last) o.last = yy;
       if(code != null && String(code).trim()) o.ids[String(code).trim()] = 1;
       if(kind === 'agg') o.agg++; else o.rows++;
     }
     (list||[]).forEach(function(s){
-      (s.rows||[]).forEach(function(r){ add(r.n, r.code, 'row'); });
-      (s.aggRows||[]).forEach(function(r){ add(r.n, r.code, 'agg'); });
+      (s.rows||[]).forEach(function(r){ add(r.n, r.code, 'row', s.year); });
+      (s.aggRows||[]).forEach(function(r){ add(r.n, r.code, 'agg', s.year); });
     });
     var parent = {};
     names.forEach(function(x){ parent[x] = x; });
@@ -2258,14 +2266,18 @@
         var words = x.replace(/[†✝]/g, ' ').split(/\s+/).filter(Boolean);
         var lone = words.filter(function(w){ return w.replace(/\.+$/, '').length === 1; }).length;
         var caps = words.filter(function(w){ var b = w.replace(/\.+$/, ''); return b.length > 1 && b === b.toUpperCase() && b !== b.toLowerCase(); }).length;
-        var score = (o.rows + o.agg) * 10
+        /* Sorrend: a legutolsó szezon írásmódja → azonosítóval rendelkező alak →
+           gyakoriság → szép írásmód. */
+        var score = (o.last || 0) * 10000
+          + (Object.keys(o.ids).length ? 1000 : 0)
+          + Math.min(o.rows + o.agg, 99) * 10
           + (/[áéíóöőúüűčšžťďňľĺřě]/i.test(x) ? 5 : 0) - (o.deceased ? 40 : 0)
           - lone * 60 - caps * 25 - (/^(ifj|id)\./i.test(x) ? 2 : 0);
         if(score > bestScore){ bestScore = score; best = x; }
       });
       var ids = idsOf(r);
       list2.forEach(function(x){ groupOf[x] = best; });
-      var g = { name: niceName(best), raw: best, aliases: list2.slice().sort(), ids: ids, deceased: dec,
+      var g = { name: displayName(best), raw: best, aliases: list2.slice().sort(), ids: ids, deceased: dec,
                 rows: list2.reduce(function(a, x){ return a + info[x].rows; }, 0),
                 agg: list2.reduce(function(a, x){ return a + info[x].agg; }, 0) };
       byName[best] = g;
@@ -2293,7 +2305,7 @@
       if(!k) return null;
       if(!by[k]){
         var g = NG.byName[canon] || null;
-        by[k] = { name: niceName(canon), rows: [], tours: {}, wins: 0, podiums: 0,
+        by[k] = { name: displayName(canon), rows: [], tours: {}, wins: 0, podiums: 0,
           seconds: 0, thirds: 0, money: 0, placeSum: 0, placeCount: 0, draws: 0, seasonWins: 0, sizes: [],
           points: 0, best: null, years: {}, aggPoints: null, aggRank: null, roundsPlayed: 0,
           aliases: {}, deceased: !!(g && g.deceased), groupIds: (g && g.ids) ? g.ids.slice() : [] };
@@ -2465,8 +2477,8 @@
       (function(){
         var seen2 = {}, nice = [];
         p.aliasList.forEach(function(a){
-          var v = niceName(a);
-          if(seen2[v]) return;
+          var v = displayName(a);
+          if(!v || seen2[v]) return;
           seen2[v] = 1; nice.push(v);
         });
         p.aliasNice = nice;
@@ -5671,7 +5683,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
      Két rész: szervezési szabályok és kártyaszabályok, magyarul és szlovákul.
      A B kategóriás admin is szerkesztheti. */
   /* ---------- Admin: név-egyesítés ---------- */
-  var nameQuery = '', nameLimit = 40;
+  var nameQuery = '', nameLimit = 40, nameFlash = null;
   function setNameQuery(v){ nameQuery = String(v == null ? '' : v); nameLimit = 40; renderAdminNames(); }
   function nameShowMore(){ nameLimit += 60; renderAdminNames(); }
   function nameDecide(a, b, same){
@@ -5682,6 +5694,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     if(same) sameL.push(normPair(a, b)); else diffL.push(normPair(a, b));
     saveNameRules(sameL, diffL, function(ok2, err){
       if(!ok2){ alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + ((err && err.message) || '')); return; }
+      nameFlash = { a: a, b: b, same: !!same };
+      flashScroll = true;
       renderAdminNames();
     });
   }
@@ -5693,6 +5707,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       NAME_RULES.diff.filter(function(p){ return p[0] + '\u0000' + p[1] !== k; }),
       function(ok2, err){
         if(!ok2){ alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + ((err && err.message) || '')); return; }
+        nameFlash = { undo: true };
+        flashScroll = true;
         renderAdminNames();
       });
   }
@@ -5727,7 +5743,19 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
         if(o.ids.length) bits.push('ID ' + esc(o.ids.join(', ')));
         return '<span class="meta">(' + bits.join(' · ') + ')</span>';
       }
-      var html = '<h2 class="resh">'+esc(T('Név-egyesítés','Zlučovanie mien'))+'</h2>'
+      var html = '';
+      if(nameFlash){
+        html += '<div class="banner ok" role="status" style="margin-bottom:.9rem">'
+          + (nameFlash.undo
+              ? esc(T('A döntés visszavonva.','Rozhodnutie zrušené.'))
+              : (nameFlash.same
+                  ? '✓ ' + esc(T('Elmentve: ez a két név mostantól egy személy.','Uložené: tieto dve mená sú odteraz jedna osoba.')) + ' <strong>'+esc(niceName(nameFlash.a))+' = '+esc(niceName(nameFlash.b))+'</strong>'
+                  : '✓ ' + esc(T('Elmentve: ez a két név két külön ember.','Uložené: tieto dve mená sú dve rôzne osoby.')) + ' <strong>'+esc(niceName(nameFlash.a))+' ≠ '+esc(niceName(nameFlash.b))+'</strong>'))
+          + '<div style="margin-top:.5rem"><button type="button" class="btn sm secondary" onclick="MUB.nameUndo(\''+jsq(nameFlash.a || '')+'\',\''+jsq(nameFlash.b || '')+'\')">'+esc(T('Visszavonás','Zrušiť'))+'</button></div>'
+          + '</div>';
+        nameFlash = null;
+      }
+      html += '<h2 class="resh">'+esc(T('Név-egyesítés','Zlučovanie mien'))+'</h2>'
         + '<p class="meta">'+esc(T('Ugyanaz a játékos a táblázatokban több alakban szerepelhet. A legtöbbet a portál magától felismeri (magyar/szlovák keresztnév, becenév, hiányzó ékezet, azonosító szám). Az alábbi pároknál kérem, döntse el, hogy ugyanaz a személy-e — utána a statisztika annak megfelelően számol.',
                                   'Ten istý hráč sa v tabuľkách môže vyskytovať v rôznych podobách. Väčšinu portál rozpozná sám (maďarské/slovenské meno, prezývka, diakritika, ID). Pri nasledujúcich pároch prosím rozhodnite, či ide o tú istú osobu.'))+'</p>';
 
@@ -5795,8 +5823,12 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
         + '</tbody></table></div></div></details>';
 
       box2.innerHTML = html;
+      /* A döntés után a lap tetejére ugrunk, hogy látszódjon a visszajelzés. */
+      if(flashScroll && window.scrollTo){ window.scrollTo(0, 0); }
+      flashScroll = false;
     });
   }
+  var flashScroll = false;
   function renderAdminRules(){
     var body = document.getElementById('admin-body');
     if(!body) return;
