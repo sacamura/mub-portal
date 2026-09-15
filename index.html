@@ -343,11 +343,9 @@
   /* Játékos-adatlap előugró ablaka */
   .pcm{position:fixed; inset:0; z-index:75; background:rgba(8,10,12,.72); overflow:auto; padding:1rem; display:flex; align-items:flex-start; justify-content:center}
   .pcbox{background:var(--bg); border:1px solid var(--border); border-radius:16px; padding:1.1rem; width:100%; max-width:820px; margin:auto; box-shadow:0 12px 40px rgba(0,0,0,.35)}
-  .pcclose{display:block; width:100%; margin:0 0 .9rem; background:var(--accent); color:#fff; border:none; border-radius:12px; padding:.9rem 1rem; font:inherit; font-size:1.05rem; font-weight:700; cursor:pointer; min-height:3rem}
-  /* A bezáró gomb a görgetésnél is mindig látszik (a lap tetején marad). */
-  .pcclose{position:fixed; top:.6rem; left:50%; transform:translateX(-50%); width:min(800px, calc(100% - 2rem)); margin:0; z-index:76; box-shadow:0 6px 16px rgba(0,0,0,.28)}
-  .pcbox{padding-top:4.8rem}
-  .pcclose:hover{filter:brightness(.94)}
+  .pcbot{margin-top:1.2rem}
+  .pcclosebot{display:block; width:100%; margin:0; background:var(--accent); color:#fff; border:none; border-radius:12px; padding:.9rem 1rem; font:inherit; font-size:1.05rem; font-weight:700; cursor:pointer; min-height:3rem}
+  .pcclosebot:hover{filter:brightness(.94)}
   .topsearch{margin:.2rem 0 1rem}
   /* Diszkrét jelzés: a statisztikát mesterséges intelligencia dolgozta fel. */
   .ainote{margin:.2rem 0 1.2rem; font-size:.92rem; color:var(--ink-soft); background:var(--surface-2); border-left:3px solid var(--border); border-radius:8px; padding:.5rem .8rem; line-height:1.5}
@@ -498,7 +496,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 39;
+  var BUILD = 40;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2654,7 +2652,11 @@
     var mbox = document.getElementById('pc-body');
     function put(html){
       if(box) box.innerHTML = html;
-      if(mbox && PC_OPEN) mbox.innerHTML = html;
+      if(mbox && PC_OPEN){
+        /* Egyetlen bezáró gomb, az adatlap alján. */
+        mbox.innerHTML = html
+          + '<div class="pcbot"><button type="button" class="btn pcclosebot" onclick="MUB.closePlayerCard()" aria-label="'+esc(T('Bezárás','Zavrieť'))+'">✕ '+esc(T('Bezárás','Zavrieť'))+'</button></div>';
+      }
     }
     loadResults(function(all){
       var list = resultsOfYear(all, resSeason);
@@ -2843,9 +2845,8 @@
           /* 2) játékos-adatlap – előugró ablakban (a nevekre kattintva) */
           html += '<p class="meta">'+esc(T('Kattintson bármelyik névre: az adatlapja előugró ablakban nyílik meg.','Kliknite na ktorékoľvek meno: karta hráča sa otvorí v okne.'))+'</p>'
             + '<div id="res-player-card"></div>'
-            + '<div id="pc-modal" class="pcm" hidden role="dialog" aria-modal="true" aria-label="'+esc(T('Játékos adatlapja','Karta hráča'))+'">'
+            + '<div id="pc-modal" class="pcm" hidden role="dialog" aria-modal="true" aria-label="'+esc(T('Játékos adatlapja','Karta hráča'))+'" onclick="if(event.target===this)MUB.closePlayerCard()">'
             + '<div class="pcbox">'
-            + '<button type="button" class="pcclose" onclick="MUB.closePlayerCard()" aria-label="'+esc(T('Bezárás','Zavrieť'))+'">✕ '+esc(T('Bezárás','Zavrieť'))+'</button>'
             + '<div class="field" style="margin-bottom:.8rem"><label for="pc-search">'+esc(T('Játékos keresése (név vagy azonosító szám)','Hľadanie hráča (meno alebo identifikačné číslo)'))+'</label>'
             + '<input id="pc-search" type="search" value="'+esc(resPlayerQ)+'" placeholder="'+esc(T('pl. Sárközi Ferenc vagy 1','napr. Sárközi Ferenc alebo 1'))+'" oninput="MUB.openPlayerCard(this.value)"></div>'
             + '<div id="pc-body"></div>'
@@ -3004,6 +3005,7 @@
   window.addEventListener('keydown', function(ev){
     /* A kijelentkezés megerősítő ablakát az Escape zárja be (nem töröl). */
     if(ev.key === 'Escape' && pendingWithdraw){ cancelWithdrawReg(); return; }
+    if(ev.key === 'Escape' && PC_OPEN){ closePlayerCard(); return; }
     if(!LB.open) return;
     var k = ev.key;
     if(k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown'){ nextPhoto(); ev.preventDefault(); }
