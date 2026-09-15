@@ -344,6 +344,14 @@
   .netplus{color:#1c7c3a}
   .netminus{color:#b3261e}
   .moneyinfo{margin:.6rem 0 0; font-size:.95rem; color:var(--ink-soft)}
+  .adminsub{margin:1.4rem 0 .5rem; font-size:1.05rem; color:var(--accent-strong)}
+  .namepairs{display:flex; flex-direction:column; gap:.5rem; margin:.4rem 0 .8rem}
+  .namepair{display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; justify-content:space-between; border:1px solid var(--border); border-radius:12px; padding:.55rem .7rem; background:var(--surface-2)}
+  .namepair.decided.ok{border-color:var(--accent)}
+  .namepair.decided.no{border-color:#b3261e}
+  .npnames{font-size:1.02rem}
+  .npvs{color:var(--ink-soft); padding:0 .2rem}
+  .npbtns{display:flex; gap:.4rem}
   .pstat{flex:1 1 6.5rem; border:1px solid var(--border); border-radius:12px; padding:.6rem .5rem; text-align:center; background:var(--surface-2)}
   .pstat .pnum{display:block; font-family:"IBM Plex Mono",monospace; font-size:1.45rem; font-weight:700; color:var(--accent-strong)}
   .pstat .plabel{display:block; font-size:.86rem; color:var(--ink-soft); line-height:1.25}
@@ -456,7 +464,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 18;
+  var BUILD = 19;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1898,7 +1906,7 @@
     return m;
   })();
   var PNAME_ID = /^(id|st|senior)$/;
-  var PNAME_IFJ = /^(ifj|ml|jun|junior)$/;
+  var PNAME_IFJ = /^(ifj|if|ml|jun|junior)$/;
   /* Pusztán számokból álló „név” nem ember (a táblázat hibás sora). */
   function isPersonName(n){
     var s = String(n == null ? '' : n).replace(/[†✝]/g, ' ').trim();
@@ -1931,7 +1939,100 @@
     });
     return out;
   }
+  /* Két szöveg hasonlósága (Levenshtein-távolság alapján, 0..1). */
+  function textSim(a, b){
+    a = String(a || ''); b = String(b || '');
+    var m = a.length, n2 = b.length, i, j;
+    if(!m) return n2 ? 0 : 1;
+    if(!n2) return 0;
+    var prev = [], cur = [];
+    for(j = 0; j <= n2; j++) prev[j] = j;
+    for(i = 1; i <= m; i++){
+      cur[0] = i;
+      for(j = 1; j <= n2; j++){
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1));
+      }
+      for(j = 0; j <= n2; j++) prev[j] = cur[j];
+    }
+    return 1 - prev[n2] / Math.max(m, n2);
+  }
+  /* Átnézendő névpárok: hasonló, de még nem egyesített nevek. */
+  function nameCandidates(list){
+    var NG = nameGroups(list);
+    var buckets = {}, out = [], seen = {};
+    NG.names.forEach(function(x){
+      var key = (NG.info[x].surname || '?').slice(0, 4);
+      (buckets[key] = buckets[key] || []).push(x);
+    });
+    Object.keys(buckets).forEach(function(k){
+      var l = buckets[k];
+      for(var i = 0; i < l.length; i++){
+        for(var j = i + 1; j < l.length; j++){
+          var A = l[i], B = l[j];
+          if(NG.groupOf[A] === NG.groupOf[B]) continue;      /* már egy ember */
+          if(NAME_BLOCK[pairKey(A, B)]) continue;            /* már döntöttünk: külön */
+          var oa = NG.info[A], ob = NG.info[B];
+          var sim = textSim(deacc(A), deacc(B));
+          var noGiven = (!oa.canon.length || !ob.canon.length);
+          var sameSur = (oa.surname === ob.surname);
+          if(!(sameSur && noGiven) && sim < 0.66) continue;
+          var kk = pairKey(A, B);
+          if(seen[kk]) continue;
+          seen[kk] = 1;
+          out.push({ a: A, b: B, sim: Math.round(sim * 100) / 100,
+                     cntA: oa.rows + oa.agg, cntB: ob.rows + ob.agg,
+                     idsA: Object.keys(oa.ids), idsB: Object.keys(ob.ids),
+                     surnames: sameSur ? oa.surname : (oa.surname + ' / ' + ob.surname) });
+        }
+      }
+    });
+    out.sort(function(x, y){
+      if(y.sim !== x.sim) return y.sim - x.sim;
+      return (y.cntA + y.cntB) - (x.cntA + x.cntB);
+    });
+    return { ng: NG, pairs: out };
+  }
   /* Nyers nevek csoportosítása. Visszaadja a csoportokat és a név -> csoportnevet képet. */
+  /* ---------- A szervező döntései a névpárokról ----------
+     A „Név-egyesítés” admin fülön az azonos nevű párokról lehet dönteni:
+     ugyanaz a személy, vagy két különböző ember. A döntés a settings/rules
+     dokumentumban tárolódik (names_same / names_diff), és a statisztika azonnal
+     annak megfelelően számol. */
+  var NAME_RULES = { same: [], diff: [] };
+  var NAME_BLOCK = {};
+  function normPair(a, b){
+    a = String(a == null ? '' : a).trim(); b = String(b == null ? '' : b).trim();
+    return a <= b ? [a, b] : [b, a];
+  }
+  function pairKey(a, b){ var p = normPair(a, b); return p[0] + '\u0000' + p[1]; }
+  function setPairRules(same, diff){
+    function clean(list){
+      var seen = {}, out = [];
+      (list || []).forEach(function(p){
+        if(!p || !p[0] || !p[1]) return;
+        var q = normPair(p[0], p[1]), k = q[0] + '\u0000' + q[1];
+        if(seen[k]) return;
+        seen[k] = 1; out.push(q);
+      });
+      return out;
+    }
+    NAME_RULES = { same: clean(same), diff: clean(diff) };
+    NAME_BLOCK = {};
+    NAME_RULES.diff.forEach(function(p){ NAME_BLOCK[p[0] + '\u0000' + p[1]] = 1; });
+  }
+  function loadNameRules(cb){
+    db.collection('settings').doc('rules').get().then(function(d){
+      var v = (d && d.exists) ? (d.data() || {}) : {};
+      setPairRules(v.names_same, v.names_diff);
+      if(cb) cb(NAME_RULES);
+    }).catch(function(){ if(cb) cb(NAME_RULES); });
+  }
+  function saveNameRules(same, diff, cb){
+    setPairRules(same, diff);
+    db.collection('settings').doc('rules').set({ names_same: NAME_RULES.same, names_diff: NAME_RULES.diff }, { merge: true })
+      .then(function(){ CACHE.rules = null; if(cb) cb(true); })
+      .catch(function(err){ if(cb) cb(false, err); });
+  }
   function nameGroups(list){
     var info = {}, names = [];
     function add(n, code, kind){
@@ -1963,11 +2064,26 @@
       for(var i = 0; i < ia.length; i++) for(var j = 0; j < ib.length; j++) if(ia[i] !== ib[j]) return true;
       return false;
     }
-    function join(a, b){
+    function blockedBetween(a, b){
+      var ma = names.filter(function(x){ return find(x) === a; });
+      var mb = names.filter(function(x){ return find(x) === b; });
+      for(var i = 0; i < ma.length; i++) for(var j = 0; j < mb.length; j++){
+        if(NAME_BLOCK[pairKey(ma[i], mb[j])]) return true;
+      }
+      return false;
+    }
+    function join(a, b, force){
       a = find(a); b = find(b);
-      if(a === b || clash(a, b)) return false;
+      if(a === b) return false;
+      /* A szervező „külön személy” döntése mindennél erősebb. */
+      if(blockedBetween(a, b)) return false;
+      if(!force && clash(a, b)) return false;
       parent[b] = a; return true;
     }
+    /* 0) amit a szervező „ugyanaz a személy”-nek jelölt, az mindenképp összevont. */
+    (NAME_RULES.same || []).forEach(function(p){
+      if(info[p[0]] && info[p[1]]) join(p[0], p[1], true);
+    });
     /* 1) azonosító szám szerint (ez a biztos kapcsolat) */
     var byId = {};
     names.forEach(function(x){ Object.keys(info[x].ids).forEach(function(i){ (byId[i] = byId[i] || []).push(x); }); });
@@ -3299,7 +3415,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
      B = korlátozott: versenyek, hírek, galéria, jelentkezők, játékosok — de
          szezon, eredmény-beolvasás, letöltések és biztonsági mentés NEM. */
   var ADMIN_FULL_EMAILS = ['jani991@gmail.com', 'jan.juhasz6@gmail.com'];   /* mindig teljes jog */
-  var ADMIN_B_TABS = ['versenyek', 'hirek', 'galeria', 'jelentkezok', 'jatekosok', 'szabalyok'];
+  var ADMIN_B_TABS = ['versenyek', 'hirek', 'galeria', 'jelentkezok', 'jatekosok', 'nevek', 'szabalyok'];
   var ADMIN_ROLES = null;                              /* a Firebase-ből: { full:[], limited:[] } */
   function lowerList(a){ return (a || []).map(function(x){ return String(x).trim().toLowerCase(); }).filter(Boolean); }
   function loadAdminRolesLocal(){ try{ return JSON.parse(localStorage.getItem('mub-adminroles') || 'null'); }catch(e){ return null; } }
@@ -3415,7 +3531,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       document.getElementById('login-form').addEventListener('submit', function(ev){ ev.preventDefault(); login(); });
       return;
     }
-    var tabs = [['versenyek',T('Versenyek','Turnaje')],['szezonok',T('Szezonok','Sezóny')],['eredmenyek',T('Eredmények','Výsledky')],['hirek',T('Hírek','Novinky')],['galeria',T('Galéria','Galéria')],['jelentkezok',T('Jelentkezők','Prihlásení')],['jatekosok',T('Játékosok','Hráči')],['szabalyok',T('Szabályok','Pravidlá')],['letoltesek',T('Letöltések','Na stiahnutie')],['mentes',T('Mentés','Záloha')],['adminok',T('Adminok','Administrátori')]];
+    var tabs = [['versenyek',T('Versenyek','Turnaje')],['szezonok',T('Szezonok','Sezóny')],['eredmenyek',T('Eredmények','Výsledky')],['hirek',T('Hírek','Novinky')],['galeria',T('Galéria','Galéria')],['jelentkezok',T('Jelentkezők','Prihlásení')],['jatekosok',T('Játékosok','Hráči')],['nevek',T('Név-egyesítés','Zlučovanie mien')],['szabalyok',T('Szabályok','Pravidlá')],['letoltesek',T('Letöltések','Na stiahnutie')],['mentes',T('Mentés','Záloha')],['adminok',T('Adminok','Administrátori')]];
     tabs = tabs.filter(function(t){ return tabAllowed(t[0]); });
     if(!tabAllowed(adminTab)) adminTab = 'versenyek';
     var html = (isFullAdmin() ? backupReminderHtml() : '') + '<div class="toolbar"><div><h1 class="page-title" style="display:inline">'+esc(T('Admin','Admin'))+'</h1> <span class="meta">'+esc(currentUser.email)+'</span></div>'
@@ -3437,6 +3553,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     else if(adminTab==='galeria') renderAdminGallery();
     else if(adminTab==='jelentkezok') renderAdminRegistrations();
     else if(adminTab==='jatekosok') renderAdminPlayers();
+    else if(adminTab==='nevek') renderAdminNames();
     else if(adminTab==='szabalyok') renderAdminRules();
     else if(adminTab==='letoltesek') renderAdminDownloads();
     else if(adminTab==='mentes') renderAdminBackup();
@@ -5345,6 +5462,112 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
   /* --- admin: szabályok ---
      Két rész: szervezési szabályok és kártyaszabályok, magyarul és szlovákul.
      A B kategóriás admin is szerkesztheti. */
+  /* ---------- Admin: név-egyesítés ---------- */
+  var nameQuery = '', nameLimit = 40;
+  function setNameQuery(v){ nameQuery = String(v == null ? '' : v); nameLimit = 40; renderAdminNames(); }
+  function nameShowMore(){ nameLimit += 60; renderAdminNames(); }
+  function nameDecide(a, b, same){
+    if(!currentUser) return;
+    var k = pairKey(a, b);
+    var sameL = NAME_RULES.same.filter(function(p){ return p[0] + '\u0000' + p[1] !== k; });
+    var diffL = NAME_RULES.diff.filter(function(p){ return p[0] + '\u0000' + p[1] !== k; });
+    if(same) sameL.push(normPair(a, b)); else diffL.push(normPair(a, b));
+    saveNameRules(sameL, diffL, function(ok2, err){
+      if(!ok2){ alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + ((err && err.message) || '')); return; }
+      renderAdminNames();
+    });
+  }
+  function nameUndo(a, b){
+    if(!currentUser) return;
+    var k = pairKey(a, b);
+    saveNameRules(
+      NAME_RULES.same.filter(function(p){ return p[0] + '\u0000' + p[1] !== k; }),
+      NAME_RULES.diff.filter(function(p){ return p[0] + '\u0000' + p[1] !== k; }),
+      function(ok2, err){
+        if(!ok2){ alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + ((err && err.message) || '')); return; }
+        renderAdminNames();
+      });
+  }
+  function nameClearAll(){
+    if(!currentUser) return;
+    if(!confirm(T('Biztosan törli az összes név-döntést? A statisztika újra a saját felismerését használja.','Naozaj vymazať všetky rozhodnutia o menách?'))) return;
+    saveNameRules([], [], function(){ renderAdminNames(); });
+  }
+  function renderAdminNames(){
+    var box = document.getElementById('admin-body');
+    if(!box) return;
+    box.innerHTML = '<p class="meta">'+esc(T('Betöltés…','Načítava sa…'))+'</p>';
+    loadResults(function(all){
+      var box2 = document.getElementById('admin-body');
+      if(!box2) return;
+      var cand = nameCandidates(all);
+      var q = deacc(nameQuery);
+      var pairs = cand.pairs;
+      if(q) pairs = pairs.filter(function(p){ return deacc(p.a).indexOf(q) >= 0 || deacc(p.b).indexOf(q) >= 0; });
+      var merged = cand.ng.groups.filter(function(g2){ return g2.aliases.length > 1; });
+      function meta(o){
+        var bits = [];
+        bits.push(esc(String(o.cnt) + ' ' + T('előfordulás','výskytov')));
+        if(o.ids.length) bits.push('ID ' + esc(o.ids.join(', ')));
+        return '<span class="meta">(' + bits.join(' · ') + ')</span>';
+      }
+      var html = '<h2 class="resh">'+esc(T('Név-egyesítés','Zlučovanie mien'))+'</h2>'
+        + '<p class="meta">'+esc(T('Ugyanaz a játékos a táblázatokban több alakban szerepelhet. A legtöbbet a portál magától felismeri (magyar/szlovák keresztnév, becenév, hiányzó ékezet, azonosító szám). Az alábbi pároknál kérem, döntse el, hogy ugyanaz a személy-e — utána a statisztika annak megfelelően számol.',
+                                  'Ten istý hráč sa v tabuľkách môže vyskytovať v rôznych podobách. Väčšinu portál rozpozná sám (maďarské/slovenské meno, prezývka, diakritika, ID). Pri nasledujúcich pároch prosím rozhodnite, či ide o tú istú osobu.'))+'</p>';
+
+      /* döntések */
+      var decided = NAME_RULES.same.map(function(p){ return { p: p, same: true }; })
+        .concat(NAME_RULES.diff.map(function(p){ return { p: p, same: false }; }));
+      if(decided.length){
+        html += '<h3 class="adminsub">'+esc(T('Az Ön döntései','Vaše rozhodnutia'))+' (' + decided.length + ')</h3>'
+          + '<div class="namepairs">'
+          + decided.map(function(d){
+              return '<div class="namepair decided '+(d.same ? 'ok' : 'no')+'">'
+                + '<div class="npnames">'+(d.same ? '✓ ' : '✕ ')+esc(d.p[0])+' <span class="npvs">=</span> '+esc(d.p[1])
+                + ' <span class="meta">'+esc(d.same ? T('ugyanaz a személy','tá istá osoba') : T('két külön ember','dve rôzne osoby'))+'</span></div>'
+                + '<div class="npbtns"><button type="button" class="btn sm secondary" onclick="MUB.nameUndo(\''+jsq(d.p[0])+'\',\''+jsq(d.p[1])+'\')">'+esc(T('Visszavonás','Zrušiť'))+'</button></div>'
+                + '</div>';
+            }).join('')
+          + '</div>'
+          + '<p class="meta"><button type="button" class="btn sm secondary" onclick="MUB.nameClearAll()">'+esc(T('Összes döntés törlése','Vymazať všetky rozhodnutia'))+'</button></p>';
+      }
+
+      /* átnézendő párok */
+      html += '<h3 class="adminsub">'+esc(T('Átnézendő párok','Páry na kontrolu'))+' (' + pairs.length + ')</h3>'
+        + '<div class="field" style="max-width:28rem"><label for="name-q">'+esc(T('Keresés név szerint','Hľadať podľa mena'))+'</label>'
+        + '<input id="name-q" type="search" value="'+esc(nameQuery)+'" placeholder="'+esc(T('pl. Dobos','napr. Dobos'))+'" oninput="MUB.setNameQuery(this.value)"></div>';
+      if(!pairs.length){
+        html += '<p class="meta">'+esc(T('Nincs több átnézendő pár. Köszönöm a segítséget!','Žiadne ďalšie páry na kontrolu. Ďakujem!'))+'</p>';
+      } else {
+        html += '<div class="namepairs">'
+          + pairs.slice(0, nameLimit).map(function(p){
+              return '<div class="namepair">'
+                + '<div class="npnames">'+esc(p.a)+' '+meta({ cnt: p.cntA, ids: p.idsA })+' <span class="npvs">↔</span> '+esc(p.b)+' '+meta({ cnt: p.cntB, ids: p.idsB })+'</div>'
+                + '<div class="npbtns">'
+                + '<button type="button" class="btn sm" onclick="MUB.nameDecide(\''+jsq(p.a)+'\',\''+jsq(p.b)+'\',true)">'+esc(T('Ugyanaz a személy','Tá istá osoba'))+'</button>'
+                + '<button type="button" class="btn sm secondary" onclick="MUB.nameDecide(\''+jsq(p.a)+'\',\''+jsq(p.b)+'\',false)">'+esc(T('Két külön ember','Dve rôzne osoby'))+'</button>'
+                + '</div></div>';
+            }).join('')
+          + '</div>';
+        if(pairs.length > nameLimit){
+          html += '<p class="meta"><button type="button" class="btn sm secondary" onclick="MUB.nameShowMore()">'+esc(T('Több megjelenítése','Zobraziť viac'))+' (' + (pairs.length - nameLimit) + ')</button></p>';
+        }
+      }
+
+      /* automatikusan összevont nevek */
+      html += '<h3 class="adminsub">'+esc(T('A portál által összevont nevek','Mená zlúčené portálom'))+' (' + merged.length + ')</h3>'
+        + '<p class="meta">'+esc(T('Ezeket a portál magától egyesítette. Ha valamelyik nem ugyanaz a személy, kattintson a „Két külön ember” gombra a két névnél az átnézendő párok között, vagy szóljon, és javítom.',
+                                  'Tieto mená portál zlúčil sám. Ak nejde o tú istú osobu, kliknite na „Dve rôzne osoby” pri danom páre.'))+'</p>'
+        + '<details class="whobox"><summary>'+esc(T('Az összevont nevek listája','Zoznam zlúčených mien'))+'</summary><div class="whobody">'
+        + '<div class="table-wrap"><table class="list"><thead><tr><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Változatok','Varianty'))+'</th><th class="num">ID</th></tr></thead><tbody>'
+        + merged.slice(0, 200).map(function(g2){
+            return '<tr><td>'+esc(g2.name)+'</td><td>'+esc(g2.aliases.join(' · '))+'</td><td class="num">'+esc(g2.ids.join(', '))+'</td></tr>';
+          }).join('')
+        + '</tbody></table></div></div></details>';
+
+      box2.innerHTML = html;
+    });
+  }
   function renderAdminRules(){
     var body = document.getElementById('admin-body');
     if(!body) return;
@@ -5514,12 +5737,15 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     pickGalleryTournament: pickGalleryTournament, pickAlbum: pickAlbum, uploadPhotos: uploadPhotos, setPodium: setPodium, deletePhoto: deletePhoto, rotatePhoto: rotatePhoto, renameAlbum: renameAlbum,
     pickRegTournament: pickRegTournament, exportCsv: exportCsv,
     addPlayer: addPlayer, deletePlayer: deletePlayer, importDefaultRoster: importDefaultRoster, importPastedRoster: importPastedRoster,
-    addDownload: addDownload, deleteDownload: deleteDownload
+    addDownload: addDownload, deleteDownload: deleteDownload,
+    nameDecide: nameDecide, nameUndo: nameUndo, nameClearAll: nameClearAll, setNameQuery: setNameQuery, nameShowMore: nameShowMore
   };
 
   render();
   /* A menüben a Statisztika gomb csak akkor jelenik meg, ha be van kapcsolva. */
   loadFeatures(function(){ renderNav(); });
+  /* A név-egyesítési döntések betöltése (a statisztika ezek szerint számol). */
+  loadNameRules(function(){ if(currentRoute()==='statisztika') render(); });
 })();
 </script>
 </body>
