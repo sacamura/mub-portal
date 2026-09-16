@@ -364,6 +364,7 @@
   .banner.ok{border-color:var(--accent); background:var(--accent-soft); color:var(--accent-strong); font-weight:600}
   /* Admin: játékosok táblázata (beírható mezők) */
   table.players td{padding:.35rem .3rem; vertical-align:middle}
+  #mr-preview input.pin{width:100%; min-width:5rem; padding:.25rem .4rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; font-size:.95rem}
   table.players input.pin{width:100%; min-width:5.5rem; padding:.35rem .45rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; font-size:.98rem}
   table.players td.pactions{white-space:nowrap}
   /* Elhunyt jelölése: visszafogott lista apró kereszt-gombokkal */
@@ -403,6 +404,8 @@
   .inforow{display:flex; gap:.4rem; margin-bottom:.5rem; align-items:center; flex-wrap:wrap}
   .inforow input{flex:1 1 13rem; min-width:9rem; width:auto}
   .inforow .btn{flex:none}
+  .row3{display:flex; gap:.6rem; flex-wrap:wrap}
+  .row3 .field{flex:1 1 10rem; margin-bottom:.6rem}
   @media print{
     header.top,.noprint{display:none !important}
     body{background:#fff; background-image:none}
@@ -523,7 +526,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 43;
+  var BUILD = 44;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1456,12 +1459,12 @@
   function gvizUrl(url){
     var id = sheetId(url); if(!id) return '';
     var gid = sheetGid(url);
-    return 'https://docs.google.com/spreadsheets/d/' + id + '/gviz/tq?tqx=out:json' + (gid ? '&gid=' + gid : '');
+    return 'https://docs.google.com/spreadsheets/d/' + id + '/gviz/tq?tqx=out:json' + (gid !== '' && gid != null ? '&gid=' + gid : '');
   }
   function sheetCsvUrl(url){
     var id = sheetId(url); if(!id) return '';
     var gid = sheetGid(url);
-    return 'https://docs.google.com/spreadsheets/d/' + id + '/export?format=csv' + (gid ? '&gid=' + gid : '');
+    return 'https://docs.google.com/spreadsheets/d/' + id + '/export?format=csv' + (gid !== '' && gid != null ? '&gid=' + gid : '');
   }
   /* A Google „gviz” válasza: google.visualization.Query.setResponse({...}); */
   function parseGviz(txt){
@@ -3738,7 +3741,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
      B = korlátozott: versenyek, hírek, galéria, jelentkezők, játékosok — de
          szezon, eredmény-beolvasás, letöltések és biztonsági mentés NEM. */
   var ADMIN_FULL_EMAILS = ['jani991@gmail.com', 'jan.juhasz6@gmail.com'];   /* mindig teljes jog */
-  var ADMIN_B_TABS = ['versenyek', 'hirek', 'galeria', 'jelentkezok', 'jatekosok', 'nevek', 'szabalyok'];
+  var ADMIN_B_TABS = ['versenyek', 'hirek', 'galeria', 'jelentkezok', 'jatekosok', 'nevek', 'felvetel', 'szabalyok'];
   var ADMIN_ROLES = null;                              /* a Firebase-ből: { full:[], limited:[] } */
   function lowerList(a){ return (a || []).map(function(x){ return String(x).trim().toLowerCase(); }).filter(Boolean); }
   function loadAdminRolesLocal(){ try{ return JSON.parse(localStorage.getItem('mub-adminroles') || 'null'); }catch(e){ return null; } }
@@ -3854,7 +3857,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       document.getElementById('login-form').addEventListener('submit', function(ev){ ev.preventDefault(); login(); });
       return;
     }
-    var tabs = [['versenyek',T('Versenyek','Turnaje')],['szezonok',T('Szezonok','Sezóny')],['eredmenyek',T('Eredmények','Výsledky')],['hirek',T('Hírek','Novinky')],['galeria',T('Galéria','Galéria')],['jelentkezok',T('Jelentkezők','Prihlásení')],['jatekosok',T('Játékosok','Hráči')],['nevek',T('Név-egyesítés','Zlučovanie mien')],['szabalyok',T('Szabályok','Pravidlá')],['letoltesek',T('Letöltések','Na stiahnutie')],['mentes',T('Mentés','Záloha')],['adminok',T('Adminok','Administrátori')]];
+    var tabs = [['versenyek',T('Versenyek','Turnaje')],['szezonok',T('Szezonok','Sezóny')],['eredmenyek',T('Eredmények','Výsledky')],['hirek',T('Hírek','Novinky')],['galeria',T('Galéria','Galéria')],['jelentkezok',T('Jelentkezők','Prihlásení')],['jatekosok',T('Játékosok','Hráči')],['nevek',T('Név-egyesítés','Zlučovanie mien')],['felvetel',T('Eredmény felvétel','Zadať výsledky')],['szabalyok',T('Szabályok','Pravidlá')],['letoltesek',T('Letöltések','Na stiahnutie')],['mentes',T('Mentés','Záloha')],['adminok',T('Adminok','Administrátori')]];
     tabs = tabs.filter(function(t){ return tabAllowed(t[0]); });
     if(!tabAllowed(adminTab)) adminTab = 'versenyek';
     var html = (isFullAdmin() ? backupReminderHtml() : '') + '<div class="toolbar"><div><h1 class="page-title" style="display:inline">'+esc(T('Admin','Admin'))+'</h1> <span class="meta">'+esc(currentUser.email)+'</span></div>'
@@ -3877,6 +3880,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     else if(adminTab==='jelentkezok') renderAdminRegistrations();
     else if(adminTab==='jatekosok') renderAdminPlayers();
     else if(adminTab==='nevek') renderAdminNames();
+    else if(adminTab==='felvetel') renderAdminMr();
     else if(adminTab==='szabalyok') renderAdminRules();
     else if(adminTab==='letoltesek') renderAdminDownloads();
     else if(adminTab==='mentes') renderAdminBackup();
@@ -5912,6 +5916,339 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
   /* --- admin: szabályok ---
      Két rész: szervezési szabályok és kártyaszabályok, magyarul és szlovákul.
      A B kategóriás admin is szerkesztheti. */
+  /* ================= Admin: verseny eredményének kézi felvétele =================
+     A szervező versenyenként, sorrendben (1. helyezettől az utolsóig) beírja a
+     játékosokat és a körökben nyert összegeket. A portál kiszámolja a körök
+     pontjait (5 / 3 / 1, holtversenynél az átlag), a verseny pontjait és a
+     helyezéseket, és elmenti a statisztikának. A neveket összeveti a már ismert
+     játékosokkal, és ha bizonytalan, rákérdez. */
+  var mrYear = '', mrVenue = '', mrDate = '', mrRows = [], mrMsg = '', mrMub = false, mrPaste = '';
+
+  function mrField(k, v){
+    if(k === 'year') mrYear = String(v || '').replace(/\D/g, '').slice(0, 4);
+    else if(k === 'venue') mrVenue = String(v || '');
+    else if(k === 'date') mrDate = String(v || '');
+    renderAdminMr();
+  }
+  function mrToggleMub(on){ mrMub = !!on; renderAdminMr(); }
+  /* A beillesztett szöveget megőrizzük, különben az újrarajzolás törölné. */
+  function mrPasteSet(v){ mrPaste = String(v == null ? '' : v); }
+  /* A körök pontjai: 5 az 1. helyért, 3 a 2.-ért, 1 a 3.-ért; holtversenynél
+     a holtversenyben érintett helyek pontjainak átlaga (4-4, 2-2). */
+  function roundPointsOf(values){
+    var idx = [];
+    values.forEach(function(v, i){ if(Number(v) > 0) idx.push({ v: Number(v), i: i }); });
+    idx.sort(function(a, b){ return b.v - a.v; });
+    var pts = {}, base = [5, 3, 1];
+    var i = 0;
+    while(i < idx.length){
+      var j = i;
+      while(j + 1 < idx.length && Math.abs(idx[j + 1].v - idx[i].v) < 0.005) j++;
+      var sum = 0, cnt = 0;
+      for(var k = i; k <= j; k++){ sum += (base[k] || 0); cnt++; }
+      var p = cnt ? Math.round(sum / cnt * 10) / 10 : 0;
+      for(k = i; k <= j; k++) pts[idx[k].i] = p;
+      i = j + 1;
+    }
+    values.forEach(function(v, i){ if(!(i in pts)) pts[i] = 0; });
+    return pts;
+  }
+  /* A beillesztett szöveg feldolgozása. Soronként egy játékos, sorrendben az
+     első helyezettől. Mezők: [helyezés] név 1.kör € 2.kör € 3.kör € 4.kör € 5.kör € [pont] */
+  function mrParseText(text){
+    var out = [];
+    String(text || '').split(/\r?\n/).forEach(function(line){
+      var s = String(line).replace(/\u00a0/g, ' ').trim();
+      if(!s) return;
+      var parts = s.split(/\t|;|\s{2,}/).map(function(x){ return x.trim(); }).filter(function(x){ return x !== ''; });
+      if(parts.length < 2) parts = s.split(/\s+/);
+      var name = '', before = [], after = [], seenName = false;
+      parts.forEach(function(p){
+        var isNum = /^-?\d+([.,]\d+)?$/.test(p.replace(/\s/g, ''));
+        if(!seenName && /[A-Za-zÀ-ž]/.test(p)){ name = p; seenName = true; return; }
+        if(!seenName){ before.push(p); return; }
+        if(isNum || /^-?\d+([.,]\d+)?$/.test(p.replace(/\s/g, ''))) after.push(p);
+        else name += ' ' + p;
+      });
+      if(!name) return;
+      var place = before.length ? Number(String(before[before.length - 1]).replace(/[^\d]/g, '')) || null : null;
+      var nums = after.map(function(x){ return numOf(x); }).filter(function(x){ return x != null; });
+      var rounds = nums.slice(0, 5);
+      while(rounds.length < 5) rounds.push(0);
+      var givenPoints = nums.length > 5 ? nums[5] : null;
+      out.push({ name: name.replace(/\s+/g, ' ').trim(), place: place, money: rounds.map(function(x){ return Math.round(x * 100) / 100; }), points: givenPoints, raw: s });
+    });
+    return out;
+  }
+  /* Az ismert nevek (statisztikából és a nyilvántartásból). */
+  function mrKnownNames(cb){
+    var out = {};
+    (PLAYER_ROSTER || []).forEach(function(r){ if(r[2]) out[String(r[2])] = 1; });
+    loadResults(function(all){
+      (all || []).forEach(function(s){
+        (s.rows || []).forEach(function(r){ if(r.n) out[String(r.n)] = 1; });
+        (s.aggRows || []).forEach(function(r){ if(r.n) out[String(r.n)] = 1; });
+      });
+      loadAllPlayers(function(ps){
+        (ps || []).forEach(function(p){ if(p.name) out[String(p.name)] = 1; });
+        cb(Object.keys(out));
+      });
+    });
+  }
+  function mrBestMatch(name, known){
+    var t = deacc(name), best = null, bestS = 0;
+    known.forEach(function(k){
+      var s = textSim(t, deacc(k));
+      if(s > bestS){ bestS = s; best = k; }
+    });
+    return (best && bestS >= 0.74) ? { name: best, sim: Math.round(bestS * 100) / 100 } : null;
+  }
+  function renderAdminMr(){
+    var box = document.getElementById('admin-body');
+    if(!box) return;
+    var html = '<h2 class="resh">'+esc(T('Verseny eredményének felvétele','Zadanie výsledkov turnaja'))+'</h2>'
+      + '<p class="meta">'+esc(T('Írja be a verseny adatait, majd illessze be a játékosokat sorrendben (1. helyezettől az utolsóig). Soronként: név, majd az 5 körben nyert összeg (€). A helyezést a sorrend adja; a pontokat a portál számolja (5 / 3 / 1, holtversenynél átlag). Ha a 6. szám is meg van adva, azt pontként használja.',
+                              'Zadajte údaje turnaja a vložte hráčov v poradí (od 1. miesta po posledné). V riadku: meno a 5 vyhraných súm za kolá (€). Poradie určuje umiestnenie; body vypočíta portál.'))+'</p>'
+      + '<div class="card" style="margin-bottom:1rem">'
+      + '<div class="row3">'
+      + '<div class="field"><label for="mr-year">'+esc(T('Szezon (év)','Sezóna (rok)'))+'</label><input id="mr-year" inputmode="numeric" value="'+esc(mrYear)+'" oninput="MUB.mrField(\'year\', this.value)"></div>'
+      + '<div class="field"><label for="mr-venue">'+esc(T('Verseny helyszíne','Miesto turnaja'))+'</label><input id="mr-venue" value="'+esc(mrVenue)+'" oninput="MUB.mrField(\'venue\', this.value)"></div>'
+      + '<div class="field"><label for="mr-date">'+esc(T('Dátum','Dátum'))+'</label><input id="mr-date" type="date" value="'+esc(mrDate)+'" oninput="MUB.mrField(\'date\', this.value)"></div>'
+      + '</div>'
+      + '<label class="switchline"><input type="checkbox" '+(mrMub ? 'checked' : '')+' onchange="MUB.mrToggleMub(this.checked)"> '+esc(T('Helyezési bónusz is számít (régi MUBL rendszer)','Počíta sa aj bonus za umiestnenie (starý systém MUBL)'))+'</label>'
+      + '<div class="field"><label for="mr-paste">'+esc(T('Beillesztés (soronként egy játékos)','Vloženie (jeden hráč na riadok)'))+'</label>'
+      + '<textarea id="mr-paste" rows="6" oninput="MUB.mrPasteSet(this.value)" placeholder="'+esc(T('Kovács János\t6,55\t6,05\t4,8\t7,2\t5,1\nNagy Péter\t5,5\t9,8\t5\t6,1\t4,4','Ján Kováč\t6,55\t6,05\t4,8\t7,2\t5,1'))+'">'+esc(mrPaste)+'</textarea></div>'
+      + '<div class="toolbar"><div>'
+      + '<button type="button" class="btn sm" onclick="MUB.mrParse()">'+esc(T('Beolvasás','Načítať'))+'</button> '
+      + '<button type="button" class="btn sm secondary" onclick="MUB.mrAddRow()">'+esc(T('Sor hozzáadása','Pridať riadok'))+'</button>'
+      + '</div><div>'
+      + '<button type="button" class="btn sm" onclick="MUB.mrSave()">'+esc(T('Mentés a portálra','Uložiť do portálu'))+'</button> '
+      + '<button type="button" class="btn sm secondary" onclick="MUB.mrClear()">'+esc(T('Törlés','Vymazať'))+'</button>'
+      + '</div></div>'
+      + (mrMsg ? '<p class="banner ok" role="status" style="margin-top:.6rem">'+esc(mrMsg)+'</p>' : '')
+      + '</div>'
+      + '<div id="mr-preview"></div><div id="mr-list"></div>';
+    box.innerHTML = html;
+    renderMrPreview();
+    renderMrList();
+  }
+  function renderMrPreview(){
+    var box = document.getElementById('mr-preview');
+    if(!box) return;
+    if(!mrRows.length){ box.innerHTML = ''; return; }
+    var names = mrRows.map(function(r){ return r.money; });
+    var roundPts = [];
+    for(var k = 0; k < 5; k++) roundPts.push(roundPointsOf(names.map(function(m){ return m[k]; })));
+    var total = mrRows.map(function(r, i){
+      var s = 0; for(var k = 0; k < 5; k++) s += roundPts[k][i];
+      return Math.round(s * 10) / 10;
+    });
+    var size = mrRows.length;
+    var html = '<h3 class="adminsub">'+esc(T('Előnézet','Náhľad'))+' — ' + size + ' ' + esc(T('játékos','hráčov')) + '</h3>'
+      + '<div class="table-wrap"><table class="list"><thead><tr><th class="num">#</th><th>'+esc(T('Név','Meno'))+'</th>'
+      + [1,2,3,4,5].map(function(i){ return '<th class="num">'+i+'. '+esc(T('kör','kolo'))+'</th>'; }).join('')
+      + '<th class="num">'+esc(T('∑ €','∑ €'))+'</th><th class="num">'+esc(T('Pont','Body'))+'</th><th>'+esc(T('Név egyezik?','Meno sedí?'))+'</th></tr></thead><tbody>';
+    mrRows.forEach(function(r, i){
+      var sum = r.money.reduce(function(a, b){ return a + (Number(b) || 0); }, 0);
+      var pts = (r.points != null) ? r.points : total[i];
+      if(mrMub) pts = Math.round((pts + (size - (i + 1) + 1)) * 10) / 10;
+      r.computed = pts; r.sum = Math.round(sum * 100) / 100;
+      html += '<tr><td class="num">'+(i + 1)+'.</td>'
+        + '<td><input class="pin" id="mr-n-'+i+'" value="'+esc(r.name)+'" oninput="MUB.mrName('+i+', this.value)"></td>'
+        + r.money.map(function(m, k){ return '<td class="num"><input class="pin" id="mr-m-'+i+'-'+k+'" value="'+esc(m)+'" oninput="MUB.mrMoney('+i+','+k+', this.value)"></td>'; }).join('')
+        + '<td class="num">'+esc(fmtEur(sum))+'</td><td class="num"><strong>'+esc(String(pts))+'</strong></td>'
+        + '<td>'+(r.suggestion
+            ? '⚠ <button type="button" class="linkbtn" onclick="MUB.mrAccept('+i+')">'+esc(T('Ez ugyanaz: ','Toto je to isté: '))+esc(r.suggestion.name)+'</button>'
+              + ' <span class="meta">('+Math.round(r.suggestion.sim * 100)+'%)</span> <button type="button" class="linkbtn" onclick="MUB.mrKeep('+i+')">'+esc(T('Új játékos','Nový hráč'))+'</button>'
+            : (r.known ? '<span class="meta">✓</span>' : '<span class="meta">?</span>'))
+        + '</td></tr>';
+    });
+    html += '</tbody></table></div>'
+      + '<p class="meta">'+esc(T('A pontok a körökben nyert összegekből számolódnak. Ha valamelyik sorban megad pontot (6. szám), az a mérvadó.','Body sa počítajú z vyhraných súm. Ak zadáte body (6. číslo), platia tie.'))+'</p>';
+    box.innerHTML = html;
+  }
+  function mrRefreshChecks(){
+    mrKnownNames(function(known){
+      var dict = {};
+      known.forEach(function(k){ dict[playerKey(k)] = k; });
+      mrRows.forEach(function(r){
+        var hit = dict[playerKey(r.name)];
+        r.known = !!hit;
+        r.suggestion = hit ? null : (r.rejected ? null : mrBestMatch(r.name, known));
+      });
+      renderMrPreview();
+    });
+  }
+  function mrParse(){
+    var el = document.getElementById('mr-paste');
+    var parsed = mrParseText(el ? el.value : '');
+    if(!parsed.length){ mrMsg = T('Nem sikerült sort felismerni. Soronként: név, majd az 5 kör összege.','Nepodarilo sa rozpoznať riadok.'); renderAdminMr(); return; }
+    mrRows = parsed;
+    mrPaste = el ? el.value : mrPaste;
+    mrMsg = parsed.length + ' ' + T('játékos beolvasva.','hráčov načítaných.');
+    renderAdminMr();
+    mrRefreshChecks();
+  }
+  function mrAddRow(){
+    mrRows.push({ name: '', money: [0,0,0,0,0], points: null, place: mrRows.length + 1, known: false, suggestion: null });
+    mrMsg = ''; renderAdminMr();
+  }
+  function mrClear(){ mrRows = []; mrMsg = ''; renderAdminMr(); }
+  function mrName(i, v){ if(mrRows[i]){ mrRows[i].name = String(v); mrRows[i].rejected = false; } }
+  function mrMoney(i, k, v){ if(mrRows[i]){ mrRows[i].money[k] = numOf(v) || 0; mrRows[i].points = null; } }
+  function mrAccept(i){
+    var r = mrRows[i];
+    if(!r || !r.suggestion) return;
+    var from = r.name, to = r.suggestion.name;
+    /* A döntést elmentjük, hogy a statisztika is egy személyként számoljon vele. */
+    var sameL = NAME_RULES.same.slice();
+    sameL.push(normPair(from, to));
+    saveNameRules(sameL, NAME_RULES.diff, function(){
+      r.name = to; r.suggestion = null; r.known = true;
+      mrMsg = T('Összevonva: ','Zlúčené: ') + from + ' = ' + to;
+      renderMrPreview();
+    });
+  }
+  function mrKeep(i){ if(mrRows[i]){ mrRows[i].suggestion = null; mrRows[i].rejected = true; renderMrPreview(); } }
+  function mrShortDate(iso){
+    var p = String(iso || '').split('-');
+    if(p.length !== 3) return String(iso || '');
+    return Number(p[2]) + '.' + Number(p[1]) + '.' + p[0];
+  }
+  function mrTournamentName(){
+    var v = String(mrVenue || '').trim();
+    if(!v) return '';
+    return (/\d/.test(v) ? v : (v + ' ' + mrShortDate(mrDate))).trim();
+  }
+  function mrCollect(){
+    /* az űrlapon esetleg átírt értékek beolvasása */
+    mrRows.forEach(function(r, i){
+      var nEl = document.getElementById('mr-n-' + i);
+      if(nEl) r.name = String(nEl.value).trim();
+      for(var k = 0; k < 5; k++){
+        var mEl = document.getElementById('mr-m-' + i + '-' + k);
+        if(mEl) r.money[k] = numOf(mEl.value) || 0;
+      }
+    });
+  }
+  function mrSave(){
+    if(!currentUser) return;
+    mrCollect();
+    var year = parseInt(mrYear, 10);
+    var tName = mrTournamentName();
+    var list = mrRows.filter(function(r){ return r.name; });
+    if(!year || year < 2000 || year > 2100){ mrMsg = T('Adja meg a szezon évét (pl. 2027).','Zadajte rok sezóny.'); renderAdminMr(); return; }
+    if(!tName){ mrMsg = T('Adja meg a verseny helyszínét.','Zadajte miesto turnaja.'); renderAdminMr(); return; }
+    if(list.length < 3){ mrMsg = T('Legalább 3 játékos kell.','Potrební sú aspoň 3 hráči.'); renderAdminMr(); return; }
+    var names = list.map(function(r){ return r.money; });
+    var roundPts = [];
+    for(var k = 0; k < 5; k++) roundPts.push(roundPointsOf(names.map(function(m){ return m[k]; })));
+    var size = list.length;
+    var newRows = list.map(function(r, i){
+      var pts = 0, money = 0, rounds = [];
+      for(var k2 = 0; k2 < 5; k2++){
+        var m = Math.round((Number(r.money[k2]) || 0) * 100) / 100;
+        money += m;
+        pts += roundPts[k2][i] || 0;
+        rounds.push({ money: m, points: roundPts[k2][i] || 0 });
+      }
+      if(r.points != null) pts = Number(r.points);
+      if(mrMub) pts += (size - (i + 1) + 1);
+      pts = Math.round(pts * 10) / 10;
+      return { n: r.name, t: tName, place: i + 1, points: pts, money: Math.round(money * 100) / 100,
+               size: size, drawn: 0, rounds: rounds, code: '' };
+    });
+    /* holtverseny jelölése: ugyanannyi pont (és pénz) */
+    newRows.forEach(function(a, i){
+      newRows.forEach(function(b, j){
+        if(i !== j && a.points === b.points && a.money === b.money) a.drawn = 1;
+      });
+    });
+    mrMsg = T('Mentés…','Uloženie…');
+    renderAdminMr();
+    var ref = db.collection('results').doc(String(year));
+    ref.get().then(function(d){
+      var data = (d && d.exists) ? (d.data() || {}) : {};
+      var rows = (data.rows || []).filter(function(r){ return String(r.t) !== tName; });
+      rows = rows.concat(newRows);
+      /* a szezon összesítője a sorokból (kézi szezonnál ez a mérvadó) */
+      var agg = {};
+      rows.forEach(function(r){
+        var k3 = playerKey(r.n);
+        var a = agg[k3] || (agg[k3] = { n: r.n, points: 0, money: 0, played: 0, code: r.code || '' });
+        a.points += Number(r.points) || 0;
+        a.money += Number(r.money) || 0;
+        a.played++;
+      });
+      var aggRows = Object.keys(agg).map(function(k4){ return agg[k4]; });
+      aggRows.forEach(function(a){ a.points = Math.round(a.points * 10) / 10; a.money = Math.round(a.money * 100) / 100; });
+      aggRows.sort(function(a, b){ return (b.points - a.points) || (b.money - a.money) || String(a.n).localeCompare(String(b.n), 'hu'); });
+      aggRows.forEach(function(a, i){ a.place = i + 1; });
+      var tours = (data.tournaments || []).filter(function(x){ return String(x.name) !== tName; });
+      tours.push({ name: tName, size: size, winner: newRows.length ? newRows[0].n : '', winnerCode: '' });
+      return ref.set({
+        year: year,
+        label: (data.label || String(year)),
+        manual: true,
+        rows: rows,
+        aggRows: aggRows,
+        tournaments: tours,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }).then(function(){
+      invalidate('results');
+      mrMsg = T('Elmentve: ','Uložené: ') + tName + ' (' + size + ' ' + T('játékos','hráčov') + ')';
+      mrRows = []; mrPaste = '';
+      renderAdminMr();
+    }).catch(function(err){
+      mrMsg = T('Hiba a mentésnél: ','Chyba pri ukladaní: ') + err.message;
+      renderAdminMr();
+    });
+  }
+  function renderMrList(){
+    var box = document.getElementById('mr-list');
+    if(!box) return;
+    box.innerHTML = '<h3 class="adminsub">'+esc(T('Felvett versenyek','Zadané turnaje'))+'</h3><p class="meta">'+esc(T('Betöltés…','Načítava sa…'))+'</p>';
+    loadResults(function(all){
+      var box2 = document.getElementById('mr-list');
+      if(!box2) return;
+      var manual = (all || []).filter(function(s){ return s.manual; });
+      if(!manual.length){ box2.innerHTML = '<h3 class="adminsub">'+esc(T('Felvett versenyek','Zadané turnaje'))+'</h3><p class="meta">'+esc(T('Még nincs kézzel felvett verseny.','Zatiaľ nie je ručne zadaný žiadny turnaj.'))+'</p>'; return; }
+      var html = '<h3 class="adminsub">'+esc(T('Felvett versenyek','Zadané turnaje'))+'</h3><div class="table-wrap"><table class="list"><thead><tr>'
+        + '<th>'+esc(T('Szezon','Sezóna'))+'</th><th>'+esc(T('Verseny','Turnaj'))+'</th><th class="num">'+esc(T('Játékos','Hráčov'))+'</th><th></th></tr></thead><tbody>';
+      manual.forEach(function(s){
+        var byT = {};
+        (s.rows || []).forEach(function(r){ (byT[r.t] = byT[r.t] || []).push(r); });
+        Object.keys(byT).sort().forEach(function(t){
+          html += '<tr><td class="num">'+esc(String(s.year))+'</td><td>'+esc(t)+'</td><td class="num">'+byT[t].length+'</td>'
+            + '<td><button type="button" class="btn sm danger" onclick="MUB.mrDeleteTour(\''+jsq(String(s.year))+'\',\''+jsq(t)+'\')">'+esc(T('Törlés','Zmazať'))+'</button></td></tr>';
+        });
+      });
+      html += '</tbody></table></div>';
+      box2.innerHTML = html;
+    });
+  }
+  function mrDeleteTour(year, tName){
+    if(!currentUser) return;
+    if(!confirm(T('Biztosan törli ezt a versenyt: ','Naozaj zmazať turnaj: ') + tName + '?')) return;
+    var ref = db.collection('results').doc(String(year));
+    ref.get().then(function(d){
+      if(!d || !d.exists) return;
+      var data = d.data() || {};
+      var rows = (data.rows || []).filter(function(r){ return String(r.t) !== tName; });
+      var agg = {};
+      rows.forEach(function(r){
+        var k = playerKey(r.n);
+        var a = agg[k] || (agg[k] = { n: r.n, points: 0, money: 0, played: 0, code: r.code || '' });
+        a.points += Number(r.points) || 0; a.money += Number(r.money) || 0; a.played++;
+      });
+      var aggRows = Object.keys(agg).map(function(k2){ return agg[k2]; });
+      aggRows.sort(function(a, b){ return (b.points - a.points) || (b.money - a.money); });
+      aggRows.forEach(function(a, i){ a.place = i + 1; });
+      return ref.set({ rows: rows, aggRows: aggRows, tournaments: (data.tournaments || []).filter(function(x){ return String(x.name) !== tName; }) }, { merge: true });
+    }).then(function(){ invalidate('results'); renderMrList(); });
+  }
+
   /* ---------- Admin: név-egyesítés ---------- */
   var nameQuery = '', nameLimit = 40, nameFlash = null;
   function setNameQuery(v){ nameQuery = String(v == null ? '' : v); nameLimit = 40; renderAdminNames(); }
@@ -6231,6 +6568,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     addDownload: addDownload, deleteDownload: deleteDownload,
     nameDecide: nameDecide, nameUndo: nameUndo, nameClearAll: nameClearAll, setNameQuery: setNameQuery, nameShowMore: nameShowMore, nameManual: nameManual,
     deadToggle: deadToggle, setDeadQuery: setDeadQuery,
+    mrField: mrField, mrToggleMub: mrToggleMub, mrPasteSet: mrPasteSet, mrParse: mrParse, mrAddRow: mrAddRow, mrClear: mrClear,
+    mrName: mrName, mrMoney: mrMoney, mrAccept: mrAccept, mrKeep: mrKeep, mrSave: mrSave, mrDeleteTour: mrDeleteTour,
     savePlayer: savePlayer, setPlayerQuery: setPlayerQuery, playerShowMore: playerShowMore, exportContacts: exportContacts, setRegSort: setRegSort,
     setResSort: setResSort, setResMin: setResMin
   };
