@@ -526,7 +526,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 44;
+  var BUILD = 45;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1096,7 +1096,9 @@
     ];
     /* A Statisztika külön menüpont: az összesített eredmények és a játékos-adatlapok.
        Csak akkor látszik, ha az admin bekapcsolta. */
-    if(FEAT.statistics) items.push(['statisztika','Statisztika','Štatistika']);
+    /* A látogatók csak akkor látják, ha be van kapcsolva; a bejelentkezett
+       adminoknak akkor is, ha a nyilvános oldalon ki van kapcsolva. */
+    if(FEAT.statistics || currentUser) items.push(['statisztika','Statisztika','Štatistika']);
     items = items.concat([
       ['galeria','Galéria','Galéria'],
       ['jelentkezes','Jelentkezés','Prihlásenie'],
@@ -2812,7 +2814,7 @@
     el.innerHTML = '<h1 class="page-title">'+esc(T('Statisztika','Štatistika'))+'</h1>'+rule()+'<div id="stat-body">'+esc(T('Betöltés…','Načítava sa…'))+'</div>';
     loadFeatures(function(){
       var box = document.getElementById('stat-body');
-      if(!FEAT.statistics){
+      if(!FEAT.statistics && !currentUser){
         if(box) box.innerHTML = '<div class="banner" role="status">'+esc(T('A statisztika jelenleg ki van kapcsolva.','Štatistika je momentálne vypnutá.'))+'</div>';
         return;
       }
@@ -2846,6 +2848,10 @@
             + '<input id="res-player-top" type="search" placeholder="'+esc(T('pl. Sárközi Ferenc vagy 1','napr. Sárközi Ferenc alebo 1'))+'" oninput="MUB.openPlayerCard(this.value)"></div></div>'
             + '<p class="ainote">'+esc(T('Ezt a statisztikát a mesterséges intelligencia dolgozta fel a Google-táblázatokból, ezért előfordulhat benne hiba. A ugyanazon játékos magyar és szlovák névalakjait (pl. László / Ladislav, becenevek) egy személyként számoljuk. Ha valami nem stimmel, jelezze a szervezőnek — köszönjük!',
                                         'Túto štatistiku spracovala umelá inteligencia z Google tabuliek, preto sa v nej môže vyskytnúť chyba. Maďarské a slovenské varianty toho istého mena (napr. László / Ladislav, prezývky) počítame ako jednu osobu. Ak niečo nesedí, dajte vedieť organizátorovi — ďakujeme!'))+'</p>';
+          if(!FEAT.statistics){
+            html += '<p class="ainote">'+esc(T('Ez a statisztika egyelőre csak a bejelentkezett adminoknak látszik — a látogatók számára ki van kapcsolva. Ha rendben van, az Admin → Eredmények fülön a kapcsolóval teheti nyilvánossá.',
+                                            'Táto štatistika je zatiaľ viditeľná len pre prihlásených administrátorov — pre návštevníkov je vypnutá.'))+'</p>';
+          }
           var hasPer = stats.some(function(p){ return p.rows && p.rows.length; });
           var hasAgg = stats.some(function(p){ return p.hasAgg; });
           html += '<h2 class="resh">'+esc(T('Ranglista','Rebríček'))+'</h2>';
