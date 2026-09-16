@@ -427,16 +427,17 @@
   }
   /* ---------- Jelenléti ív (nyomtatáshoz) ---------- */
   #print-area{display:none}
-  #print-area .sheet{font-family:Georgia,"Times New Roman",serif; color:#000; background:#fff; font-size:12pt; line-height:1.35}
-  #print-area h1{font-size:21pt; margin:0 0 .15rem; font-family:inherit}
-  #print-area .sub{font-size:11pt; margin:0 0 .15rem}
-  #print-area .sub.big{font-size:14.5pt; font-weight:700; margin:.45rem 0}
-  #print-area table{width:100%; border-collapse:collapse; margin-top:.5rem}
-  #print-area th,#print-area td{border:1px solid #000; padding:.28rem .45rem; text-align:left; vertical-align:middle}
-  #print-area th{font-size:10.5pt}
+  #print-area .sheet{font-family:Georgia,"Times New Roman",serif; color:#000; background:#fff; font-size:10.5pt; line-height:1.15}
+  #print-area h1{font-size:16pt; margin:0 0 .1rem; font-family:inherit}
+  #print-area .sub{font-size:9.5pt; margin:0 0 .1rem}
+  #print-area .sub.big{font-size:11.5pt; font-weight:700; margin:.25rem 0}
+  #print-area table{width:100%; border-collapse:collapse; margin-top:.3rem}
+  #print-area th,#print-area td{border:1px solid #000; padding:.12rem .35rem; text-align:left; vertical-align:middle}
+  #print-area th{font-size:9.5pt}
   #print-area td.c,#print-area th.c{text-align:center}
-  #print-area th.boxh,#print-area td.box{width:2.4cm}
-  #print-area tbody tr{height:1.05cm}
+  #print-area th.boxh,#print-area td.box{width:1.8cm}
+  /* A sorok magasságát a program számolja (hogy 2 lapra kiférjen), ez a tartalék. */
+  #print-area tbody tr{height:.8cm}
   @media print{
     /* Mindig A4, fehér alapon fekete szöveg — a sötét téma különben olvashatatlanul nyomtat. */
     @page{ size:A4 portrait; margin:11mm }
@@ -522,7 +523,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 42;
+  var BUILD = 43;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -5575,13 +5576,19 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       return String(a.name||'').localeCompare(String(b.name||''), 'hu');
     });
     var title = t ? (T(t.location_hu, t.location_sk) + ' – ' + fmtDate(t.date)) : '';
+    /* A sorok magasságát a létszámhoz igazítjuk, hogy kb. 60 versenyző is
+       kiférjen két A4-es lapra (2 × ~24,5 cm hasznos hely). */
+    var extraRows = 6;
+    var totalRows = list.length + extraRows;
+    var rowH = Math.min(1.0, Math.max(0.55, Math.round(45 / Math.max(totalRows, 1) * 100) / 100));
+    var rh = ' style="height:' + rowH + 'cm"';
     var rows = list.map(function(r, i){
-      return '<tr><td class="c">'+(i+1)+'</td><td>'+esc(r.name||'')+'</td><td class="c">'+esc(r.code||'')+'</td>'
+      return '<tr'+rh+'><td class="c">'+(i+1)+'</td><td>'+esc(niceName(r.name||''))+'</td><td class="c">'+esc(r.code||'')+'</td>'
         + '<td class="c">'+esc(fmtDateTime(regDate(r)))+'</td><td class="box"></td></tr>';
     }).join('');
     var empty = '';
-    for(var k = 0; k < 6; k++){
-      empty += '<tr><td class="c">'+(list.length+k+1)+'</td><td></td><td></td><td></td><td class="box"></td></tr>';
+    for(var k = 0; k < extraRows; k++){
+      empty += '<tr'+rh+'><td class="c">'+(list.length+k+1)+'</td><td></td><td></td><td></td><td class="box"></td></tr>';
     }
     return '<div class="sheet">'
       + '<h1>'+esc(T('Jelenléti ív','Prezenčná listina'))+'</h1>'
