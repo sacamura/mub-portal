@@ -364,6 +364,7 @@
   .banner.ok{border-color:var(--accent); background:var(--accent-soft); color:var(--accent-strong); font-weight:600}
   /* Admin: játékosok táblázata (beírható mezők) */
   table.players td{padding:.35rem .3rem; vertical-align:middle}
+  #reg-list input.pin{width:100%; min-width:7rem; padding:.3rem .45rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; font-size:.98rem}
   #mr-preview input.pin{width:100%; min-width:5rem; padding:.25rem .4rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; font-size:.95rem}
   table.players input.pin{width:100%; min-width:5.5rem; padding:.35rem .45rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; font-size:.98rem}
   table.players td.pactions{white-space:nowrap}
@@ -526,7 +527,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 46;
+  var BUILD = 47;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -5643,16 +5644,61 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       lastRegList = regs;
       var listBox = document.getElementById('reg-list');
       if(!listBox) return;
-      listBox.innerHTML = regs.length
-        ? ('<div class="table-wrap"><table class="list"><thead><tr><th>#</th><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Kód','Kód'))+'</th><th>'+esc(T('Jelentkezés ideje','Čas prihlásenia'))+'</th><th class="noprint">'+esc(T('Jelen','Prítomný'))+'</th><th class="noprint"></th></tr></thead><tbody>'
+      if(!regs.length){
+        listBox.innerHTML = '<p class="meta">'+esc(T('Erre a versenyre még nincs jelentkező.','Na tento turnaj sa zatiaľ nikto neprihlásil.'))+'</p>';
+        return;
+      }
+      loadAllPlayers(function(players){
+        /* A kód és a név kínálása a nyilvántartásból (kényelmes kiválasztás). */
+        var opts = players.slice().sort(function(a,b){ return String(a.code).localeCompare(String(b.code), undefined, { numeric: true }); })
+          .map(function(p){ return '<option value="'+esc(p.code)+'">'+esc((p.name||'') + (p.village ? ' · ' + p.village : ''))+'</option>'; }).join('');
+        var nameOpts = players.filter(function(p){ return p.name; })
+          .map(function(p){ return '<option value="'+esc(niceName(p.name))+'"></option>'; }).join('');
+        var box2 = document.getElementById('reg-list');
+        if(!box2) return;
+        box2.innerHTML = '<datalist id="reg-codes">'+opts+'</datalist><datalist id="reg-names">'+nameOpts+'</datalist>'
+          + '<div class="table-wrap"><table class="list"><thead><tr><th>#</th><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Kód','Kód'))+'</th>'
+          + '<th>'+esc(T('Jelentkezés ideje','Čas prihlásenia'))+'</th><th class="noprint">'+esc(T('Jelen','Prítomný'))+'</th><th class="noprint"></th></tr></thead><tbody>'
           + regs.map(function(r,i){
-              return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(niceName(r.name))+'</td><td>'+esc(r.code||'')+'</td>'
+              return '<tr><td class="num">'+(i+1)+'</td>'
+                + '<td><input class="pin" id="reg-n-'+i+'" list="reg-names" value="'+esc(niceName(r.name||''))+'" oninput="MUB.regEdit('+i+',\'name\',this.value)"></td>'
+                + '<td><input class="pin" id="reg-c-'+i+'" list="reg-codes" inputmode="numeric" value="'+esc(r.code||'')+'" oninput="MUB.regEdit('+i+',\'code\',this.value)"></td>'
                 + '<td class="num">'+esc(fmtDateTime(regDate(r)))+'</td>'
                 + '<td class="noprint"><span class="checkbox"></span></td>'
-                + '<td class="noprint"><button type="button" class="btn sm danger" onclick="MUB.adminDeleteReg(\''+jsq(r.id)+'\',\''+jsq(r.name)+'\')">'+esc(T('Törlés','Zmazať'))+'</button></td></tr>';
+                + '<td class="noprint" style="white-space:nowrap">'
+                + '<button type="button" class="btn sm" onclick="MUB.saveReg('+i+')">'+esc(T('Mentés','Uložiť'))+'</button> '
+                + '<button type="button" class="btn sm danger" onclick="MUB.adminDeleteReg(\''+jsq(r.id)+'\',\''+jsq(r.name)+'\')">'+esc(T('Törlés','Zmazať'))+'</button></td></tr>';
             }).join('') + '</tbody></table></div>'
-          + '<div class="meta" style="margin-top:.5rem">'+regs.length+' '+esc(T('jelentkező','prihlásených'))+'</div>')
-        : '<p class="meta">'+esc(T('Erre a versenyre még nincs jelentkező.','Na tento turnaj sa zatiaľ nikto neprihlásil.'))+'</p>';
+          + '<div class="meta" style="margin-top:.5rem">'+regs.length+' '+esc(T('jelentkező','prihlásených'))
+          + ' · ' + esc(T('a nevet és a kódot közvetlenül a táblázatban javíthatja','meno a kód môžete opraviť priamo v tabuľke'))+'</div>';
+      });
+    });
+  }
+  /* Admin: a jelentkező adatainak szerkesztése (pl. hiányzó kód pótlása). */
+  function regEdit(i, k, v){
+    var r = lastRegList[i];
+    if(!r) return;
+    r[k === 'name' ? 'name' : 'code'] = String(v == null ? '' : v);
+  }
+  function saveReg(i){
+    var r = lastRegList[i];
+    if(!r) return;
+    var nEl = document.getElementById('reg-n-' + i), cEl = document.getElementById('reg-c-' + i);
+    var name = nEl ? String(nEl.value).trim() : (r.name || '');
+    var code = cEl ? String(cEl.value).trim() : (r.code || '');
+    /* Ha a nevet nem írták be, de a kód ismert, a nyilvántartásból vesszük a nevet. */
+    loadAllPlayers(function(players){
+      if(!name && code){
+        var hit = players.filter(function(p){ return String(p.code) === String(code); })[0];
+        if(hit && hit.name) name = hit.name;
+      }
+      db.collection('registrations').doc(r.id).set({ name: name, code: code }, { merge: true }).then(function(){
+        invalidate('registrations');
+        r.name = name; r.code = code;
+        renderRegList();
+      }).catch(function(err){
+        alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + err.message);
+      });
     });
   }
   /* Admin: bárkit törölhet a verseny jelentkezői közül. */
@@ -6630,6 +6676,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     addDownload: addDownload, deleteDownload: deleteDownload,
     nameDecide: nameDecide, nameUndo: nameUndo, nameClearAll: nameClearAll, setNameQuery: setNameQuery, nameShowMore: nameShowMore, nameManual: nameManual,
     deadToggle: deadToggle, setDeadQuery: setDeadQuery,
+    saveReg: saveReg, regEdit: regEdit,
     mrField: mrField, mrToggleMub: mrToggleMub, mrPasteSet: mrPasteSet, mrParse: mrParse, mrAddRow: mrAddRow, mrClear: mrClear,
     mrName: mrName, mrMoney: mrMoney, mrAccept: mrAccept, mrKeep: mrKeep, mrSave: mrSave, mrDeleteTour: mrDeleteTour,
     savePlayer: savePlayer, setPlayerQuery: setPlayerQuery, playerShowMore: playerShowMore, exportContacts: exportContacts, setRegSort: setRegSort,
