@@ -526,7 +526,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 45;
+  var BUILD = 46;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -5928,11 +5928,13 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
      pontjait (5 / 3 / 1, holtversenynél az átlag), a verseny pontjait és a
      helyezéseket, és elmenti a statisztikának. A neveket összeveti a már ismert
      játékosokkal, és ha bizonytalan, rákérdez. */
-  var mrYear = '', mrVenue = '', mrDate = '', mrRows = [], mrMsg = '', mrMub = false, mrPaste = '';
+  var mrYear = '', mrVenue = '', mrVenueSk = '', mrDate = '', mrRows = [], mrMsg = '', mrMub = false, mrPaste = '';
+  var MR_KNOWN = { names: [], codes: {} };   /* ismert nevek és azonosítók a felismeréshez */
 
   function mrField(k, v){
     if(k === 'year') mrYear = String(v || '').replace(/\D/g, '').slice(0, 4);
     else if(k === 'venue') mrVenue = String(v || '');
+    else if(k === 'venue_sk') mrVenueSk = String(v || '');
     else if(k === 'date') mrDate = String(v || '');
     renderAdminMr();
   }
@@ -5968,36 +5970,70 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       if(!s) return;
       var parts = s.split(/\t|;|\s{2,}/).map(function(x){ return x.trim(); }).filter(function(x){ return x !== ''; });
       if(parts.length < 2) parts = s.split(/\s+/);
-      var name = '', before = [], after = [], seenName = false;
+      /* A sor felépítése: 1) helyezés  2) azonosító (ID)  3) név
+         majd az 5 körben nyert összeg, végül a pont.
+         A név több szóból is állhat; a számok és a nevek sorrendje számít. */
+      var before = [], nameParts = [], after = [], seenName = false;
       parts.forEach(function(p){
         var isNum = /^-?\d+([.,]\d+)?$/.test(p.replace(/\s/g, ''));
-        if(!seenName && /[A-Za-zÀ-ž]/.test(p)){ name = p; seenName = true; return; }
-        if(!seenName){ before.push(p); return; }
-        if(isNum || /^-?\d+([.,]\d+)?$/.test(p.replace(/\s/g, ''))) after.push(p);
-        else name += ' ' + p;
+        if(!seenName){
+          if(isNum) before.push(p); else { nameParts.push(p); seenName = true; }
+          return;
+        }
+        if(isNum) after.push(p); else nameParts.push(p);
       });
+      var name = nameParts.join(' ').replace(/\s+/g, ' ').trim();
       if(!name) return;
-      var place = before.length ? Number(String(before[before.length - 1]).replace(/[^\d]/g, '')) || null : null;
-      var nums = after.map(function(x){ return numOf(x); }).filter(function(x){ return x != null; });
-      var rounds = nums.slice(0, 5);
-      while(rounds.length < 5) rounds.push(0);
-      var givenPoints = nums.length > 5 ? nums[5] : null;
-      out.push({ name: name.replace(/\s+/g, ' ').trim(), place: place, money: rounds.map(function(x){ return Math.round(x * 100) / 100; }), points: givenPoints, raw: s });
+      var place = null, code = '';
+      if(before.length){
+        var b0 = String(before[0]).replace(/[^\d]/g, '');
+        if(b0 && b0.length <= 3 && before.length > 1) place = Number(b0) || null;
+        else if(b0 && b0.length <= 3 && before.length === 1) place = Number(b0) || null;
+        /* a hosszú szám az azonosító (ID) */
+        before.forEach(function(b){
+          var d = String(b).replace(/[^\d]/g, '');
+          if(d.length >= 5) code = d;
+        });
+        if(place == null && before.length){
+          var d2 = String(before[before.length - 1]).replace(/[^\d]/g, '');
+          place = d2 && d2.length <= 3 ? Number(d2) : null;
+        }
+      }
+      var nums = [];
+      after.forEach(function(x){ var v = numOf(x); if(v != null) nums.push(v); });
+      var rounds, givenPoints = null, total = null;
+      if(nums.length >= 6){
+        rounds = nums.slice(0, 5);
+        givenPoints = nums[5];
+        total = Math.round(rounds.reduce(function(a, b){ return a + b; }, 0) * 100) / 100;
+      } else if(nums.length === 5){
+        rounds = nums.slice(0, 5);
+        total = Math.round(rounds.reduce(function(a, b){ return a + b; }, 0) * 100) / 100;
+      } else {
+        /* nincs körönkénti bontás: az első szám az összes nyeremény, a második a pont */
+        rounds = [0, 0, 0, 0, 0];
+        total = nums.length ? Math.round(nums[0] * 100) / 100 : 0;
+        if(nums.length > 1) givenPoints = nums[1];
+      }
+      out.push({ name: name, place: place, code: code, money: rounds.map(function(x){ return Math.round(x * 100) / 100; }),
+                 points: givenPoints, total: total, raw: s });
     });
     return out;
   }
   /* Az ismert nevek (statisztikából és a nyilvántartásból). */
   function mrKnownNames(cb){
-    var out = {};
-    (PLAYER_ROSTER || []).forEach(function(r){ if(r[2]) out[String(r[2])] = 1; });
+    var out = {}, codes = {};
+    function addCode(c, n){ if(c){ var d = String(c).replace(/\D/g, ''); if(d) codes[d] = n || codes[d] || ''; } }
+    (PLAYER_ROSTER || []).forEach(function(r){ if(r[2]){ out[String(r[2])] = 1; addCode(r[1], String(r[2])); } });
     loadResults(function(all){
       (all || []).forEach(function(s){
-        (s.rows || []).forEach(function(r){ if(r.n) out[String(r.n)] = 1; });
-        (s.aggRows || []).forEach(function(r){ if(r.n) out[String(r.n)] = 1; });
+        (s.rows || []).forEach(function(r){ if(r.n){ out[String(r.n)] = 1; addCode(r.code, r.n); } });
+        (s.aggRows || []).forEach(function(r){ if(r.n){ out[String(r.n)] = 1; addCode(r.code, r.n); } });
       });
       loadAllPlayers(function(ps){
-        (ps || []).forEach(function(p){ if(p.name) out[String(p.name)] = 1; });
-        cb(Object.keys(out));
+        (ps || []).forEach(function(p){ if(p.name) out[String(p.name)] = 1; if(p.nfcCode) addCode(p.nfcCode, p.name); });
+        MR_KNOWN = { names: Object.keys(out), codes: codes };
+        cb(MR_KNOWN.names);
       });
     });
   }
@@ -6013,12 +6049,13 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     var box = document.getElementById('admin-body');
     if(!box) return;
     var html = '<h2 class="resh">'+esc(T('Verseny eredményének felvétele','Zadanie výsledkov turnaja'))+'</h2>'
-      + '<p class="meta">'+esc(T('Írja be a verseny adatait, majd illessze be a játékosokat sorrendben (1. helyezettől az utolsóig). Soronként: név, majd az 5 körben nyert összeg (€). A helyezést a sorrend adja; a pontokat a portál számolja (5 / 3 / 1, holtversenynél átlag). Ha a 6. szám is meg van adva, azt pontként használja.',
+      + '<p class="meta">'+esc(T('Írja be a verseny adatait, majd illessze be az eredményt soronként, a verseny végeredménye szerint: 1) helyezés, 2) azonosító szám (ID), 3) név, majd az 5 körben nyert összeg, végül a pont. (Ha a körönkénti bontás nincs meg, elég a nyeremény és a pont.) A neveket az azonosító és a hasonlóság alapján is felismeri, és rákérdez, ha bizonytalan.',
                               'Zadajte údaje turnaja a vložte hráčov v poradí (od 1. miesta po posledné). V riadku: meno a 5 vyhraných súm za kolá (€). Poradie určuje umiestnenie; body vypočíta portál.'))+'</p>'
       + '<div class="card" style="margin-bottom:1rem">'
       + '<div class="row3">'
       + '<div class="field"><label for="mr-year">'+esc(T('Szezon (év)','Sezóna (rok)'))+'</label><input id="mr-year" inputmode="numeric" value="'+esc(mrYear)+'" oninput="MUB.mrField(\'year\', this.value)"></div>'
-      + '<div class="field"><label for="mr-venue">'+esc(T('Verseny helyszíne','Miesto turnaja'))+'</label><input id="mr-venue" value="'+esc(mrVenue)+'" oninput="MUB.mrField(\'venue\', this.value)"></div>'
+      + '<div class="field"><label for="mr-venue">'+esc(T('Verseny helyszíne (magyar)','Miesto turnaja (maďarsky)'))+'</label><input id="mr-venue" value="'+esc(mrVenue)+'" oninput="MUB.mrField(\'venue\', this.value)"></div>'
+      + '<div class="field"><label for="mr-venue-sk">'+esc(T('Verseny helyszíne (szlovák)','Miesto turnaja (slovensky)'))+'</label><input id="mr-venue-sk" value="'+esc(mrVenueSk)+'" oninput="MUB.mrField(\'venue_sk\', this.value)"></div>'
       + '<div class="field"><label for="mr-date">'+esc(T('Dátum','Dátum'))+'</label><input id="mr-date" type="date" value="'+esc(mrDate)+'" oninput="MUB.mrField(\'date\', this.value)"></div>'
       + '</div>'
       + '<label class="switchline"><input type="checkbox" '+(mrMub ? 'checked' : '')+' onchange="MUB.mrToggleMub(this.checked)"> '+esc(T('Helyezési bónusz is számít (régi MUBL rendszer)','Počíta sa aj bonus za umiestnenie (starý systém MUBL)'))+'</label>'
@@ -6051,21 +6088,25 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     });
     var size = mrRows.length;
     var html = '<h3 class="adminsub">'+esc(T('Előnézet','Náhľad'))+' — ' + size + ' ' + esc(T('játékos','hráčov')) + '</h3>'
-      + '<div class="table-wrap"><table class="list"><thead><tr><th class="num">#</th><th>'+esc(T('Név','Meno'))+'</th>'
+      + '<div class="table-wrap"><table class="list"><thead><tr>'
+      + '<th class="num">'+esc(T('Hely','Miesto'))+'</th><th class="num">ID</th><th>'+esc(T('Név','Meno'))+'</th>'
       + [1,2,3,4,5].map(function(i){ return '<th class="num">'+i+'. '+esc(T('kör','kolo'))+'</th>'; }).join('')
       + '<th class="num">'+esc(T('∑ €','∑ €'))+'</th><th class="num">'+esc(T('Pont','Body'))+'</th><th>'+esc(T('Név egyezik?','Meno sedí?'))+'</th></tr></thead><tbody>';
     mrRows.forEach(function(r, i){
       var sum = r.money.reduce(function(a, b){ return a + (Number(b) || 0); }, 0);
+      if(!sum && r.total) sum = r.total;
       var pts = (r.points != null) ? r.points : total[i];
       if(mrMub) pts = Math.round((pts + (size - (i + 1) + 1)) * 10) / 10;
       r.computed = pts; r.sum = Math.round(sum * 100) / 100;
-      html += '<tr><td class="num">'+(i + 1)+'.</td>'
+      html += '<tr><td class="num">'+(r.place != null ? r.place : (i + 1))+'.</td>'
+        + '<td class="num"><input class="pin" id="mr-c-'+i+'" value="'+esc(r.code || '')+'" inputmode="numeric" oninput="MUB.mrCode('+i+', this.value)"></td>'
         + '<td><input class="pin" id="mr-n-'+i+'" value="'+esc(r.name)+'" oninput="MUB.mrName('+i+', this.value)"></td>'
         + r.money.map(function(m, k){ return '<td class="num"><input class="pin" id="mr-m-'+i+'-'+k+'" value="'+esc(m)+'" oninput="MUB.mrMoney('+i+','+k+', this.value)"></td>'; }).join('')
         + '<td class="num">'+esc(fmtEur(sum))+'</td><td class="num"><strong>'+esc(String(pts))+'</strong></td>'
         + '<td>'+(r.suggestion
             ? '⚠ <button type="button" class="linkbtn" onclick="MUB.mrAccept('+i+')">'+esc(T('Ez ugyanaz: ','Toto je to isté: '))+esc(r.suggestion.name)+'</button>'
-              + ' <span class="meta">('+Math.round(r.suggestion.sim * 100)+'%)</span> <button type="button" class="linkbtn" onclick="MUB.mrKeep('+i+')">'+esc(T('Új játékos','Nový hráč'))+'</button>'
+              + ' <span class="meta">('+(r.suggestion.byCode ? esc(T('azonosító alapján','podľa ID')) : Math.round(r.suggestion.sim * 100) + '%')+')</span>'
+              + ' <button type="button" class="linkbtn" onclick="MUB.mrKeep('+i+')">'+esc(T('Új játékos','Nový hráč'))+'</button>'
             : (r.known ? '<span class="meta">✓</span>' : '<span class="meta">?</span>'))
         + '</td></tr>';
     });
@@ -6079,8 +6120,15 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       known.forEach(function(k){ dict[playerKey(k)] = k; });
       mrRows.forEach(function(r){
         var hit = dict[playerKey(r.name)];
-        r.known = !!hit;
-        r.suggestion = hit ? null : (r.rejected ? null : mrBestMatch(r.name, known));
+        /* 1) ha az azonosító ismert, az a biztos kapcsolat */
+        var byCode = r.code ? MR_KNOWN.codes[String(r.code).replace(/\D/g, '')] : null;
+        if(byCode && playerKey(byCode) !== playerKey(r.name)){
+          r.known = true;
+          r.suggestion = { name: byCode, sim: 1, byCode: true };
+          return;
+        }
+        r.known = !!hit || !!byCode;
+        r.suggestion = (hit || r.rejected) ? null : mrBestMatch(r.name, known);
       });
       renderMrPreview();
     });
@@ -6101,6 +6149,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
   }
   function mrClear(){ mrRows = []; mrMsg = ''; renderAdminMr(); }
   function mrName(i, v){ if(mrRows[i]){ mrRows[i].name = String(v); mrRows[i].rejected = false; } }
+  function mrCode(i, v){ if(mrRows[i]){ mrRows[i].code = String(v).replace(/\D/g, ''); } }
   function mrMoney(i, k, v){ if(mrRows[i]){ mrRows[i].money[k] = numOf(v) || 0; mrRows[i].points = null; } }
   function mrAccept(i){
     var r = mrRows[i];
@@ -6130,7 +6179,10 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     /* az űrlapon esetleg átírt értékek beolvasása */
     mrRows.forEach(function(r, i){
       var nEl = document.getElementById('mr-n-' + i);
+      var cEl0 = document.getElementById('mr-c-' + i);
       if(nEl) r.name = String(nEl.value).trim();
+      var cEl = cEl0;
+      if(cEl) r.code = String(cEl.value).replace(/\D/g, '');
       for(var k = 0; k < 5; k++){
         var mEl = document.getElementById('mr-m-' + i + '-' + k);
         if(mEl) r.money[k] = numOf(mEl.value) || 0;
@@ -6161,8 +6213,11 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       if(r.points != null) pts = Number(r.points);
       if(mrMub) pts += (size - (i + 1) + 1);
       pts = Math.round(pts * 10) / 10;
-      return { n: r.name, t: tName, place: i + 1, points: pts, money: Math.round(money * 100) / 100,
-               size: size, drawn: 0, rounds: rounds, code: '' };
+      if(!money && r.total) money = Number(r.total) || 0;
+      /* a helyezés a beírt helyezés (ha volt), különben a sorrend */
+      var pl = (r.place != null && r.place > 0) ? r.place : (i + 1);
+      return { n: r.name, t: tName, place: pl, points: pts, money: Math.round(money * 100) / 100,
+               size: size, drawn: 0, rounds: rounds, code: r.code || '' };
     });
     /* holtverseny jelölése: ugyanannyi pont (és pénz) */
     newRows.forEach(function(a, i){
@@ -6182,6 +6237,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       rows.forEach(function(r){
         var k3 = playerKey(r.n);
         var a = agg[k3] || (agg[k3] = { n: r.n, points: 0, money: 0, played: 0, code: r.code || '' });
+        if(!a.code && r.code) a.code = r.code;
         a.points += Number(r.points) || 0;
         a.money += Number(r.money) || 0;
         a.played++;
@@ -6191,7 +6247,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       aggRows.sort(function(a, b){ return (b.points - a.points) || (b.money - a.money) || String(a.n).localeCompare(String(b.n), 'hu'); });
       aggRows.forEach(function(a, i){ a.place = i + 1; });
       var tours = (data.tournaments || []).filter(function(x){ return String(x.name) !== tName; });
-      tours.push({ name: tName, size: size, winner: newRows.length ? newRows[0].n : '', winnerCode: '' });
+      tours.push({ name: tName, name_sk: String(mrVenueSk || '').trim(), size: size, winner: newRows.length ? newRows[0].n : '', winnerCode: '' });
       return ref.set({
         year: year,
         label: (data.label || String(year)),
