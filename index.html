@@ -547,8 +547,8 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 56;
-  var BUILD_DATE = '2026-09-15';
+  var BUILD = 57;
+  var BUILD_DATE = '2026-09-16';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
   var OLD_SITE_URL = 'https://sites.google.com/view/mariasub';
@@ -6113,6 +6113,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
   var MR_PLAYED = {};                        /* név -> hány versenyen indult (a verseny-sorokból számolva) */
   var mrFilterYear = '';                     /* a felvett versenyek szűrése szezon szerint */
   var mrEditTid = '';                        /* szerkesztés alatt álló verseny eredeti neve */
+  var mrIdPos = 'auto';                      /* az azonosító (ID) helye: auto | before | after | none */
   function mrSetYear(v){ mrFilterYear = String(v || ''); renderMrList(); }
   /* A szerkesztett verseny újra beolvasása a mentett adatokból. */
   function mrReload(){
@@ -6153,7 +6154,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
         for(var k = 0; k < 5; k++){ nums.push(money[k]); nums.push(pts[k]); }
         nums.push(r.money == null ? 0 : r.money);
         nums.push(r.points == null ? 0 : r.points);
-        return [ (r.place || ''), (r.code || ''), r.n ].concat(nums).join('\t');
+        return [ (r.place || ''), (r.code || r.nfc || ''), r.n ].concat(nums).join('\t');
       }).join('\n');
       mrRows = rows.map(function(r){
         var money = [0,0,0,0,0], roundPts = [null,null,null,null,null];
@@ -6161,7 +6162,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
           money[k] = (x && x.money != null) ? x.money : 0;
           if(x && x.points != null) roundPts[k] = x.points;
         });
-        return { name: r.n, code: r.code || '', place: r.place || null, money: money, roundPts: roundPts,
+        return { name: r.n, code: r.code || '', nfc: r.nfc || '', codeRaw: '', codeFrom: '',
+                 place: r.place || null, money: money, roundPts: roundPts,
                  points: (r.points == null ? null : r.points), total: r.money, known: true, suggestion: null, rejected: true };
       });
       mrMsg = T('Szerkesztés: ','Úprava: ') + tName + ' — ' + T('a mentés felülírja ezt a versenyt.','uloženie prepíše tento turnaj.');
@@ -6173,6 +6175,15 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     mrRows = []; mrMsg = ''; mrPaste = '';
     renderAdminMr();
     if(mrMode === 'agg' && mrYear) mrCalcPlayed(mrYear);
+  }
+  /* Hol van az azonosító a beillesztett táblázatban? (automatikus / név előtt / után / nincs) */
+  function mrSetIdPos(v){
+    var ok = ['auto', 'before', 'after', 'none'];
+    mrIdPos = (ok.indexOf(v) >= 0) ? v : 'auto';
+    var el = document.getElementById('mr-paste');
+    if(el && String(el.value || '').trim()){ mrParse(); return; }
+    renderAdminMr();
+    mrRefreshChecks();
   }
 
   function mrField(k, v){
@@ -6274,52 +6285,275 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     values.forEach(function(v, i){ if(!(i in pts)) pts[i] = 0; });
     return pts;
   }
+  /* ===== Azonosító (ID) felismerése =====
+     A táblázatokban az azonosító helye és fajtája változó:
+       – rövid kód (1–100, a nyilvántartás sorszáma, pl. Juhász János = 3),
+       – hosszú kártyaszám (a műanyag lapon lévő NFC-kód, 10 jegy),
+       – üres (nem volt kártyája),
+       – 997 / 998 / 999 és hasonlók: csak arra a versenyre kitalált helyettesítő,
+         azokat nem tekintjük azonosítónak. */
+  function mrIdKind(v){
+    var d = String(v == null ? '' : v).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+    if(!d) return null;
+    if(d.length >= 6) return { kind: 'nfc', digits: d };
+    var n = Number(d);
+    if(n >= 1 && n <= 200) return { kind: 'short', digits: d };
+    if(n >= 900) return { kind: 'fake', digits: d };
+    return { kind: 'other', digits: d };
+  }
+  function mrIdReal(k){ return !!k && (k.kind === 'short' || k.kind === 'nfc'); }
+  function mrNumField(p){ return /^[-+]?\d+([.,]\d+)?\.?$/.test(String(p == null ? '' : p).replace(/\s/g, '')); }
+  function mrHasDec(p){ return /[.,]\d/.test(String(p == null ? '' : p)); }
+  function mrSplitFields(line){
+    var s = String(line).replace(/\u00a0/g, ' ').trim();
+    /* Táblázatból beillesztve a tabulátor az elválasztó: ilyenkor a cellán belüli
+       több szóköz (pl. „S P O L U / Ö S S Z E S E N SUMA €  ÖSSZ €”) nem oszlop. */
+    var parts;
+    if(s.indexOf('\t') >= 0){
+      parts = s.split('\t');
+    } else {
+      parts = s.split(/;|\s{2,}/);
+      if(parts.length < 2) parts = s.split(/\s+/);
+    }
+    parts = parts.map(function(x){ return x.trim(); });
+    while(parts.length && parts[0] === '') parts.shift();
+    while(parts.length && parts[parts.length - 1] === '') parts.pop();
+    return parts;
+  }
+  /* A nyilvántartás (beépített kártyalista): rövid kód és NFC-kód is mutat rá. */
+  var MR_ROSTER_BY = null;
+  function mrRosterBy(){
+    if(MR_ROSTER_BY) return MR_ROSTER_BY;
+    MR_ROSTER_BY = {};
+    (PLAYER_ROSTER || []).forEach(function(r){
+      var o = { name: String(r[2] || ''), short: String(r[0] || ''), nfc: String(r[1] || '') };
+      if(o.short && !MR_ROSTER_BY[o.short]) MR_ROSTER_BY[o.short] = o;
+      if(o.nfc && !MR_ROSTER_BY[o.nfc]) MR_ROSTER_BY[o.nfc] = o;
+    });
+    return MR_ROSTER_BY;
+  }
+  /* Ez az azonosító a nyilvántartás szerint ehhez a névhez tartozik-e? */
+  function mrRosterHit(k, name){
+    if(!k || !name) return false;
+    var p = mrRosterBy()[k.digits];
+    if(!p) return false;
+    if(!p.name) return true;
+    if(playerKey(p.name) === playerKey(name)) return true;
+    return textSim(deacc(p.name), deacc(name)) >= 0.8;
+  }
+  /* A fejlécsor felismerése: melyik oszlop a helyezés, a név, az azonosító,
+     valamint az összesítő táblában a pénz, a pont, a MUBL-pont és a részvétel. */
+  function mrHeaderMapParts(parts){
+    if(!parts || parts.length < 2) return null;
+    var numCnt = 0;
+    parts.forEach(function(p){ if(mrNumField(p)) numCnt++; });
+    if(numCnt > 1) return null;                 /* adatsor, nem fejléc */
+    var map = { place: -1, name: -1, id: -1, money: -1, points: -1, mubl: -1, played: -1 };
+    var ptCols = [];
+    parts.forEach(function(p, i){
+      var t = deacc(p).toLowerCase().replace(/\s+/g, ' ');
+      if(map.id < 0 && /(^|\s)(id|kod|azonosit|identif)/.test(t)) map.id = i;
+      if(map.name < 0 && /(nev|meno|priezvisk)/.test(t)) map.name = i;
+      if(map.place < 0 && /(hely|^por|miesto|umiestn)/.test(t)) map.place = i;
+      if(map.played < 0 && /(ucast|reszv|particip)/.test(t)) map.played = i;
+      if(/(pont|body|point)/.test(t)) ptCols.push(i);
+      else if(map.money < 0 && /(ossz|spolu|suma)/.test(t)) map.money = i;
+    });
+    if(ptCols.length === 1){
+      map.points = ptCols[0];
+    } else if(ptCols.length > 1){
+      ptCols.forEach(function(i){
+        if(/mubl/.test(deacc(parts[i]).toLowerCase())){ if(map.mubl < 0) map.mubl = i; }
+        else if(map.points < 0) map.points = i;
+      });
+      /* ha csak egy pont-oszlop van és abban MUBL is van, az a hivatalos összeg */
+      if(map.points < 0){ map.points = map.mubl; map.mubl = -1; }
+    }
+    /* a legrégebbi táblában a név-oszlop fejléce üres: a helyezés utáni oszlop */
+    if(map.name < 0 && map.place >= 0) map.name = map.place + 1;
+    /* az azonosító oszlopa lehet, hogy nincs megnevezve — a név és a helyezés igen */
+    if(map.name >= 0 && (map.id >= 0 || map.points >= 0 || map.money >= 0)) return map;
+    return null;
+  }
+  function mrHeaderMap(line){ return mrHeaderMapParts(mrSplitFields(line)); }
+  /* Fejléc-töredék sor? A Google-táblákban a fejléc gyakran több sorba törik
+     (a cellában sortörés van), ezért ezeket össze kell fűzni. */
+  function mrHeaderFrag(line){
+    var parts = mrSplitFields(line);
+    if(parts.length < 1) return false;
+    var numCnt = 0;
+    parts.forEach(function(p){ if(mrNumField(p)) numCnt++; });
+    if(numCnt > 1) return false;
+    return /(hely|por\.|miesto|umiestn|nev|meno|priezvisk|(^|\s)(id|kod|azonosit|identif)|pont|body|ossz|spolu|suma|ucast|reszv|particip|kolo|kor)/i.test(deacc(line));
+  }
+  /* Két fejléc-töredék összefűzése: az elvágott cella összetartozik. */
+  function mrMergeHead(a, b){
+    if(!a || !a.length) return b || [];
+    if(!b || !b.length) return a;
+    var out = a.slice();
+    out[out.length - 1] = (out[out.length - 1] + ' ' + b[0]).replace(/\s+/g, ' ').trim();
+    return out.concat(b.slice(1));
+  }
+  /* Az adott oszlop száma a sorból (ha van). */
+  function mrColNum(parts, idx){
+    if(idx == null || idx < 0 || !parts || idx >= parts.length) return null;
+    var v = numOf(parts[idx]);
+    return (v == null) ? null : v;
+  }
+  /* Az egész táblázatra egységesen eldönti, hol van az azonosító. */
+  function mrPickIdPos(recs, headMap){
+    if(mrIdPos === 'after') return 'after';
+    if(mrIdPos === 'before') return 'before';
+    if(mrIdPos === 'none') return 'none';
+    if(headMap && headMap.id >= 0 && headMap.name >= 0){
+      if(headMap.id > headMap.name) return 'after';
+      if(headMap.id < headMap.name) return 'before';
+    }
+    /* a név előtti második szám szinte mindig azonosító (helyezés, ID, név) */
+    var preAll = 0, preId = 0;
+    recs.forEach(function(r){
+      if(r.pre.length < 2) return;
+      preAll++;
+      if(mrIdKind(r.pre[1])) preId++;
+    });
+    if(preAll && preId / preAll >= 0.6) return 'before';
+    /* a név utáni első szám: a nyilvántartás dönt, ha egyezik a névvel */
+    var tot = 0, rosterHit = 0, idLike = 0, dec = 0;
+    recs.forEach(function(r){
+      if(!r.post.length) return;
+      tot++;
+      var k = mrIdKind(r.post[0]);
+      if(mrIdReal(k) || (k && k.kind === 'fake')) idLike++;
+      if(mrHasDec(r.post[0])) dec++;
+      if(mrRosterHit(k, r.name)) rosterHit++;
+    });
+    if(!tot) return 'none';
+    if(rosterHit >= 2 && rosterHit / tot >= 0.4) return 'after';
+    /* a várt számok száma: ha eggyel több van a kelleténél, az az azonosító.
+       Pénzösszeg (tizedes) sosem lehet azonosító. */
+    var want = (mrMode === 'agg') ? [3, 4] : [1, 2, 5, 6, 10, 11, 12];
+    var forced = 0, ambig = 0;
+    recs.forEach(function(r){
+      var c = r.post.length;
+      if(want.indexOf(c) < 0 && want.indexOf(c - 1) >= 0 && !mrHasDec(r.post[0]) && mrIdKind(r.post[0])) forced++;
+      if(want.indexOf(c) >= 0 && want.indexOf(c - 1) >= 0) ambig++;
+    });
+    if(forced / tot >= 0.7) return 'after';
+    if(ambig / tot >= 0.7 && idLike / tot >= 0.7 && dec / tot <= 0.3) return 'after';
+    return 'none';
+  }
   /* A beillesztett szöveg feldolgozása. Soronként egy játékos, sorrendben az
-     első helyezettől. Mezők: [helyezés] név 1.kör € 2.kör € 3.kör € 4.kör € 5.kör € [pont] */
+     első helyezettől. A sor: [helyezés] [azonosító] név [azonosító] + számok. */
   function mrParseText(text){
-    var out = [];
-    String(text || '').split(/\r?\n/).forEach(function(line){
+    var recs = [], headMap = null, headParts = null, start = 0;
+    var lines = String(text || '').split(/\r?\n/);
+    /* 1) A fejléc kiolvasása. A Google-táblákban a fejléc gyakran több fizikai
+       sorba törik (a cellában sortörés van), ezért a töredékeket összefűzzük. */
+    for(var li = 0; li < lines.length; li++){
+      var l0 = String(lines[li]).replace(/\u00a0/g, ' ').trim();
+      if(!l0) continue;
+      if(!mrHeaderFrag(l0)) break;
+      headParts = headParts ? mrMergeHead(headParts, mrSplitFields(l0)) : mrSplitFields(l0);
+      start = li + 1;
+    }
+    headMap = headParts ? mrHeaderMapParts(headParts) : null;
+    lines.slice(start).forEach(function(line){
       var s = String(line).replace(/\u00a0/g, ' ').trim();
       if(!s) return;
-      var parts = s.split(/\t|;|\s{2,}/).map(function(x){ return x.trim(); }).filter(function(x){ return x !== ''; });
-      if(parts.length < 2) parts = s.split(/\s+/);
-      /* A sor felépítése: 1) helyezés  2) azonosító (ID)  3) név
-         majd az 5 körben nyert összeg, végül a pont.
-         A név több szóból is állhat; a számok és a nevek sorrendje számít. */
-      var before = [], nameParts = [], after = [], seenName = false;
+      var hm = mrHeaderMap(s);
+      if(hm){ if(!headMap) headMap = hm; return; }
+      var parts = mrSplitFields(s);
+      /* A név a számok előtt álló szöveg. A számok utáni szöveg (pl. „11x”
+         részvétel vagy megjegyzés) nem kerül a névbe. */
+      var pre = [], nameParts = [], post = [], playedRemark = null, st = 'pre';
       parts.forEach(function(p){
-        var isNum = /^-?\d+([.,]\d+)?$/.test(p.replace(/\s/g, ''));
-        if(!seenName){
-          if(isNum) before.push(p); else { nameParts.push(p); seenName = true; }
+        if(p === '') return;
+        if(mrNumField(p)){
+          if(st === 'pre') pre.push(p);
+          else { st = 'post'; post.push(p); }
           return;
         }
-        if(isNum) after.push(p); else nameParts.push(p);
+        if(st === 'pre'){ nameParts.push(p); st = 'name'; return; }
+        if(st === 'name'){ nameParts.push(p); return; }
+        var xm = String(p).match(/^(\d+)\s*x$/i);
+        if(xm && playedRemark == null) playedRemark = Number(xm[1]);
       });
       var name = nameParts.join(' ').replace(/\s+/g, ' ').trim();
       if(!name) return;
-      /* Az első szám a helyezés, a második a rövid kód (1–100, pl. Juhász János = 3).
-         Ha valahol hosszú (NFC) szám van, azt külön jegyezzük meg. */
-      var place = null, code = '', nfc = '';
-      if(before.length){
-        var d0 = String(before[0]).replace(/[^\d]/g, '');
-        if(d0) place = Number(d0) || null;
-        if(before.length > 1) code = String(before[1]).replace(/[^\d]/g, '');
-        before.forEach(function(b, bi){
-          var d = String(b).replace(/[^\d]/g, '');
-          if(d.length >= 6 && bi > 0 && !nfc) nfc = d;
-        });
-      }
+      if(!pre.length && !post.length) return;      /* nincs számadat: nem játékos-sor */
+      recs.push({ name: name, pre: pre, post: post, playedRemark: playedRemark, parts: parts, raw: s });
+    });
+    /* A fejléc-oszlopok csak akkor érvényesek, ha a sorokban tényleg ott van a név
+       és az azonosító: a Google Sheets néha több sorba tördeli a fejlécet, és
+       olyankor az oszlopszámok elcsúsznak. */
+    if(headMap && recs.length){
+      var okName = 0, okId = 0;
+      recs.forEach(function(rec){
+        var pn = (headMap.name >= 0 && rec.parts.length > headMap.name) ? String(rec.parts[headMap.name] || '') : '';
+        if(pn && (playerKey(pn) === playerKey(rec.name) || textSim(deacc(pn), deacc(rec.name)) >= 0.8)) okName++;
+        var pv = (headMap.id >= 0 && rec.parts.length > headMap.id) ? String(rec.parts[headMap.id] || '').trim() : '';
+        if(pv === '' || !mrHasDec(pv)) okId++;
+      });
+      if(okName / recs.length < 0.5 || okId / recs.length < 0.6) headMap = null;
+    }
+    var idPos = mrPickIdPos(recs, headMap);
+    var out = [];
+    recs.forEach(function(rec){
+      var place = rec.pre.length ? numOf(rec.pre[0]) : null;
+      if(place != null) place = Math.round(place);
+      /* az azonosító nyers értéke: a név előtt, a név után, vagy a fejléc oszlopa */
+      var idRaw = '';
+      if(idPos === 'before' && rec.pre.length > 1) idRaw = rec.pre[1];
+      else if(idPos === 'after' && rec.post.length) idRaw = rec.post[0];
+      if(headMap && headMap.id >= 0 && rec.parts.length > headMap.id && mrIdPos !== 'none') idRaw = rec.parts[headMap.id];
+      var k = mrIdKind(idRaw);
+      var post = rec.post.slice();
+      if(idPos === 'after' && post.length && String(post[0]).trim() === String(idRaw).trim()) post = post.slice(1);
       var nums = [];
-      after.forEach(function(x){ var v = numOf(x); if(v != null) nums.push(v); });
-      /* Szezon-összesítő: helyezés, ID, név, össz pénz, össz pont, MUBL, [részvétel] */
+      post.forEach(function(x){ var v = numOf(x); if(v != null) nums.push(v); });
+      var row = { name: rec.name, place: place, code: '', nfc: '', codeRaw: '', codeFrom: '',
+                  money: [0,0,0,0,0], roundPts: [null,null,null,null,null], raw: rec.raw };
+      if(k && k.kind === 'short'){ row.code = k.digits; row.codeFrom = 'sheet'; }
+      else if(k && k.kind === 'nfc'){ row.nfc = k.digits; row.codeFrom = 'sheet'; }
+      else if(k){ row.codeRaw = k.digits; }        /* kitalált helyettesítő: nem azonosító */
+      /* Szezon-összesítő. A régi táblákban két pont-oszlop van: a körök pontja
+         (BODY PONT) és a helyezési bónusszal együtt számolt hivatalos összeg
+         (BODY MUBL PONT). A hivatalos helyezés ez utóbbi szerint készült, ezért
+         a statisztikában is az a mérvadó — a BODY PONT csak tájékoztató.
+         Ha a fejléc megmondja az oszlopokat, azokat használjuk. */
       if(mrMode === 'agg'){
-        var aMoney = nums.length ? Math.round(nums[0] * 100) / 100 : 0;
-        var aPts = nums.length > 1 ? nums[1] : 0;
-        var aMub = nums.length > 2 ? nums[2] : 0;
-        var aPlayed = nums.length > 3 ? nums[3] : null;
-        if(aPlayed == null) aPlayed = MR_PLAYED[playerKey(name)] || null;   /* a versenyekből számolva */
-        out.push({ name: name, place: place, code: code, total: aMoney, points: aPts, mubl: aMub, played: aPlayed,
-                   money: [0,0,0,0,0], roundPts: [null,null,null,null,null], raw: s, agg: true });
+        /* Ha a fejléc megadja a pénz- és a pont-oszlopot, azok a biztosak
+           (a régi és az új táblákban máshol vannak), ilyenkor nem tippelünk. */
+        var byHead = !!(headMap && headMap.money >= 0 && headMap.points >= 0);
+        var vMoney = null, vPts = null, vMub = null, vPlayed = null;
+        if(byHead){
+          vMoney = mrColNum(rec.parts, headMap.money);
+          vPts = mrColNum(rec.parts, headMap.points);
+          vMub = (headMap.mubl >= 0) ? mrColNum(rec.parts, headMap.mubl) : null;
+          vPlayed = (headMap.played >= 0) ? mrColNum(rec.parts, headMap.played) : null;
+          /* a régi táblákban a BODY PONT és a részvétel között van a MUBL-oszlop */
+          if(vMub == null && headMap.mubl < 0 && headMap.played > headMap.points + 1){
+            var mid = mrColNum(rec.parts, headMap.points + 1);
+            if(mid != null && vPts != null && mid >= vPts) vMub = mid;
+          }
+          if(headMap.played >= 0 && vPlayed == null) vPlayed = 0;   /* üres cella: nem indult */
+        } else {
+          vMoney = nums.length ? nums[0] : 0;
+          vPts = nums.length > 1 ? nums[1] : 0;
+          if(nums.length > 2 && nums[2] > vPts) vMub = nums[2];
+          if(rec.playedRemark != null) vPlayed = rec.playedRemark;
+          else if(nums.length > 4) vPlayed = nums[nums.length - 1];
+          else if(nums.length > 3) vPlayed = nums[3];
+          else if(nums.length > 2 && nums[2] <= vPts) vPlayed = nums[2];
+        }
+        row.total = Math.round((Number(vMoney) || 0) * 100) / 100;
+        row.points = Number(vPts) || 0;                 /* BODY PONT (tájékoztató) */
+        row.mubl = (vMub == null ? null : Number(vMub));
+        row.official = (row.mubl != null && row.mubl >= row.points) ? row.mubl : row.points;
+        row.played = (vPlayed == null ? null : Number(vPlayed));
+        if(row.played == null) row.played = MR_PLAYED[playerKey(rec.name)] || null;
+        row.agg = true;
+        out.push(row);
         return;
       }
       /* A szervező formátuma: 1) helyezés 2) ID 3) név
@@ -6327,9 +6561,9 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
          Ha nincs körönkénti bontás: pénz [+ pont]. */
       var rounds = [0,0,0,0,0], roundPts = [null,null,null,null,null], givenPoints = null, total = null;
       if(nums.length >= 10){
-        for(var k = 0; k < 5; k++){
-          rounds[k] = Math.round(nums[k * 2] * 100) / 100;
-          roundPts[k] = nums[k * 2 + 1];
+        for(var kk = 0; kk < 5; kk++){
+          rounds[kk] = Math.round(nums[kk * 2] * 100) / 100;
+          roundPts[kk] = nums[kk * 2 + 1];
         }
         var sumM = rounds.reduce(function(a, b){ return a + b; }, 0);
         if(nums.length >= 11) total = Math.round(nums[10] * 100) / 100;
@@ -6347,31 +6581,52 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
         total = nums.length ? Math.round(nums[0] * 100) / 100 : 0;
         if(nums.length > 1) givenPoints = nums[1];
       }
-      out.push({ name: name, place: place, code: code, nfc: nfc, money: rounds.map(function(x){ return Math.round(x * 100) / 100; }),
-                 roundPts: roundPts, points: givenPoints, total: total, raw: s });
+      row.money = rounds.map(function(x){ return Math.round(x * 100) / 100; });
+      row.roundPts = roundPts;
+      row.points = givenPoints;
+      row.total = total;
+      out.push(row);
     });
     return out;
   }
-  /* Az ismert nevek (statisztikából és a nyilvántartásból). */
+  /* Az ismert nevek (statisztikából és a nyilvántartásból).
+     codes: bármelyik kód (rövid vagy NFC) → név;  short: bármelyik kód → rövid kód;
+     byName: név → rövid kód (ezzel pótoljuk a hiányzó azonosítót). */
   function mrKnownNames(cb){
-    var out = {}, codes = {};
-    function addCode(c, n){ if(c){ var d = String(c).replace(/\D/g, ''); if(d) codes[d] = n || codes[d] || ''; } }
+    var out = {}, codes = {}, short = {}, byName = {};
+    function addCode(c, n, isShort){
+      var d = String(c == null ? '' : c).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+      if(!d) return;
+      if(!codes[d]) codes[d] = n || '';
+      var k = mrIdKind(d);
+      if(k && k.kind === 'short' && !short[d]) short[d] = d;
+      if(isShort && n && k && k.kind === 'short' && !byName[playerKey(n)]) byName[playerKey(n)] = d;
+    }
     (PLAYER_ROSTER || []).forEach(function(r){
-      if(r[2]){ out[String(r[2])] = 1; addCode(r[1], String(r[2])); addCode(r[0], String(r[2])); }   /* rövid kód is */
+      var nm = String(r[2] || '');
+      if(nm){ out[nm] = 1; addCode(r[1], nm, false); addCode(r[0], nm, true); }
     });
     loadResults(function(all){
       (all || []).forEach(function(s){
-        (s.rows || []).forEach(function(r){ if(r.n){ out[String(r.n)] = 1; addCode(r.code, r.n); } });
-        (s.aggRows || []).forEach(function(r){ if(r.n){ out[String(r.n)] = 1; addCode(r.code, r.n); } });
+        (s.rows || []).forEach(function(r){
+          if(!r.n) return;
+          out[String(r.n)] = 1;
+          addCode(r.code, r.n, true);
+          if(r.nfc) addCode(r.nfc, r.n, false);
+        });
+        (s.aggRows || []).forEach(function(r){
+          if(!r.n) return;
+          out[String(r.n)] = 1;
+          addCode(r.code, r.n, true);
+        });
       });
       loadAllPlayers(function(ps){
         (ps || []).forEach(function(p){
           if(p.name) out[String(p.name)] = 1;
-          if(p.nfcCode) addCode(p.nfcCode, p.name);
-          if(p.code) addCode(p.code, p.name);      /* a nyilvántartás rövid kódja */
-          if(p.name) addCode(p.code, p.name);
+          if(p.nfcCode) addCode(p.nfcCode, p.name, false);
+          if(p.code) addCode(p.code, p.name, true);
         });
-        MR_KNOWN = { names: Object.keys(out), codes: codes };
+        MR_KNOWN = { names: Object.keys(out), codes: codes, short: short, byName: byName };
         cb(MR_KNOWN.names);
       });
     });
@@ -6394,10 +6649,10 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       + '<button type="button" class="'+(isAgg ? 'active' : '')+'" onclick="MUB.mrSetMode(\'agg\')">'+esc(T('Szezon-összesítő','Súhrn sezóny'))+'</button>'
       + '</div>'
       + '<p class="meta">'+(isAgg
-          ? esc(T('A szezon összesítő táblázata: soronként 1) helyezés, 2) azonosító (ID), 3) név, majd az összes nyeremény, az összes pont és a régi rendszer szerinti MUBL pont (végül a részvétel). Az itteni nevek a mérvadóak.',
-                     'Súhrnná tabuľka sezóny: v riadku 1) umiestnenie, 2) ID, 3) meno, potom celková výhra, celkové body a MUBL body.'))
-          : esc(T('A verseny eredménye: soronként 1) helyezés, 2) azonosító (ID), 3) név, majd az 5 körben nyert összeg és a kör pontja, végül az ÖSSZ pénz és az ÖSSZ pont. Ha nincs körönkénti bontás, elég a nyeremény és a pont.',
-                     'Výsledky turnaja: v riadku 1) umiestnenie, 2) ID, 3) meno, potom 5 kôl (výhra a body) a spolu.')))+'</p>'
+          ? esc(T('A szezon összesítő táblázata: soronként 1) helyezés, 2) név, 3) azonosító (ID), majd az összes nyeremény, az összes pont és a helyezési bónusszal együtt számolt MUBL pont (végül a részvétel). Az azonosító a név előtt is állhat. A hivatalos pont a MUBL-összeg. Az itteni nevek a mérvadóak.',
+                     'Súhrnná tabuľka sezóny: v riadku 1) umiestnenie, 2) meno, 3) ID, potom celková výhra, celkové body a MUBL body (nakoniec účasť). ID môže byť aj pred menom. Oficiálne body sú MUBL súčet.'))
+          : esc(T('A verseny eredménye: soronként 1) helyezés, 2) azonosító (ID), 3) név, majd az 5 körben nyert összeg és a kör pontja, végül az ÖSSZ pénz és az ÖSSZ pont. Az azonosító a név után is állhat. Ha nincs körönkénti bontás, elég a nyeremény és a pont.',
+                     'Výsledky turnaja: v riadku 1) umiestnenie, 2) ID, 3) meno, potom 5 kôl (výhra a body) a spolu. ID môže byť aj za menom.')))+'</p>'
       + '<p class="meta">'+esc(T('Írja be a verseny adatait, majd illessze be az eredményt soronként, a verseny végeredménye szerint: 1) helyezés, 2) azonosító szám (ID), 3) név, majd az 5 körben nyert összeg, végül a pont. (Ha a körönkénti bontás nincs meg, elég a nyeremény és a pont.) A neveket az azonosító és a hasonlóság alapján is felismeri, és rákérdez, ha bizonytalan.',
                               'Zadajte údaje turnaja a vložte hráčov v poradí (od 1. miesta po posledné). V riadku: meno a 5 vyhraných súm za kolá (€). Poradie určuje umiestnenie; body vypočíta portál.'))+'</p>'
       + '<div class="card" style="margin-bottom:1rem">'
@@ -6419,6 +6674,18 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       + '<textarea id="mr-paste" rows="8" oninput="MUB.mrPasteSet(this.value)" placeholder="'+esc(isAgg
           ? T('1\t3\tJuhász János\t312,80\t560\t351\t11\n2\t6\tBánóczi András\t296,30\t499\t306\t11','1\t3\tJuhász János\t312,80\t560\t351\t11')
           : T('1\t3\tJuhász János\t6,55\t5\t6,05\t5\t4,8\t3\t7,2\t5\t5,1\t3\t29,7\t21\n2\t6\tBánóczi András\t5,5\t5\t9,8\t5\t5\t3\t6,1\t1\t4,4\t1\t30,8\t15','1\t3\tJuhász János\t6,55\t5\t6,05\t5\t4,8\t3\t7,2\t5\t5,1\t3\t29,7\t21'))+'">'+esc(mrPaste)+'</textarea></div>'
+      + '<div class="row2" style="margin-top:.5rem">'
+      + '<div class="field"><label for="mr-idpos">'+esc(T('Az azonosító (ID) helye a táblázatban','Umiestnenie ID v tabuľke'))+'</label>'
+      + '<select id="mr-idpos" onchange="MUB.mrSetIdPos(this.value)">'
+      + [['auto', T('Automatikus felismerés','Automatické rozpoznanie')],
+         ['before', T('A név előtt (helyezés, ID, név)','Pred menom (umiestnenie, ID, meno)')],
+         ['after', T('A név után (helyezés, név, ID)','Za menom (umiestnenie, meno, ID)')],
+         ['none', T('Nincs azonosító a táblázatban','V tabuľke nie je ID')]].map(function(o){
+           return '<option value="'+o[0]+'"'+(mrIdPos === o[0] ? ' selected' : '')+'>'+esc(o[1])+'</option>';
+         }).join('')
+      + '</select></div></div>'
+      + '<p class="meta">'+esc(T('Az azonosítót rövid kód (1–100) és hosszú kártyaszám (NFC) alakban is felismeri. A 997/998/999 csak helyettesítő a táblázatban, azt nem tekinti azonosítónak. Ha a kód a név után van és mégsem olvasta be, állítsa „A név után” értékre. Ha a táblázatban egyáltalán nincs kód, a portál a nyilvántartásból pótolja.',
+                                  'ID rozpozná ako krátky kód (1–100) aj ako dlhé číslo karty (NFC). Čísla 997/998/999 sú len náhradné, tie sa ako ID neberú. Ak je kód za menom a nebol načítaný, nastavte „Za menom”. Ak v tabuľke nie je žiadny kód, portál ho doplní z evidencie.'))+'</p>'
       + '<div class="toolbar"><div>'
       + '<label class="btn sm secondary" style="cursor:pointer">'+esc(T('Excel / CSV fájl','Súbor Excel / CSV'))
       + '<input type="file" accept=".xlsx,.xls,.csv,.txt" style="display:none" onchange="MUB.mrFile(this)"></label> '
@@ -6459,22 +6726,35 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       renderMrPreview();
     });
   }
+  /* Az azonosító mező alatti apró jelzés: honnan van a kód, és mi volt a táblázatban. */
+  function mrCodeMeta(r){
+    var h = '';
+    if(r.nfc) h += '<div class="meta" style="font-size:.72rem" title="'+esc(T('hosszú kártyaszám (NFC)','dlhé číslo karty (NFC)'))+'">NFC '+esc(r.nfc)+'</div>';
+    if(r.codeFrom === 'roster' && r.code) h += '<div class="meta" style="font-size:.72rem">'+esc(T('nyilvántartásból','z evidencie'))+'</div>';
+    if(r.codeRaw) h += '<div class="meta" style="font-size:.72rem;color:#8a6d00">'+esc(T('a táblázatban ','v tabuľke '))+esc(r.codeRaw)+'</div>';
+    if(!r.code && !r.nfc && !r.codeRaw) h += '<div class="meta" style="font-size:.72rem">'+esc(T('nincs','žiadne'))+'</div>';
+    return h;
+  }
   function renderMrPreview(){
     var box = document.getElementById('mr-preview');
     if(!box) return;
     if(!mrRows.length){ box.innerHTML = ''; return; }
     if(mrMode === 'agg'){
-      var ah = '<h3 class="adminsub">'+esc(T('A szezon összesítője','Súhrn sezóny'))+' — ' + mrRows.length + ' ' + esc(T('játékos','hráčov')) + '</h3>'
+      var noIdAgg = mrRows.filter(function(r){ return r.name && !r.code && !r.nfc; }).length;
+      var ah = '<h3 class="adminsub">'+esc(T('A szezon összesítője','Súhrn sezóny'))+' — ' + mrRows.length + ' ' + esc(T('játékos','hráčov'))
+        + (noIdAgg ? ' · <span class="meta">'+esc(T('azonosító nélkül: ','bez ID: '))+noIdAgg+'</span>' : '') + '</h3>'
         + '<div class="table-wrap"><table class="list"><thead><tr>'
         + '<th class="num">'+esc(T('Hely','Miesto'))+'</th><th class="num">ID</th><th>'+esc(T('Név','Meno'))+'</th>'
-        + '<th class="num">'+esc(T('Össz pénz','Spolu €'))+'</th><th class="num">'+esc(T('Össz pont','Spolu body'))+'</th>'
-        + '<th class="num">MUBL</th><th class="num">'+esc(T('Részvétel','Účasť'))+'</th><th>'+esc(T('Név egyezik?','Meno sedí?'))+'</th></tr></thead><tbody>'
+        + '<th class="num">'+esc(T('Össz pénz','Spolu €'))+'</th><th class="num">'+esc(T('Hivatalos pont','Oficiálne body'))+'</th>'
+        + '<th class="num">'+esc(T('BODY pont','BODY body'))+'</th><th class="num">'+esc(T('Részvétel','Účasť'))+'</th><th>'+esc(T('Név egyezik?','Meno sedí?'))+'</th></tr></thead><tbody>'
         + mrRows.map(function(r, i){
+            var off = (r.official != null) ? r.official : ((r.mubl != null && r.mubl >= (r.points || 0)) ? r.mubl : r.points);
             return '<tr><td class="num">'+(r.place != null ? r.place : (i+1))+'.</td>'
-              + '<td class="num"><input class="pin" id="mr-c-'+i+'" value="'+esc(r.code||'')+'" inputmode="numeric" oninput="MUB.mrCode('+i+', this.value)"></td>'
+              + '<td class="num"><input class="pin" id="mr-c-'+i+'" value="'+esc(r.code||'')+'" inputmode="numeric" oninput="MUB.mrCode('+i+', this.value)">'+mrCodeMeta(r)+'</td>'
               + '<td><input class="pin" id="mr-n-'+i+'" value="'+esc(r.name)+'" oninput="MUB.mrName('+i+', this.value)"></td>'
-              + '<td class="num">'+esc(fmtEur(r.total))+'</td><td class="num"><strong>'+esc(String(r.points))+'</strong></td>'
-              + '<td class="num">'+esc(String(r.mubl == null ? '' : r.mubl))+'</td>'
+              + '<td class="num">'+esc(fmtEur(r.total))+'</td>'
+              + '<td class="num"><strong>'+esc(String(off))+'</strong></td>'
+              + '<td class="num"><span class="meta">'+esc(String(r.points == null ? '' : r.points))+'</span></td>'
               + '<td class="num">'+esc(r.played == null ? '' : String(r.played))+'</td>'
               + '<td>'+(r.suggestion
                   ? '⚠ <button type="button" class="linkbtn" onclick="MUB.mrAccept('+i+')">'+esc(T('Ez ugyanaz: ','Toto je to isté: '))+esc(r.suggestion.name)+'</button>'
@@ -6484,7 +6764,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
               + '</td></tr>';
           }).join('')
         + '</tbody></table></div>'
-        + '<p class="meta">'+esc(T('A részvétel számát a portál a versenyek sorai alapján számolja, ha a táblázatban nincs külön oszlop rá.','Počet účastí portál vypočíta z výsledkov turnajov, ak nie je v tabuľke.'))+'</p>';
+        + '<p class="meta">'+esc(T('A hivatalos pont a helyezési bónusszal együtt számolt összeg (BODY MUBL PONT), mert a táblázat helyezései e szerint készültek; a BODY pont csak tájékoztató. A részvételt a portál a versenyek sorai alapján számolja, ha a táblázatban nincs külön oszlop rá.',
+                             'Oficiálne body sú spolu s bonusom za umiestnenie (BODY MUBL PONT), pretože poradie v tabuľke je podľa nich; BODY body sú len informatívne. Účasť portál vypočíta z výsledkov turnajov, ak v tabuľke nie je osobitný stĺpec.'))+'</p>';
       box.innerHTML = ah;
       return;
     }
@@ -6498,10 +6779,12 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     var size = mrRows.length;
     var unknownCount = mrRows.filter(function(r){ return r.name && !r.known; }).length;
     var knownCount = mrRows.filter(function(r){ return r.name && r.known; }).length;
+    var noIdCount = mrRows.filter(function(r){ return r.name && !r.code && !r.nfc; }).length;
     var html = '<h3 class="adminsub">'+esc(T('Előnézet','Náhľad'))+' — ' + size + ' ' + esc(T('játékos','hráčov'))
       + (mrMub ? ' · ' + esc(T('a helyezési bónusz hozzáadva (létszám − helyezés + 1)','bonus za umiestnenie pridaný')) : '')
       + ' · <span style="color:#1c7c3a">'+esc(T('felismert: ','rozpoznaných: '))+knownCount+'</span>'
-      + (unknownCount ? ' · <span style="color:#b3261e">'+esc(T('ismeretlen: ','neznámych: '))+unknownCount+'</span>' : '') + '</h3>'
+      + (unknownCount ? ' · <span style="color:#b3261e">'+esc(T('ismeretlen: ','neznámych: '))+unknownCount+'</span>' : '')
+      + (noIdCount ? ' · <span class="meta">'+esc(T('azonosító nélkül: ','bez ID: '))+noIdCount+'</span>' : '') + '</h3>'
       + '<div class="table-wrap"><table class="list"><thead><tr>'
       + '<th class="num">'+esc(T('Hely','Miesto'))+'</th><th class="num">ID</th><th>'+esc(T('Név','Meno'))+'</th>'
       + [1,2,3,4,5].map(function(i){ return '<th class="num">'+i+'. '+esc(T('kör','kolo'))+'</th>'; }).join('')
@@ -6516,7 +6799,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       r.computed = pts; r.sum = Math.round(sum * 100) / 100;
       html += '<tr'+(r.name && !r.known && !r.suggestion ? ' class="unknownrow"' : '')+'><td class="num">'+(r.place != null ? r.place : (i + 1))+'.</td>'
         + '<td class="num"><input class="pin" id="mr-c-'+i+'" value="'+esc(r.code || '')+'" inputmode="numeric" title="'+esc(T('rövid kód (1–100)','krátky kód (1–100)'))+'" oninput="MUB.mrCode('+i+', this.value)">'
-          + (r.nfc ? '<div class="meta" style="font-size:.75rem">NFC '+esc(r.nfc)+'</div>' : '')+'</td>'
+          + mrCodeMeta(r)+'</td>'
         + '<td><input class="pin" id="mr-n-'+i+'" value="'+esc(r.name)+'" oninput="MUB.mrName('+i+', this.value)"></td>'
         + r.money.map(function(m, k){
             var rp = (r.roundPts && r.roundPts[k] != null) ? r.roundPts[k] : '';
@@ -6536,19 +6819,47 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       + '<p class="meta">'+esc(T('A pontok a körökben nyert összegekből számolódnak. Ha valamelyik sorban megad pontot (6. szám), az a mérvadó.','Body sa počítajú z vyhraných súm. Ak zadáte body (6. číslo), platia tie.'))+'</p>';
     box.innerHTML = html;
   }
+  /* A nyilvántartásból pótolt rövid kód: pontos névre, vagy biztos, egyedi hasonlóságra. */
+  function mrAutoCode(name, dict){
+    var k = playerKey(name);
+    if(!k) return '';
+    if(dict[k] && MR_KNOWN.byName[k]) return String(MR_KNOWN.byName[k]);
+    var keys = Object.keys(MR_KNOWN.byName);
+    if(!keys.length) return '';
+    var best = '', bestS = 0, second = 0;
+    keys.forEach(function(nk){
+      var s = textSim(k, nk);
+      if(s > bestS){ second = bestS; bestS = s; best = nk; }
+      else if(s > second) second = s;
+    });
+    if(best && bestS >= 0.92 && bestS - second >= 0.06) return String(MR_KNOWN.byName[best]);
+    return '';
+  }
   function mrRefreshChecks(){
     mrKnownNames(function(known){
       var dict = {};
       known.forEach(function(k){ dict[playerKey(k)] = k; });
+      var roster = mrRosterBy();
       mrRows.forEach(function(r){
-        var hit = dict[playerKey(r.name)];
-        /* 1) ha az azonosító ismert, az a biztos kapcsolat */
-        var byCode = r.code ? MR_KNOWN.codes[String(r.code).replace(/\D/g, '')] : null;
+        /* 1) ha a táblázatban csak a hosszú (NFC) kártyaszám volt, abból megvan a rövid kód */
+        if(!r.code && r.nfc){
+          var rp = roster[r.nfc];
+          if(!rp && MR_KNOWN.short[r.nfc]) rp = { short: MR_KNOWN.short[r.nfc], name: MR_KNOWN.codes[r.nfc] || '' };
+          if(rp && rp.short){ r.code = String(rp.short); r.codeFrom = 'roster'; }
+        }
+        /* 2) ha a táblázatban egyáltalán nem volt azonosító, a nyilvántartásból pótoljuk */
+        if(!r.code && !r.nfc && r.name){
+          var auto = mrAutoCode(r.name, dict);
+          if(auto){ r.code = auto; r.codeFrom = 'roster'; }
+        }
+        /* 3) ha az azonosító ismert, az a biztos kapcsolat */
+        var byCode = (r.code || r.nfc) ? MR_KNOWN.codes[String(r.code || r.nfc).replace(/\D/g, '')] : null;
         if(byCode && playerKey(byCode) !== playerKey(r.name)){
           r.known = true;
           r.suggestion = { name: byCode, sim: 1, byCode: true };
           return;
         }
+        var hit = dict[playerKey(r.name)];
         r.known = !!hit || !!byCode;
         r.suggestion = (hit || r.rejected) ? null : mrBestMatch(r.name, known);
       });
@@ -6572,7 +6883,24 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
   }
   function mrClear(){ mrRows = []; mrMsg = ''; renderAdminMr(); }
   function mrName(i, v){ if(mrRows[i]){ mrRows[i].name = String(v); mrRows[i].rejected = false; } }
-  function mrCode(i, v){ if(mrRows[i]){ mrRows[i].code = String(v).replace(/\D/g, ''); } }
+  /* A kézzel beírt azonosító: rövid kód, hosszú NFC-kód, vagy (997/998/999) helyettesítő. */
+  function mrCode(i, v){
+    var r = mrRows[i];
+    if(!r) return;
+    var k = mrIdKind(v);
+    r.codeRaw = ''; r.codeFrom = '';
+    if(k && k.kind === 'short'){ r.code = k.digits; r.nfc = ''; }
+    else if(k && k.kind === 'nfc'){
+      r.nfc = k.digits;
+      var rp = mrRosterBy()[k.digits];
+      r.code = (rp && rp.short) ? String(rp.short) : '';
+      if(r.code) r.codeFrom = 'roster';
+    } else {
+      r.code = '';
+      r.nfc = '';
+      if(k) r.codeRaw = k.digits;             /* kitalált helyettesítő, nem azonosító */
+    }
+  }
   function mrMoney(i, k, v){ if(mrRows[i]){ mrRows[i].money[k] = numOf(v) || 0; mrRows[i].points = null; } }
   function mrAccept(i){
     var r = mrRows[i];
@@ -6602,10 +6930,9 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     /* az űrlapon esetleg átírt értékek beolvasása */
     mrRows.forEach(function(r, i){
       var nEl = document.getElementById('mr-n-' + i);
-      var cEl0 = document.getElementById('mr-c-' + i);
+      var cEl = document.getElementById('mr-c-' + i);
       if(nEl) r.name = String(nEl.value).trim();
-      var cEl = cEl0;
-      if(cEl) r.code = String(cEl.value).replace(/\D/g, '');
+      if(cEl) mrCode(i, cEl.value);          /* rövid kód / NFC / helyettesítő szétválasztása */
       for(var k = 0; k < 5; k++){
         var mEl = document.getElementById('mr-m-' + i + '-' + k);
         if(mEl) r.money[k] = numOf(mEl.value) || 0;
@@ -6618,14 +6945,20 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     if(!year || year < 2000 || year > 2100){ mrMsg = T('Adja meg a szezon évét (pl. 2027).','Zadajte rok sezóny.'); renderAdminMr(); return; }
     if(list.length < 3){ mrMsg = T('Legalább 3 játékos kell.','Potrební sú aspoň 3 hráči.'); renderAdminMr(); return; }
     var aggRows = list.map(function(r, i){
+      /* a hivatalos pont a helyezési bónusszal együtt számolt összeg (MUBL),
+         ha a táblázatban volt ilyen; különben a beírt pont */
+      var official = (r.official != null) ? Number(r.official)
+        : ((r.mubl != null && Number(r.mubl) >= (Number(r.points) || 0)) ? Number(r.mubl) : (Number(r.points) || 0));
       return {
         n: r.name,
         place: (r.place != null && r.place > 0) ? r.place : (i + 1),
-        points: Number(r.points) || 0,
+        points: official,
+        pointsPlain: (r.points == null ? null : Number(r.points)),
         money: Math.round((Number(r.total) || 0) * 100) / 100,
         mubl: (r.mubl == null ? null : Number(r.mubl)),
         played: (r.played == null ? (MR_PLAYED[playerKey(r.name)] || null) : Number(r.played)),
-        code: r.code || ''
+        code: r.code || '',
+        nfc: r.nfc || ''
       };
     });
     mrMsg = T('Mentés…','Uloženie…');
@@ -7148,6 +7481,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     importResultsLink: importResultsLink, importResultsPaste: importResultsPaste,
     saveImportedResults: saveImportedResults, cancelImportedResults: cancelImportedResults, deleteImportedResults: deleteImportedResults,
     importResultsAgg: importResultsAgg, importResultsBoth: importResultsBoth, importAggSmart: importAggSmart, importSeasonSheets: importSeasonSheets, setStatistics: setStatistics,
+    /* csak az ellenőrző szkript használja (a beillesztett táblázat feldolgozása) */
+    __mrParse: mrParseText,
     downloadBackupJson: downloadBackupJson, downloadBackupZip: downloadBackupZip, pickRestoreFile: pickRestoreFile, applyRestore: applyRestore, setImpKind: setImpKind,
     addAdminUser: addAdminUser, removeAdminUser: removeAdminUser,
     login: login, logout: logout, forgotPassword: forgotPassword, setAdminTab: setAdminTab,
@@ -7168,6 +7503,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     mrField: mrField, mrToggleMub: mrToggleMub, mrPasteSet: mrPasteSet, mrParse: mrParse, mrAddRow: mrAddRow, mrClear: mrClear,
     mrName: mrName, mrMoney: mrMoney, mrAccept: mrAccept, mrKeep: mrKeep, mrSave: mrSave, mrDeleteTour: mrDeleteTour,
     mrSetMode: mrSetMode, mrCode: mrCode, mrDeleteAgg: mrDeleteAgg, mrFile: mrFile,
+    mrSetIdPos: mrSetIdPos,
     mrSetYear: mrSetYear, mrEdit: mrEdit, mrCancelEdit: mrCancelEdit, mrReload: mrReload,
     savePlayer: savePlayer, setPlayerQuery: setPlayerQuery, playerShowMore: playerShowMore, exportContacts: exportContacts, setRegSort: setRegSort,
     uploadPlayerPhoto: uploadPlayerPhoto, removePlayerPhoto: removePlayerPhoto,
