@@ -543,7 +543,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 51;
+  var BUILD = 52;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1049,6 +1049,18 @@
     return m;
   }
   function invalidate(key){ CACHE[key] = null; if(key === 'results') CACHE.resultsRef = null; }
+  /* Újrarajzolás úgy, hogy a beírt mező megmaradjon (ne ugorjon el a kurzor). */
+  function withFocus(fn){
+    var el = document.activeElement, id = el && el.id, ss = null, se = null;
+    try{ if(el && el.selectionStart != null){ ss = el.selectionStart; se = el.selectionEnd; } }catch(e){}
+    fn();
+    if(!id) return;
+    var el2 = document.getElementById(id);
+    if(el2 && el2.focus){
+      try{ el2.focus(); }catch(e){}
+      try{ if(ss != null && el2.setSelectionRange) el2.setSelectionRange(ss, se); }catch(e){}
+    }
+  }
 
   /* ---------- router ---------- */
   var ROUTES = ['home','naptar','galeria','jelentkezes','jelentkezesaim','jelentkezok','eredmenyek','statisztika','szabalyok','admin'];
@@ -1440,7 +1452,7 @@
 
   /* ---------- CALENDAR ---------- */
   var calFilter = '';
-  function setCalFilter(v){ calFilter = String(v||''); renderCalList(); }
+  function setCalFilter(v){ calFilter = String(v||''); withFocus(renderCalList); }
   function renderCalendar(el){
     el.innerHTML = '<h1 class="page-title">'+esc(T('Versenynaptár','Kalendár turnajov'))+'</h1>'+rule()
       + '<div class="searchbox"><div class="field"><label for="cal-search">'+esc(T('Keresés helyszín vagy dátum szerint','Hľadať podľa miesta alebo dátumu'))+'</label>'
@@ -2735,7 +2747,7 @@
   function setResMin(v){
     var x = parseInt(String(v || '0').replace(/\D/g, ''), 10);
     resMin = (x > 0) ? x : 0;
-    renderStats(document.getElementById('view'));
+    withFocus(function(){ renderStats(document.getElementById('view')); });
   }
   function sortStats(list){
     var k = resSort.key, d = resSort.dir;
@@ -5832,7 +5844,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
 
   /* --- admin: players (codes) --- */
   var deadQuery = '';
-  function setDeadQuery(v){ deadQuery = String(v == null ? '' : v); renderAdminDeadList(); }
+  function setDeadQuery(v){ deadQuery = String(v == null ? '' : v); withFocus(renderAdminDeadList); }
   function renderAdminDeadList(){
     var box = document.getElementById('dead-list');
     if(!box) return;
@@ -5862,7 +5874,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
   }
   /* ---------- Admin: játékosok (sorszám, azonosító, elérhetőségek) ---------- */
   var playerQuery = '', playerLimit = 30;
-  function setPlayerQuery(v){ playerQuery = String(v == null ? '' : v); playerLimit = 30; renderAdminPlayers(); }
+  function setPlayerQuery(v){ playerQuery = String(v == null ? '' : v); playerLimit = 30; withFocus(renderAdminPlayers); }
   function playerShowMore(){ playerLimit += 40; renderAdminPlayers(); }
   function val(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
   function savePlayer(code){
@@ -6094,10 +6106,12 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
   var mrYear = '', mrVenue = '', mrVenueSk = '', mrDate = '', mrRows = [], mrMsg = '', mrMub = false, mrPaste = '';
   var MR_KNOWN = { names: [], codes: {} };   /* ismert nevek és azonosítók a felismeréshez */
   var mrMode = 'tour';                       /* 'tour' = verseny eredménye, 'agg' = szezon-összesítő */
+  var MR_PLAYED = {};                        /* név -> hány versenyen indult (a verseny-sorokból számolva) */
   function mrSetMode(m){
     mrMode = (m === 'agg') ? 'agg' : 'tour';
     mrRows = []; mrMsg = ''; mrPaste = '';
     renderAdminMr();
+    if(mrMode === 'agg' && mrYear) mrCalcPlayed(mrYear);
   }
 
   function mrField(k, v){
@@ -6105,9 +6119,78 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     else if(k === 'venue') mrVenue = String(v || '');
     else if(k === 'venue_sk') mrVenueSk = String(v || '');
     else if(k === 'date') mrDate = String(v || '');
-    renderAdminMr();
+    /* gépelés közben nem rajzoljuk újra az egészet (különben elugrik a kurzor) */
   }
   function mrToggleMub(on){ mrMub = !!on; renderAdminMr(); }
+  /* Excel (.xlsx) vagy CSV/TXT fájl beolvasása a beillesztő mezőbe. */
+  function mrFile(input){
+    var f = input && input.files && input.files[0];
+    if(!f) return;
+    var isXlsx = /\.xlsx$/i.test(f.name);
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      if(!isXlsx){
+        mrPaste = String(ev.target.result || '');
+        mrMsg = T('Fájl beolvasva. Nyomja meg a „Beolvasás” gombot.','Súbor načítaný. Stlačte „Načítať”.');
+        renderAdminMr();
+        return;
+      }
+      if(typeof JSZip === 'undefined'){
+        alert(T('Az Excel-fájl beolvasásához internetkapcsolat kell.','Na načítanie Excel súboru je potrebné pripojenie.')); return;
+      }
+      JSZip.loadAsync(ev.target.result).then(function(zip){ return mrReadXlsx(zip); }).then(function(csv){
+        if(!csv){ alert(T('Nem sikerült a táblázatot kiolvasni.','Tabuľku sa nepodarilo prečítať.')); return; }
+        mrPaste = csv;
+        mrMsg = T('Excel beolvasva. Nyomja meg a „Beolvasás” gombot.','Excel načítaný. Stlačte „Načítať”.');
+        renderAdminMr();
+      }).catch(function(err){
+        alert(T('Hiba az Excel beolvasásakor: ','Chyba pri načítaní Excelu: ') + err.message);
+      });
+    };
+    if(isXlsx) reader.readAsArrayBuffer(f);
+    else reader.readAsText(f, 'utf-8');
+  }
+  /* Az .xlsx első munkalapjának kiolvasása tabulátorral elválasztott sorokká. */
+  function mrReadXlsx(zip){
+    function txt(name){ return zip.file(name) ? zip.file(name).async('string') : Promise.resolve(''); }
+    return Promise.all([txt('xl/sharedStrings.xml'), txt('xl/worksheets/sheet1.xml')]).then(function(res){
+      var shared = [];
+      var ss = res[0];
+      if(ss){
+        var items = ss.split(/<si[ >]/).slice(1);
+        items.forEach(function(it){
+          var parts = [];
+          var m, rx = /<t[^>]*>([\s\S]*?)<\/t>/g;
+          while((m = rx.exec(it))) parts.push(m[1]);
+          shared.push(parts.join('').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'"));
+        });
+      }
+      var sheet = res[1];
+      if(!sheet) return '';
+      var rows = sheet.split(/<row[ >]/).slice(1);
+      var out = [];
+      rows.forEach(function(rw){
+        var cells = [], m, rx = /<c([^>]*)>([\s\S]*?)<\/c>|<c([^>]*)\/>/g;
+        while((m = rx.exec(rw))){
+          var attrs = m[1] || m[3] || '';
+          var body = m[2] || '';
+          var type = (attrs.match(/t="([^"]+)"/) || [])[1] || '';
+          var vMatch = body.match(/<v[^>]*>([\s\S]*?)<\/v>/);
+          var val = '';
+          if(type === 'inlineStr'){
+            var im = body.match(/<t[^>]*>([\s\S]*?)<\/t>/);
+            val = im ? im[1] : '';
+          } else if(vMatch){
+            var raw = vMatch[1];
+            val = (type === 's') ? (shared[Number(raw)] || '') : raw;
+          }
+          cells.push(String(val).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'"));
+        }
+        out.push(cells.join('\t'));
+      });
+      return out.join('\n');
+    });
+  }
   /* A beillesztett szöveget megőrizzük, különben az újrarajzolás törölné. */
   function mrPasteSet(v){ mrPaste = String(v == null ? '' : v); }
   /* A körök pontjai: 5 az 1. helyért, 3 a 2.-ért, 1 a 3.-ért; holtversenynél
@@ -6176,6 +6259,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
         var aPts = nums.length > 1 ? nums[1] : 0;
         var aMub = nums.length > 2 ? nums[2] : 0;
         var aPlayed = nums.length > 3 ? nums[3] : null;
+        if(aPlayed == null) aPlayed = MR_PLAYED[playerKey(name)] || null;   /* a versenyekből számolva */
         out.push({ name: name, place: place, code: code, total: aMoney, points: aPts, mubl: aMub, played: aPlayed,
                    money: [0,0,0,0,0], roundPts: [null,null,null,null,null], raw: s, agg: true });
         return;
@@ -6265,6 +6349,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
           ? T('1\t3\tJuhász János\t312,80\t560\t351\t11\n2\t6\tBánóczi András\t296,30\t499\t306\t11','1\t3\tJuhász János\t312,80\t560\t351\t11')
           : T('1\t3\tJuhász János\t6,55\t5\t6,05\t5\t4,8\t3\t7,2\t5\t5,1\t3\t29,7\t21\n2\t6\tBánóczi András\t5,5\t5\t9,8\t5\t5\t3\t6,1\t1\t4,4\t1\t30,8\t15','1\t3\tJuhász János\t6,55\t5\t6,05\t5\t4,8\t3\t7,2\t5\t5,1\t3\t29,7\t21'))+'">'+esc(mrPaste)+'</textarea></div>'
       + '<div class="toolbar"><div>'
+      + '<label class="btn sm secondary" style="cursor:pointer">'+esc(T('Excel / CSV fájl','Súbor Excel / CSV'))
+      + '<input type="file" accept=".xlsx,.xls,.csv,.txt" style="display:none" onchange="MUB.mrFile(this)"></label> '
       + '<button type="button" class="btn sm" onclick="MUB.mrParse()">'+esc(T('Beolvasás','Načítať'))+'</button> '
       + '<button type="button" class="btn sm secondary" onclick="MUB.mrAddRow()">'+esc(T('Sor hozzáadása','Pridať riadok'))+'</button>'
       + '</div><div>'
@@ -6277,6 +6363,27 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     box.innerHTML = html;
     renderMrPreview();
     renderMrList();
+  }
+  function mrCalcPlayed(year){
+    MR_PLAYED = {};
+    loadResults(function(all){
+      (all || []).forEach(function(s){
+        if(year && String(s.year) !== String(year)) return;
+        (s.rows || []).forEach(function(r){
+          if(!r.n) return;
+          var k = playerKey(r.n);
+          MR_PLAYED[k] = (MR_PLAYED[k] || 0) + 1;
+        });
+      });
+      /* a hiányzó részvétel-számot pótoljuk a kiszámolt értékkel */
+      mrRows.forEach(function(r){
+        if(r.played == null){
+          var v = MR_PLAYED[playerKey(r.name)];
+          if(v) r.played = v;
+        }
+      });
+      renderMrPreview();
+    });
   }
   function renderMrPreview(){
     var box = document.getElementById('mr-preview');
@@ -6302,7 +6409,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
                   : (r.known ? '<span class="meta">✓</span>' : '<span class="meta">?</span>'))
               + '</td></tr>';
           }).join('')
-        + '</tbody></table></div>';
+        + '</tbody></table></div>'
+        + '<p class="meta">'+esc(T('A részvétel számát a portál a versenyek sorai alapján számolja, ha a táblázatban nincs külön oszlop rá.','Počet účastí portál vypočíta z výsledkov turnajov, ak nie je v tabuľke.'))+'</p>';
       box.innerHTML = ah;
       return;
     }
@@ -6373,6 +6481,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     mrMsg = parsed.length + ' ' + T('játékos beolvasva.','hráčov načítaných.');
     renderAdminMr();
     mrRefreshChecks();
+    if(mrMode === 'agg' && mrYear) mrCalcPlayed(mrYear);
   }
   function mrAddRow(){
     mrRows.push({ name: '', money: [0,0,0,0,0], points: null, place: mrRows.length + 1, known: false, suggestion: null });
@@ -6432,7 +6541,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
         points: Number(r.points) || 0,
         money: Math.round((Number(r.total) || 0) * 100) / 100,
         mubl: (r.mubl == null ? null : Number(r.mubl)),
-        played: (r.played == null ? null : Number(r.played)),
+        played: (r.played == null ? (MR_PLAYED[playerKey(r.name)] || null) : Number(r.played)),
         code: r.code || ''
       };
     });
@@ -6607,7 +6716,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
 
   /* ---------- Admin: név-egyesítés ---------- */
   var nameQuery = '', nameLimit = 40, nameFlash = null;
-  function setNameQuery(v){ nameQuery = String(v == null ? '' : v); nameLimit = 40; renderAdminNames(); }
+  function setNameQuery(v){ nameQuery = String(v == null ? '' : v); nameLimit = 40; withFocus(renderAdminNames); }
   function nameShowMore(){ nameLimit += 60; renderAdminNames(); }
   function nameDecide(a, b, same){
     if(!currentUser) return;
@@ -6951,7 +7060,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     saveReg: saveReg, regEdit: regEdit,
     mrField: mrField, mrToggleMub: mrToggleMub, mrPasteSet: mrPasteSet, mrParse: mrParse, mrAddRow: mrAddRow, mrClear: mrClear,
     mrName: mrName, mrMoney: mrMoney, mrAccept: mrAccept, mrKeep: mrKeep, mrSave: mrSave, mrDeleteTour: mrDeleteTour,
-    mrSetMode: mrSetMode, mrCode: mrCode, mrDeleteAgg: mrDeleteAgg,
+    mrSetMode: mrSetMode, mrCode: mrCode, mrDeleteAgg: mrDeleteAgg, mrFile: mrFile,
     savePlayer: savePlayer, setPlayerQuery: setPlayerQuery, playerShowMore: playerShowMore, exportContacts: exportContacts, setRegSort: setRegSort,
     uploadPlayerPhoto: uploadPlayerPhoto, removePlayerPhoto: removePlayerPhoto,
     setResSort: setResSort, setResMin: setResMin, setResSource: setResSource
