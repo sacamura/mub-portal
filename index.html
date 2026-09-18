@@ -543,7 +543,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 52;
+  var BUILD = 53;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -6236,20 +6236,17 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       });
       var name = nameParts.join(' ').replace(/\s+/g, ' ').trim();
       if(!name) return;
-      var place = null, code = '';
+      /* Az első szám a helyezés, a második a rövid kód (1–100, pl. Juhász János = 3).
+         Ha valahol hosszú (NFC) szám van, azt külön jegyezzük meg. */
+      var place = null, code = '', nfc = '';
       if(before.length){
-        var b0 = String(before[0]).replace(/[^\d]/g, '');
-        if(b0 && b0.length <= 3 && before.length > 1) place = Number(b0) || null;
-        else if(b0 && b0.length <= 3 && before.length === 1) place = Number(b0) || null;
-        /* a hosszú szám az azonosító (ID) */
-        before.forEach(function(b){
+        var d0 = String(before[0]).replace(/[^\d]/g, '');
+        if(d0) place = Number(d0) || null;
+        if(before.length > 1) code = String(before[1]).replace(/[^\d]/g, '');
+        before.forEach(function(b, bi){
           var d = String(b).replace(/[^\d]/g, '');
-          if(d.length >= 5) code = d;
+          if(d.length >= 6 && bi > 0 && !nfc) nfc = d;
         });
-        if(place == null && before.length){
-          var d2 = String(before[before.length - 1]).replace(/[^\d]/g, '');
-          place = d2 && d2.length <= 3 ? Number(d2) : null;
-        }
       }
       var nums = [];
       after.forEach(function(x){ var v = numOf(x); if(v != null) nums.push(v); });
@@ -6289,7 +6286,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
         total = nums.length ? Math.round(nums[0] * 100) / 100 : 0;
         if(nums.length > 1) givenPoints = nums[1];
       }
-      out.push({ name: name, place: place, code: code, money: rounds.map(function(x){ return Math.round(x * 100) / 100; }),
+      out.push({ name: name, place: place, code: code, nfc: nfc, money: rounds.map(function(x){ return Math.round(x * 100) / 100; }),
                  roundPts: roundPts, points: givenPoints, total: total, raw: s });
     });
     return out;
@@ -6298,14 +6295,21 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
   function mrKnownNames(cb){
     var out = {}, codes = {};
     function addCode(c, n){ if(c){ var d = String(c).replace(/\D/g, ''); if(d) codes[d] = n || codes[d] || ''; } }
-    (PLAYER_ROSTER || []).forEach(function(r){ if(r[2]){ out[String(r[2])] = 1; addCode(r[1], String(r[2])); } });
+    (PLAYER_ROSTER || []).forEach(function(r){
+      if(r[2]){ out[String(r[2])] = 1; addCode(r[1], String(r[2])); addCode(r[0], String(r[2])); }   /* rövid kód is */
+    });
     loadResults(function(all){
       (all || []).forEach(function(s){
         (s.rows || []).forEach(function(r){ if(r.n){ out[String(r.n)] = 1; addCode(r.code, r.n); } });
         (s.aggRows || []).forEach(function(r){ if(r.n){ out[String(r.n)] = 1; addCode(r.code, r.n); } });
       });
       loadAllPlayers(function(ps){
-        (ps || []).forEach(function(p){ if(p.name) out[String(p.name)] = 1; if(p.nfcCode) addCode(p.nfcCode, p.name); });
+        (ps || []).forEach(function(p){
+          if(p.name) out[String(p.name)] = 1;
+          if(p.nfcCode) addCode(p.nfcCode, p.name);
+          if(p.code) addCode(p.code, p.name);      /* a nyilvántartás rövid kódja */
+          if(p.name) addCode(p.code, p.name);
+        });
         MR_KNOWN = { names: Object.keys(out), codes: codes };
         cb(MR_KNOWN.names);
       });
@@ -6434,7 +6438,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       if(mrMub) pts = Math.round((pts + (size - (i + 1) + 1)) * 10) / 10;
       r.computed = pts; r.sum = Math.round(sum * 100) / 100;
       html += '<tr><td class="num">'+(r.place != null ? r.place : (i + 1))+'.</td>'
-        + '<td class="num"><input class="pin" id="mr-c-'+i+'" value="'+esc(r.code || '')+'" inputmode="numeric" oninput="MUB.mrCode('+i+', this.value)"></td>'
+        + '<td class="num"><input class="pin" id="mr-c-'+i+'" value="'+esc(r.code || '')+'" inputmode="numeric" title="'+esc(T('rövid kód (1–100)','krátky kód (1–100)'))+'" oninput="MUB.mrCode('+i+', this.value)">'
+          + (r.nfc ? '<div class="meta" style="font-size:.75rem">NFC '+esc(r.nfc)+'</div>' : '')+'</td>'
         + '<td><input class="pin" id="mr-n-'+i+'" value="'+esc(r.name)+'" oninput="MUB.mrName('+i+', this.value)"></td>'
         + r.money.map(function(m, k){
             var rp = (r.roundPts && r.roundPts[k] != null) ? r.roundPts[k] : '';
@@ -6600,8 +6605,10 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       if(!money && r.total) money = Number(r.total) || 0;
       /* a helyezés a beírt helyezés (ha volt), különben a sorrend */
       var pl = (r.place != null && r.place > 0) ? r.place : (i + 1);
-      return { n: r.name, t: tName, place: pl, points: pts, money: Math.round(money * 100) / 100,
-               size: size, drawn: 0, rounds: rounds, code: r.code || '' };
+      var rowOut = { n: r.name, t: tName, place: pl, points: pts, money: Math.round(money * 100) / 100,
+                     size: size, drawn: 0, rounds: rounds, code: r.code || '' };
+      if(r.nfc) rowOut.nfc = r.nfc;
+      return rowOut;
     });
     /* holtverseny jelölése: ugyanannyi pont (és pénz) */
     newRows.forEach(function(a, i){
