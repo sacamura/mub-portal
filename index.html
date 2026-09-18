@@ -397,6 +397,10 @@
   .namepair.decided.ok{border-color:var(--accent)}
   .namepair.decided.no{border-color:#b3261e}
   .npnames{font-size:1.02rem}
+  .known-ok{color:#1c7c3a; font-weight:700}
+  .known-no{color:#b3261e; font-weight:700}
+  tr.unknownrow{background:#fff6e0}
+  tr.unknownrow td{border-color:#e6c98a}
   .npwhere{font-size:.82rem; display:block}
   .npvs{color:var(--ink-soft); padding:0 .2rem}
   .npbtns{display:flex; gap:.4rem}
@@ -543,7 +547,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 55;
+  var BUILD = 56;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -6110,6 +6114,13 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
   var mrFilterYear = '';                     /* a felvett versenyek szűrése szezon szerint */
   var mrEditTid = '';                        /* szerkesztés alatt álló verseny eredeti neve */
   function mrSetYear(v){ mrFilterYear = String(v || ''); renderMrList(); }
+  /* A szerkesztett verseny újra beolvasása a mentett adatokból. */
+  function mrReload(){
+    if(!mrEditTid || !mrYear) return;
+    var y = mrYear, t = mrEditTid;
+    mrEditTid = '';
+    mrEdit(y, t);
+  }
   function mrCancelEdit(){
     mrEditTid = ''; mrRows = []; mrPaste = ''; mrMsg = '';
     renderAdminMr();
@@ -6129,8 +6140,21 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       mrVenueSk = String(tour.name_sk || '');
       mrDate = String(tour.date || '');
       mrMub = !!tour.mub;
-      mrPaste = '';
       rows.sort(function(a, b){ return (Number(a.place) || 0) - (Number(b.place) || 0); });
+      /* a mentett táblázat szövegként is bekerül a beillesztő mezőbe,
+         így bármikor újra beolvasható és javítható */
+      mrPaste = rows.map(function(r){
+        var money = [0,0,0,0,0], pts = [0,0,0,0,0];
+        (r.rounds || []).slice(0, 5).forEach(function(x, k){
+          money[k] = (x && x.money != null) ? x.money : 0;
+          pts[k] = (x && x.points != null) ? x.points : 0;
+        });
+        var nums = [];
+        for(var k = 0; k < 5; k++){ nums.push(money[k]); nums.push(pts[k]); }
+        nums.push(r.money == null ? 0 : r.money);
+        nums.push(r.points == null ? 0 : r.points);
+        return [ (r.place || ''), (r.code || ''), r.n ].concat(nums).join('\t');
+      }).join('\n');
       mrRows = rows.map(function(r){
         var money = [0,0,0,0,0], roundPts = [null,null,null,null,null];
         (r.rounds || []).slice(0, 5).forEach(function(x, k){
@@ -6142,7 +6166,6 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       });
       mrMsg = T('Szerkesztés: ','Úprava: ') + tName + ' — ' + T('a mentés felülírja ezt a versenyt.','uloženie prepíše tento turnaj.');
       renderAdminMr();
-      if(window.scrollTo) window.scrollTo(0, 0);
     });
   }
   function mrSetMode(m){
@@ -6406,6 +6429,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       + '<button type="button" class="btn sm secondary" onclick="MUB.mrClear()">'+esc(T('Törlés','Vymazať'))+'</button>'
       + '</div></div>'
       + (mrEditTid ? '<p class="banner ok" role="status" style="margin-top:.6rem">✎ '+esc(T('Szerkesztés alatt: ','Úprava: '))+esc(mrEditTid)
+          + ' <button type="button" class="btn sm secondary" onclick="MUB.mrReload()">'+esc(T('Táblázat újra beolvasása','Znovu načítať tabuľku'))+'</button>'
           + ' <button type="button" class="btn sm secondary" onclick="MUB.mrCancelEdit()">'+esc(T('Mégse','Zrušiť'))+'</button></p>' : '')
       + (mrMsg ? '<p class="banner ok" role="status" style="margin-top:.6rem">'+esc(mrMsg)+'</p>' : '')
       + '</div>'
@@ -6472,8 +6496,12 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       return Math.round(s * 10) / 10;
     });
     var size = mrRows.length;
+    var unknownCount = mrRows.filter(function(r){ return r.name && !r.known; }).length;
+    var knownCount = mrRows.filter(function(r){ return r.name && r.known; }).length;
     var html = '<h3 class="adminsub">'+esc(T('Előnézet','Náhľad'))+' — ' + size + ' ' + esc(T('játékos','hráčov'))
-      + (mrMub ? ' · ' + esc(T('a helyezési bónusz hozzáadva (létszám − helyezés + 1)','bonus za umiestnenie pridaný')) : '') + '</h3>'
+      + (mrMub ? ' · ' + esc(T('a helyezési bónusz hozzáadva (létszám − helyezés + 1)','bonus za umiestnenie pridaný')) : '')
+      + ' · <span style="color:#1c7c3a">'+esc(T('felismert: ','rozpoznaných: '))+knownCount+'</span>'
+      + (unknownCount ? ' · <span style="color:#b3261e">'+esc(T('ismeretlen: ','neznámych: '))+unknownCount+'</span>' : '') + '</h3>'
       + '<div class="table-wrap"><table class="list"><thead><tr>'
       + '<th class="num">'+esc(T('Hely','Miesto'))+'</th><th class="num">ID</th><th>'+esc(T('Név','Meno'))+'</th>'
       + [1,2,3,4,5].map(function(i){ return '<th class="num">'+i+'. '+esc(T('kör','kolo'))+'</th>'; }).join('')
@@ -6486,7 +6514,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       if(mrMub){ bonus = (size - (i + 1) + 1); pts = Math.round((pts + bonus) * 10) / 10; }
       r.bonus = bonus;
       r.computed = pts; r.sum = Math.round(sum * 100) / 100;
-      html += '<tr><td class="num">'+(r.place != null ? r.place : (i + 1))+'.</td>'
+      html += '<tr'+(r.name && !r.known && !r.suggestion ? ' class="unknownrow"' : '')+'><td class="num">'+(r.place != null ? r.place : (i + 1))+'.</td>'
         + '<td class="num"><input class="pin" id="mr-c-'+i+'" value="'+esc(r.code || '')+'" inputmode="numeric" title="'+esc(T('rövid kód (1–100)','krátky kód (1–100)'))+'" oninput="MUB.mrCode('+i+', this.value)">'
           + (r.nfc ? '<div class="meta" style="font-size:.75rem">NFC '+esc(r.nfc)+'</div>' : '')+'</td>'
         + '<td><input class="pin" id="mr-n-'+i+'" value="'+esc(r.name)+'" oninput="MUB.mrName('+i+', this.value)"></td>'
@@ -6501,7 +6529,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
             ? '⚠ <button type="button" class="linkbtn" onclick="MUB.mrAccept('+i+')">'+esc(T('Ez ugyanaz: ','Toto je to isté: '))+esc(r.suggestion.name)+'</button>'
               + ' <span class="meta">('+(r.suggestion.byCode ? esc(T('azonosító alapján','podľa ID')) : Math.round(r.suggestion.sim * 100) + '%')+')</span>'
               + ' <button type="button" class="linkbtn" onclick="MUB.mrKeep('+i+')">'+esc(T('Új játékos','Nový hráč'))+'</button>'
-            : (r.known ? '<span class="meta">✓</span>' : '<span class="meta">?</span>'))
+            : (r.known ? '<span class="known-ok">✓ '+esc(T('ismert','známe'))+'</span>' : '<span class="known-no">? '+esc(T('ismeretlen','neznáme'))+'</span>'))
         + '</td></tr>';
     });
     html += '</tbody></table></div>'
@@ -6960,7 +6988,6 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
 
       box2.innerHTML = html;
       /* A döntés után a lap tetejére ugrunk, hogy látszódjon a visszajelzés. */
-      if(flashScroll && window.scrollTo){ window.scrollTo(0, 0); }
       flashScroll = false;
     });
   }
@@ -7141,7 +7168,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     mrField: mrField, mrToggleMub: mrToggleMub, mrPasteSet: mrPasteSet, mrParse: mrParse, mrAddRow: mrAddRow, mrClear: mrClear,
     mrName: mrName, mrMoney: mrMoney, mrAccept: mrAccept, mrKeep: mrKeep, mrSave: mrSave, mrDeleteTour: mrDeleteTour,
     mrSetMode: mrSetMode, mrCode: mrCode, mrDeleteAgg: mrDeleteAgg, mrFile: mrFile,
-    mrSetYear: mrSetYear, mrEdit: mrEdit, mrCancelEdit: mrCancelEdit,
+    mrSetYear: mrSetYear, mrEdit: mrEdit, mrCancelEdit: mrCancelEdit, mrReload: mrReload,
     savePlayer: savePlayer, setPlayerQuery: setPlayerQuery, playerShowMore: playerShowMore, exportContacts: exportContacts, setRegSort: setRegSort,
     uploadPlayerPhoto: uploadPlayerPhoto, removePlayerPhoto: removePlayerPhoto,
     setResSort: setResSort, setResMin: setResMin, setResSource: setResSource
