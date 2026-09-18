@@ -550,7 +550,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 58;
+  var BUILD = 59;
   var BUILD_DATE = '2026-09-17';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2917,7 +2917,7 @@
   /* ---------- EREDMÉNYEK: kereső a feltöltött eredmények között ----------
      A szervező idő és község szerint tölti fel a versenyeket. Itt játékos,
      azonosító, szezon és verseny szerint lehet szűrni — és látszik, ki hogy állt. */
-  var resQ = '', resQYear = 'all', resQTour = '', RES_INDEX = null;
+  var resQ = '', resQYear = 'all', resQTour = '', RES_INDEX = null, RES_GROUPS = null;
   /* A verseny nevéből kiolvasott dátum (pl. „Ruszka 7.3.2020” → 2020-03-07). */
   function tourDateFromName(name){
     var m = String(name || '').match(/(\d{1,2})\.\s?(\d{1,2})\.\s?(\d{2,4})/);
@@ -2991,6 +2991,8 @@
     years.sort().reverse();
     var tours = idx.filter(function(o){ return resQYear === 'all' || o.year === resQYear; });
     var players = resPlayersOf(tours);
+    /* a játékos-csoportok (név-egyesítés) a kiválasztott szezonokra — gépeléskor már nem számoljuk újra */
+    RES_GROUPS = resPersonGroups(tours);
     box.innerHTML = '<div class="card noprint">'
       + '<h3 class="adminsub">'+esc(T('Kereső az eredményekben','Vyhľadávanie vo výsledkoch'))+'</h3>'
       + '<div class="row3">'
@@ -3041,17 +3043,40 @@
         }).join('')
       + '</tbody></table></div>';
   }
+  /* A játékosok a portál saját név-egyesítésével: egy ember minden írásmódja
+     (és azonosítója) egy csoportba kerül — ugyanúgy, mint a statisztikában. */
+  function resPersonGroups(list){
+    var NG = nameGroups(list);
+    var byRoot = {}, order = [];
+    list.forEach(function(o){
+      o.rows.forEach(function(r){
+        var root = NG.groupOf[r.n] || String(r.n);
+        var g = byRoot[root];
+        if(!g){
+          var info = NG.byName[root] || null;
+          g = byRoot[root] = { raw: root, name: (info && info.name) || niceName(r.n),
+                               ids: (info && info.ids) || [], aliases: (info && info.aliases) || [String(r.n)],
+                               code: '', tours: [] };
+          order.push(root);
+        }
+        if(!g.code && r.code) g.code = String(r.code);
+        g.tours.push({ year: o.year, tour: o.name, date: o.date, r: r });
+      });
+    });
+    return order.map(function(k){ return byRoot[k]; });
+  }
   /* Egy játékos összefoglalója és versenyenkénti eredményei. */
   function resSummary(p){
-    var money = 0, pts = 0, places = [], wins = 0, podiums = 0;
+    var money = 0, pts = 0, places = [], wins = 0, podiums = 0, set = {};
     p.tours.forEach(function(x){
       money += Number(x.r.money) || 0;
       pts += (x.r.points == null ? 0 : Number(x.r.points));
+      set[String(x.year) + '|' + String(x.tour)] = 1;      /* versenyek (egyszer számolva) */
       var pl = Number(x.r.place);
       if(pl > 0){ places.push(pl); if(pl === 1) wins++; if(pl <= 3) podiums++; }
     });
     var avg = places.length ? places.reduce(function(a, b){ return a + b; }, 0) / places.length : null;
-    return { n: p.tours.length, money: money, pts: pts, avg: avg, wins: wins, podiums: podiums };
+    return { n: Object.keys(set).length, money: money, pts: pts, avg: avg, wins: wins, podiums: podiums };
   }
   function resPersonTable(p){
     var s = resSummary(p);
@@ -3059,9 +3084,10 @@
       return String(b.year).localeCompare(String(a.year)) || String(a.date).localeCompare(String(b.date))
         || (Number(a.r.place) || 999) - (Number(b.r.place) || 999);
     });
-    return '<h3 class="adminsub">'+esc(niceName(p.name))
-      + (p.code ? ' <span class="meta">'+esc(T('azonosító','ID'))+': '+esc(p.code)+'</span>' : '')
-      + ' <button type="button" class="linkbtn noprint" onclick="MUB.openPlayerCard('+jsq(p.name)+')">'+esc(T('adatlap','karta'))+' →</button></h3>'
+    var idTxt = (p.ids && p.ids.length) ? p.ids.join(', ') : (p.code || '');
+    return '<h3 class="adminsub">'+esc(p.name)
+      + (idTxt ? ' <span class="meta">'+esc(T('azonosító','ID'))+': '+esc(idTxt)+'</span>' : '')
+      + ' <button type="button" class="linkbtn noprint" onclick="MUB.openPlayerCard('+jsq(p.raw)+')">'+esc(T('adatlap','karta'))+' →</button></h3>'
       + '<p class="meta">'+s.n+' '+esc(T('verseny','turnajov'))
       + ' · '+esc(T('összes pénz','spolu €'))+': '+esc(fmtEur(s.money))
       + ' · '+esc(T('összes pont','spolu body'))+': '+esc(String(Math.round(s.pts * 10) / 10))
@@ -3079,23 +3105,14 @@
         }).join('')
       + '</tbody></table></div>';
   }
-  /* A szűrt sorok személyenként összegyűjtve. */
-  function resPersonRows(list, q){
+  /* A szűrt csoportok közül azok, amelyekre a keresés illik (név vagy azonosító). */
+  function resPersonHits(groups, q){
     var qk = deacc(q), qd = String(q).replace(/\D/g, '');
-    var persons = {}, order = [];
-    list.forEach(function(o){
-      o.rows.forEach(function(r){
-        var nm = deacc(r.n);
-        var hit = (qk && nm.indexOf(qk) >= 0) || (qd && String(r.code || '').replace(/\D/g, '') === qd);
-        if(!hit) return;
-        var k = playerKey(r.n);
-        if(!persons[k]){ persons[k] = { name: r.n, code: '', tours: [] }; order.push(k); }
-        var p = persons[k];
-        if(!p.code && r.code) p.code = String(r.code);
-        p.tours.push({ year: o.year, tour: o.name, date: o.date, r: r });
-      });
+    return groups.filter(function(g){
+      if(qd && g.ids.some(function(c){ return String(c).replace(/\D/g, '') === qd; })) return true;
+      if(!qk) return false;
+      return g.aliases.some(function(n){ return deacc(n).indexOf(qk) >= 0; }) || deacc(g.name).indexOf(qk) >= 0;
     });
-    return order.map(function(k){ return persons[k]; });
   }
   function renderResFound(){
     var box = document.getElementById('res-found');
@@ -3111,7 +3128,7 @@
     }
     /* 2) játékos neve vagy azonosítója szerint */
     if(q){
-      var persons = resPersonRows(list, q);
+      var persons = resPersonHits(RES_GROUPS || [], q);
       if(!persons.length){
         box.innerHTML = '<p class="meta">'+esc(T('Ezzel a névvel vagy azonosítóval nincs találat. Próbálja csak a vezetéknevet.','S týmto menom alebo ID sa nič nenašlo. Skúste len priezvisko.'))+'</p>';
         return;
@@ -3119,8 +3136,8 @@
       if(persons.length > 8){
         box.innerHTML = '<p class="meta">'+esc(T('Több találat van, válasszon nevet:','Veľa zhôd, vyberte meno:'))+'</p><p class="namelist">'
           + persons.slice(0, 80).map(function(p){
-              return '<button type="button" class="linkbtn" onclick="MUB.setResQ('+jsq(p.name)+')">'+esc(niceName(p.name))+'</button>';
-            }).join(' · ')
+              return '<button type="button" class="linkbtn" onclick="MUB.setResQ('+jsq(p.raw)+')">'+esc(p.name)+'</button>';
+            }).join('')
           + '</p>';
         return;
       }
@@ -3136,7 +3153,7 @@
       + '<th>'+esc(T('Szezon','Sezóna'))+'</th><th>'+esc(T('Dátum','Dátum'))+'</th><th>'+esc(T('Verseny','Turnaj'))+'</th>'
       + '<th class="num">'+esc(T('Játékos','Hráčov'))+'</th><th>'+esc(T('Győztes','Víťaz'))+'</th><th class="noprint"></th></tr></thead><tbody>'
       + list.slice(0, 400).map(function(o){
-          return '<tr><td class="num">'+esc(o.year)+'</td><td class="num">'+esc(fmtDateHu(o.date))+'</td><td>'+esc(o.name)+'</td>'
+          return '<tr><td class="num">'+esc(o.year)+'</td><td class="num">'+esc(o.date ? fmtDateHu(o.date) : '—')+'</td><td>'+esc(o.name)+'</td>'
             + '<td class="num">'+o.size+'</td>'
             + '<td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard('+jsq(o.winner)+')">'+esc(niceName(o.winner))+'</button></td>'
             + '<td class="noprint"><button type="button" class="btn sm secondary" onclick="MUB.setResQTour('+jsq(o.name)+')">'+esc(T('Eredmény','Výsledky'))+'</button></td></tr>';
