@@ -543,7 +543,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 53;
+  var BUILD = 54;
   var BUILD_DATE = '2026-09-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -6347,7 +6347,13 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
         + '<div class="field"><label for="mr-venue-sk">'+esc(T('Verseny helyszíne (szlovák)','Miesto turnaja (slovensky)'))+'</label><input id="mr-venue-sk" value="'+esc(mrVenueSk)+'" oninput="MUB.mrField(\'venue_sk\', this.value)"></div>'
         + '<div class="field"><label for="mr-date">'+esc(T('Dátum','Dátum'))+'</label><input id="mr-date" type="date" value="'+esc(mrDate)+'" oninput="MUB.mrField(\'date\', this.value)"></div>')
       + '</div>'
-      + (isAgg ? '' : '<label class="switchline"><input type="checkbox" '+(mrMub ? 'checked' : '')+' onchange="MUB.mrToggleMub(this.checked)"> '+esc(T('Helyezési bónusz is számít (régi MUBL rendszer)','Počíta sa aj bonus za umiestnenie (starý systém MUBL)'))+'</label>')
+      + (isAgg ? '' :
+          '<label class="switchline" style="display:block"><input type="checkbox" '+(mrMub ? 'checked' : '')+' onchange="MUB.mrToggleMub(this.checked)"> '
+          + '<strong>'+esc(T('A portál adja hozzá a helyezési bónuszt','Portál pridá bonus za umiestnenie'))+'</strong> '
+          + esc(T('(régi MUBL rendszer: létszám − helyezés + 1)','(starý systém MUBL: počet hráčov − umiestnenie + 1)'))
+          + '</label>'
+          + '<p class="meta" style="margin:.2rem 0 .6rem">'+esc(T('Csak akkor pipálja be, ha a beillesztett ÖSSZ pont még NEM tartalmazza a bónuszt (csak a körök pontjai). Ha a táblázatban a végösszeg már a bónusszal együtt van (BODY MUBL PONT), hagyja üresen — különben duplán számolódna. Az összesítő táblázatnál nem kell bepipálni.',
+                                                                     'Zaškrtnite len vtedy, ak ak vložené celkové body ešte neobsahujú bonus. V súhrnnej tabuľke sa nezaškrtáva.'))+'</p>')
       + '<div class="field"><label for="mr-paste">'+esc(T('Beillesztés (soronként egy játékos)','Vloženie (jeden hráč na riadok)'))+'</label>'
       + '<textarea id="mr-paste" rows="8" oninput="MUB.mrPasteSet(this.value)" placeholder="'+esc(isAgg
           ? T('1\t3\tJuhász János\t312,80\t560\t351\t11\n2\t6\tBánóczi András\t296,30\t499\t306\t11','1\t3\tJuhász János\t312,80\t560\t351\t11')
@@ -6426,7 +6432,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       return Math.round(s * 10) / 10;
     });
     var size = mrRows.length;
-    var html = '<h3 class="adminsub">'+esc(T('Előnézet','Náhľad'))+' — ' + size + ' ' + esc(T('játékos','hráčov')) + '</h3>'
+    var html = '<h3 class="adminsub">'+esc(T('Előnézet','Náhľad'))+' — ' + size + ' ' + esc(T('játékos','hráčov'))
+      + (mrMub ? ' · ' + esc(T('a helyezési bónusz hozzáadva (létszám − helyezés + 1)','bonus za umiestnenie pridaný')) : '') + '</h3>'
       + '<div class="table-wrap"><table class="list"><thead><tr>'
       + '<th class="num">'+esc(T('Hely','Miesto'))+'</th><th class="num">ID</th><th>'+esc(T('Név','Meno'))+'</th>'
       + [1,2,3,4,5].map(function(i){ return '<th class="num">'+i+'. '+esc(T('kör','kolo'))+'</th>'; }).join('')
@@ -6435,7 +6442,9 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       var sum = r.money.reduce(function(a, b){ return a + (Number(b) || 0); }, 0);
       if(!sum && r.total) sum = r.total;
       var pts = (r.points != null) ? r.points : total[i];
-      if(mrMub) pts = Math.round((pts + (size - (i + 1) + 1)) * 10) / 10;
+      var bonus = 0;
+      if(mrMub){ bonus = (size - (i + 1) + 1); pts = Math.round((pts + bonus) * 10) / 10; }
+      r.bonus = bonus;
       r.computed = pts; r.sum = Math.round(sum * 100) / 100;
       html += '<tr><td class="num">'+(r.place != null ? r.place : (i + 1))+'.</td>'
         + '<td class="num"><input class="pin" id="mr-c-'+i+'" value="'+esc(r.code || '')+'" inputmode="numeric" title="'+esc(T('rövid kód (1–100)','krátky kód (1–100)'))+'" oninput="MUB.mrCode('+i+', this.value)">'
@@ -6446,7 +6455,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
             return '<td class="num"><input class="pin" id="mr-m-'+i+'-'+k+'" value="'+esc(m)+'" oninput="MUB.mrMoney('+i+','+k+', this.value)">'
               + '<div class="meta" style="font-size:.8rem">'+esc(rp === '' ? '' : rp + ' pont')+'</div></td>';
           }).join('')
-        + '<td class="num">'+esc(fmtEur(sum))+'</td><td class="num"><strong>'+esc(String(pts))+'</strong></td>'
+        + '<td class="num">'+esc(fmtEur(sum))+'</td><td class="num"><strong>'+esc(String(pts))+'</strong>'
+          + (bonus ? '<div class="meta" style="font-size:.78rem">'+esc(T('+','+'))+bonus+' '+esc(T('bónusz','bonus'))+'</div>' : '')+'</td>'
         + '<td>'+(r.suggestion
             ? '⚠ <button type="button" class="linkbtn" onclick="MUB.mrAccept('+i+')">'+esc(T('Ez ugyanaz: ','Toto je to isté: '))+esc(r.suggestion.name)+'</button>'
               + ' <span class="meta">('+(r.suggestion.byCode ? esc(T('azonosító alapján','podľa ID')) : Math.round(r.suggestion.sim * 100) + '%')+')</span>'
