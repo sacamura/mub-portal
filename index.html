@@ -193,6 +193,14 @@
   .tabs button.active{background:var(--accent-soft); color:var(--accent-strong); border-color:var(--accent)}
   .tabs a{background:transparent; border:1px solid transparent; padding:.6rem 1rem; border-radius:999px; font-weight:700; font-size:1rem; color:var(--ink-soft); min-height:2.75rem; display:inline-flex; align-items:center; text-decoration:none}
   .tabs a:hover{border-color:var(--border); color:var(--ink)}
+  /* al-fülek (az összevont „Eredmények” fül alatt) */
+  .tabs.sub{margin:-.7rem 0 1.1rem; padding:.5rem .6rem; border-bottom:none; background:var(--accent-soft); border-radius:0 0 12px 12px}
+  .tabs.sub button{padding:.45rem .85rem; font-size:.95rem; min-height:2.3rem}
+  .tabs.sub button.active{background:#fff}
+  /* kezdő kép (nyitólap, galéria) és az admin előnézete */
+  .coverimg{margin:0 0 1.4rem}
+  .coverimg img{width:100%; height:auto; max-height:22rem; object-fit:cover; display:block; border-radius:14px; box-shadow:0 6px 22px rgba(0,0,0,.14)}
+  .coverprev img{width:100%; max-width:34rem; height:auto; border-radius:12px; display:block}
   .tabs a.active{background:var(--accent-soft); color:var(--accent-strong); border-color:var(--accent)}
   table.list{width:100%; border-collapse:collapse; font-size:1rem}
   table.list th,table.list td{text-align:left; padding:.7rem .6rem; border-bottom:1px solid var(--border)}
@@ -550,8 +558,8 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 59;
-  var BUILD_DATE = '2026-09-17';
+  var BUILD = 60;
+  var BUILD_DATE = '2026-09-18';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
   var OLD_SITE_URL = 'https://sites.google.com/view/mariasub';
@@ -1400,6 +1408,8 @@
           var newsSorted = news.slice().sort(byDateDesc);
           var newest = newsSorted[0], olderNews = newsSorted.slice(1);
           var html = '';
+          /* A szervező által feltöltött kezdő kép (díjátadó) legfelül. */
+          html += coverHtml('coverimg');
           html += '<h2>'+esc(T('Következő versenyek','Najbližšie turnaje'))+'</h2>';
           if(next){
             var d = daysUntil(next.date);
@@ -2224,7 +2234,97 @@
       Object.keys(m).forEach(function(k){ if(m[k]) PHOTOS[k] = String(m[k]); });
     }
   }
+  /* A nyitólap „kezdő képe” (a serlegekkel álló három játékos). */
+  var COVER = '';
+  function setCover(url){ COVER = url ? String(url) : ''; }
+  function coverHtml(cls){
+    if(!COVER) return '';
+    return '<div class="'+(cls || 'coverimg')+'"><img src="'+esc(COVER)+'" alt="'+esc(T('MUB – díjátadó','MUB – odovzdávanie cien'))+'" loading="lazy"></div>';
+  }
+  function coverBoxHtml(){
+    return '<div class="card" style="margin-bottom:1.2rem">'
+      + '<h3 style="margin-bottom:.5rem">'+esc(T('Kezdő kép','Úvodná fotka'))+'</h3>'
+      + '<p class="meta" style="margin:.2rem 0 .7rem">'+esc(T('Ez a kép jelenik meg legfelül a nyitólapon és a galéria tetején. Tegyen fel ide egy szép képet (pl. ahol hárman állnak a serlegekkel).','Táto fotka sa zobrazí navrchu úvodnej stránky a galérie. Nahrajte sem peknú fotku (napr. traja hráči s pohármi).'))+'</p>'
+      + (COVER
+          ? '<div class="coverprev"><img src="'+esc(COVER)+'" alt=""><br><button type="button" class="btn sm danger" style="margin-top:.5rem" onclick="MUB.removeCoverPhoto()">'+esc(T('Kezdő kép törlése','Zmazať úvodnú fotku'))+'</button></div>'
+          : '<p class="meta">'+esc(T('Most nincs beállítva kezdő kép.','Teraz nie je nastavená úvodná fotka.'))+'</p>')
+      + '<div class="field" style="margin-top:.7rem"><label for="g-cover">'+esc(T('Kép kijelölése','Vybrať fotku'))+'</label><input type="file" id="g-cover" accept="image/*"></div>'
+      + '<button type="button" class="btn sm" onclick="MUB.uploadCoverPhoto()" id="g-cover-btn">'+esc(T('Kezdő kép feltöltése','Nahrať úvodnú fotku'))+'</button>'
+      + '</div>';
+  }
+  function renderGalleryCoverBox(){
+    var box = document.getElementById('g-cover-box');
+    if(box) box.innerHTML = coverBoxHtml();
+  }
+  function saveCover(url, cb){
+    db.collection('settings').doc('rules').set({ cover: url || '' }, { merge: true })
+      .then(function(){ setCover(url); CACHE.rules = null; if(cb) cb(true); })
+      .catch(function(err){ if(cb) cb(false, err); });
+  }
+  function uploadCoverPhoto(){
+    if(!currentUser) return;
+    var f = document.getElementById('g-cover');
+    f = f && f.files && f.files[0];
+    if(!f){ alert(T('Előbb jelöljön ki egy képet.','Najprv vyberte fotku.')); return; }
+    var ext = (String(f.name).split('.').pop() || 'jpg').toLowerCase();
+    /* ugyanarra az engedélyezett útvonalra kerül, mint a játékos-fotók */
+    var path = 'gallery/profilok/kezdo-kep-' + Date.now() + '.' + ext;
+    var sref = storage.ref().child(path);
+    var old = COVER;
+    sref.put(f).then(function(){ return sref.getDownloadURL(); }).then(function(url){
+      saveCover(url, function(ok){
+        if(!ok){ alert(T('Nem sikerült menteni a képet.','Fotku sa nepodarilo uložiť.')); return; }
+        if(old) storage.ref().child(String(old).replace(/^.*\/o\//, '').split('?')[0]).delete().catch(function(){});
+        renderGalleryCoverBox();
+        alert(T('A kezdő kép feltöltve.','Úvodná fotka je nahratá.'));
+      });
+    }).catch(function(err){
+      alert(T('A kép feltöltése nem sikerült: ','Obrázok sa nepodarilo nahrať: ') + ((err && err.message) || ''));
+    });
+  }
+  function removeCoverPhoto(){
+    if(!currentUser) return;
+    if(!confirm(T('Biztosan törli a kezdő képet?','Naozaj zmazať úvodnú fotku?'))) return;
+    var old = COVER;
+    saveCover('', function(ok){
+      if(!ok){ alert(T('Nem sikerült törölni.','Nepodarilo sa zmazať.')); return; }
+      if(old) storage.ref().child(String(old).replace(/^.*\/o\//, '').split('?')[0]).delete().catch(function(){});
+      renderGalleryCoverBox();
+    });
+  }
   function photoKeyOf(name){ return playerKey(name); }
+  /* A Játékosok menü nevei a „referencia nevek”: a megjelenítésnél ezeket használjuk,
+     a felismerés pedig tűri az eltérő írásmódokat és az elgépelést. */
+  var REFNAMES = {};
+  function setRefNames(players){
+    REFNAMES = {};
+    (players || []).forEach(function(p){
+      var k = String(p.code == null ? '' : p.code).replace(/\D/g, '');
+      if(k && p.name) REFNAMES[k] = String(p.name);
+    });
+  }
+  function refNameOf(code){
+    var k = String(code == null ? '' : code).replace(/\D/g, '');
+    return k ? (REFNAMES[k] || '') : '';
+  }
+  /* A versenyeken használt névalakok, referencia-kód szerint. */
+  var NAMEVARS = null;
+  function loadNameVariants(cb){
+    loadResults(function(all){
+      var NG = nameGroups(all);
+      var out = {};
+      NG.groups.forEach(function(g){
+        g.ids.forEach(function(id){
+          var k = String(id).replace(/\D/g, '');
+          if(!k) return;
+          var o = out[k] || (out[k] = { names: [] });
+          g.aliases.forEach(function(a){ if(o.names.indexOf(a) < 0) o.names.push(a); });
+        });
+      });
+      NAMEVARS = out;
+      if(cb) cb(out);
+    });
+  }
   function playerPhoto(p){
     if(!p) return null;
     var names = [p.name].concat(p.aliasList || []);
@@ -2339,6 +2439,7 @@
       setPairRules(v.names_same, v.names_diff);
       setDeadList(v.names_dead);
       setPhotoMap(v.photos);
+      setCover(v.cover);
       if(cb) cb(NAME_RULES);
     }).catch(function(){ if(cb) cb(NAME_RULES); });
   }
@@ -2951,7 +3052,8 @@
         out.push({ year: String(s.year || ''), name: t, rows: rows,
                    date: String(mt.date || '') || tourDateFromName(t),
                    size: Number(mt.size) || rows.length,
-                   winner: (rows[0] && rows[0].n) || String(mt.winner || '') });
+                   winner: (rows[0] && rows[0].n) || String(mt.winner || ''),
+                   winnerCode: (rows[0] && rows[0].code) || '' });
       });
     });
     out.sort(function(a, b){
@@ -3031,8 +3133,11 @@
       + '<th class="num">'+esc(T('∑ €','∑ €'))+'</th><th class="num">'+esc(T('Pont','Body'))+'</th></tr></thead><tbody>'
       + o.rows.map(function(r, i){
           var pl = Number(r.place) || (i + 1);
+          var ref = refNameOf(r.code);
           return '<tr><td class="num">'+pl+'.</td><td class="num">'+esc(r.code || '')+'</td>'
-            + '<td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard('+jsq(r.n)+')">'+esc(niceName(r.n))+'</button></td>'
+            + '<td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard('+jsq(r.n)+')"'
+              + (ref && ref !== r.n ? ' title="'+esc(T('a táblázatban: ','v tabuľke: ')+r.n)+'"' : '')+'>'
+              + esc(ref || niceName(r.n))+'</button></td>'
             + (withRounds ? [0,1,2,3,4].map(function(k){
                 var rr = (r.rounds || [])[k];
                 var m = (rr && rr.money != null) ? fmtEur(rr.money) : '';
@@ -3062,6 +3167,13 @@
         if(!g.code && r.code) g.code = String(r.code);
         g.tours.push({ year: o.year, tour: o.name, date: o.date, r: r });
       });
+    });
+    /* a Játékosok menü neve a referencia név: azt jelenítjük meg, ha van ilyen */
+    order.forEach(function(k){
+      var g = byRoot[k], ref = '';
+      (g.ids || []).forEach(function(id){ if(!ref) ref = refNameOf(id); });
+      if(!ref && g.code) ref = refNameOf(g.code);
+      if(ref) g.name = ref;
     });
     return order.map(function(k){ return byRoot[k]; });
   }
@@ -3155,7 +3267,7 @@
       + list.slice(0, 400).map(function(o){
           return '<tr><td class="num">'+esc(o.year)+'</td><td class="num">'+esc(o.date ? fmtDateHu(o.date) : '—')+'</td><td>'+esc(o.name)+'</td>'
             + '<td class="num">'+o.size+'</td>'
-            + '<td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard('+jsq(o.winner)+')">'+esc(niceName(o.winner))+'</button></td>'
+            + '<td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard('+jsq(o.winner)+')">'+esc(refNameOf(o.winnerCode) || niceName(o.winner))+'</button></td>'
             + '<td class="noprint"><button type="button" class="btn sm secondary" onclick="MUB.setResQTour('+jsq(o.name)+')">'+esc(T('Eredmény','Výsledky'))+'</button></td></tr>';
         }).join('')
       + '</tbody></table></div>';
@@ -3169,7 +3281,8 @@
     loadFeatures(function(){
       loadResults(function(all){
         RES_INDEX = resIndex(all);
-        renderResSearch();
+        /* a Játékosok menü referencia nevei (megjelenítéshez) */
+        loadAllPlayers(function(ps){ setRefNames(ps); renderResSearch(); });
       });
       loadSeasons(function(seasons){
         var box = document.getElementById('res-body');
@@ -3336,13 +3449,14 @@
         });
         var box = document.getElementById('gal-body');
         if(!box) return;
-        if(!groups.length){ box.innerHTML = '<p class="meta">'+esc(T('Még nincs fotó a galériában.','Zatiaľ žiadne fotky.'))+'</p>'; return; }
+        var cov = coverHtml('coverimg');
+        if(!groups.length){ box.innerHTML = cov + '<p class="meta">'+esc(T('Még nincs fotó a galériában.','Zatiaľ žiadne fotky.'))+'</p>'; return; }
         GALLERY_GROUPS = groups;
         var total = 0;
         groups.forEach(function(g){ total += g.pics.length; });
         /* Mobilon ne kelljen a végtelenségig görgetni: az albumok összecsukva,
            egy albumban pedig legfeljebb PHOTO_LIMIT kép látszik elsőre. */
-        var html = '<p class="meta">'+esc(T('Az albumok össze vannak csukva, hogy ne kelljen sokat görgetni. Kattintson az album nevére, és megnyílnak a képek.','Albumy sú zatvorené, aby ste nemuseli dlho rolovať. Kliknite na názov albumu a fotky sa otvoria.'))
+        var html = cov + '<p class="meta">'+esc(T('Az albumok össze vannak csukva, hogy ne kelljen sokat görgetni. Kattintson az album nevére, és megnyílnak a képek.','Albumy sú zatvorené, aby ste nemuseli dlho rolovať. Kliknite na názov albumu a fotky sa otvoria.'))
           + ' <span class="num">'+esc(T('Összesen ','Spolu ')+photoCount(total))+'.</span></p>';
         if(groups.length > 3){
           html += '<div class="field galjump"><label for="gal-jump">'+esc(T('Ugrás egy albumra','Skoč na album'))+'</label>'
@@ -4131,6 +4245,10 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
          szezon, eredmény-beolvasás, letöltések és biztonsági mentés NEM. */
   var ADMIN_FULL_EMAILS = ['jani991@gmail.com', 'jan.juhasz6@gmail.com'];   /* mindig teljes jog */
   var ADMIN_B_TABS = ['versenyek', 'hirek', 'galeria', 'jelentkezok', 'jatekosok', 'nevek', 'felvetel', 'szabalyok'];
+  /* Az összevont „Eredmények” fül alpontjai (korábban külön fülek voltak). */
+  var ADMIN_SUBS = [['felvetel', 'Eredmény felvétel', 'Zadať výsledky'], ['szezonok', 'Szezonok', 'Sezóny'],
+                    ['nevek', 'Név-egyesítés', 'Zlučovanie mien'], ['tablazat', 'Táblázat beolvasása', 'Načítať tabuľku']];
+  function adminSubLabel(s){ return T(s[1], s[2]); }
   var ADMIN_ROLES = null;                              /* a Firebase-ből: { full:[], limited:[] } */
   function lowerList(a){ return (a || []).map(function(x){ return String(x).trim().toLowerCase(); }).filter(Boolean); }
   function loadAdminRolesLocal(){ try{ return JSON.parse(localStorage.getItem('mub-adminroles') || 'null'); }catch(e){ return null; } }
@@ -4154,13 +4272,20 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     return 'B';
   }
   function isFullAdmin(){ return myRole() === 'A'; }
-  function tabAllowed(t){ return isFullAdmin() || ADMIN_B_TABS.indexOf(t) >= 0; }
+  function tabAllowed(t){
+    if(isFullAdmin()) return true;
+    /* az összevont „Eredmények” fül akkor látszik, ha valamelyik alpontja engedett */
+    if(t === 'eredmenyek') return ADMIN_SUBS.some(function(s){ return ADMIN_B_TABS.indexOf(s[0]) >= 0; });
+    return ADMIN_B_TABS.indexOf(t) >= 0;
+  }
+  function allowedSubs(){ return ADMIN_SUBS.filter(function(s){ return tabAllowed(s[0]); }); }
   function requireFull(){
     if(isFullAdmin()) return true;
     alert(T('Ehhez a művelethez teljes admin jogosultság kell.','Na túto operáciu je potrebné plné administrátorské oprávnenie.'));
     return false;
   }
   var adminTab = 'versenyek';
+  var adminSub = 'felvetel';
   function renderAdminUsers(){
     if(!requireFull()){ setAdminTab('versenyek'); return; }
     var body = document.getElementById('admin-body');
@@ -4246,12 +4371,16 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       document.getElementById('login-form').addEventListener('submit', function(ev){ ev.preventDefault(); login(); });
       return;
     }
-    var tabs = [['versenyek',T('Versenyek','Turnaje')],['szezonok',T('Szezonok','Sezóny')],['eredmenyek',T('Eredmények','Výsledky')],['hirek',T('Hírek','Novinky')],['galeria',T('Galéria','Galéria')],['jelentkezok',T('Jelentkezők','Prihlásení')],['jatekosok',T('Játékosok','Hráči')],['nevek',T('Név-egyesítés','Zlučovanie mien')],['felvetel',T('Eredmény felvétel','Zadať výsledky')],['szabalyok',T('Szabályok','Pravidlá')],['letoltesek',T('Letöltések','Na stiahnutie')],['mentes',T('Mentés','Záloha')],['adminok',T('Adminok','Administrátori')]];
+    /* Egyszerűbb felület: az eredményekkel kapcsolatos minden egy fül alatt van
+       (felvétel, szezonok, név-egyesítés, táblázat-beolvasás). */
+    var tabs = [['versenyek',T('Versenyek','Turnaje')],['eredmenyek',T('Eredmények','Výsledky')],['hirek',T('Hírek','Novinky')],['galeria',T('Galéria','Galéria')],['jelentkezok',T('Jelentkezők','Prihlásení')],['jatekosok',T('Játékosok','Hráči')],['szabalyok',T('Szabályok','Pravidlá')],['letoltesek',T('Letöltések','Na stiahnutie')],['mentes',T('Mentés','Záloha')],['adminok',T('Adminok','Administrátori')]];
     tabs = tabs.filter(function(t){ return tabAllowed(t[0]); });
     if(!tabAllowed(adminTab)) adminTab = 'versenyek';
+    if(adminTab === 'eredmenyek' && !tabAllowed(adminSub)) adminSub = (allowedSubs()[0] || ['felvetel'])[0];
     var html = (isFullAdmin() ? backupReminderHtml() : '') + '<div class="toolbar"><div><h1 class="page-title" style="display:inline">'+esc(T('Admin','Admin'))+'</h1> <span class="meta">'+esc(currentUser.email)+'</span></div>'
       + '<button class="btn sm secondary noprint" onclick="MUB.logout()">'+esc(T('Kijelentkezés','Odhlásiť sa'))+'</button></div>'
       + '<div class="tabs noprint">'+tabs.map(function(t){ return '<button class="'+(adminTab===t[0]?'active':'')+'" onclick="MUB.setAdminTab(\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>'
+      + '<div id="admin-sub"></div>'
       + '<div id="admin-body"></div>';
     el.innerHTML = html;
     /* A jogosultsági lista frissítése a háttérben (ha megváltozott, újrarajzolunk). */
@@ -4262,20 +4391,47 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       if(JSON.stringify(r) !== before && document.getElementById('admin-body')) renderAdmin(document.getElementById('view'));
     });
     if(adminTab==='versenyek') renderAdminTournaments();
-    else if(adminTab==='szezonok') renderAdminSeasons();
-    else if(adminTab==='eredmenyek') renderAdminResults();
+    else if(adminTab==='eredmenyek') renderAdminEredmenyek();
     else if(adminTab==='hirek') renderAdminNews();
     else if(adminTab==='galeria') renderAdminGallery();
     else if(adminTab==='jelentkezok') renderAdminRegistrations();
     else if(adminTab==='jatekosok') renderAdminPlayers();
-    else if(adminTab==='nevek') renderAdminNames();
-    else if(adminTab==='felvetel') renderAdminMr();
     else if(adminTab==='szabalyok') renderAdminRules();
     else if(adminTab==='letoltesek') renderAdminDownloads();
     else if(adminTab==='mentes') renderAdminBackup();
     else if(adminTab==='adminok') renderAdminUsers();
   }
-  function setAdminTab(t){ adminTab = t; renderAdmin(document.getElementById('view')); }
+  /* Az összevont „Eredmények” fül: alpont-választó + az alpont tartalma. */
+  function setAdminSub(s){ adminSub = s; renderAdminEredmenyek(); }
+  function renderAdminEredmenyek(){
+    var sub = document.getElementById('admin-sub');
+    var subs = allowedSubs();
+    if(!subs.some(function(s){ return s[0] === adminSub; })) adminSub = (subs[0] || ['felvetel'])[0];
+    if(sub && subs.length > 1){
+      sub.innerHTML = '<div class="tabs sub noprint">'+subs.map(function(s){
+        return '<button class="'+(adminSub===s[0]?'active':'')+'" onclick="MUB.setAdminSub(\''+s[0]+'\')">'+esc(adminSubLabel(s))+'</button>';
+      }).join('')+'</div>';
+    } else if(sub){ sub.innerHTML = ''; }
+    if(adminSub === 'szezonok') renderAdminSeasons();
+    else if(adminSub === 'nevek') renderAdminNames();
+    else if(adminSub === 'tablazat') renderAdminResults();
+    else renderAdminMr();
+  }
+  /* A régi (külön) fülek neveit átirányítjuk az összevont fül megfelelő alpontjára.
+     A fő „Eredmények” fülre kattintva az utolsó alpont marad (elsőre a felvétel). */
+  var ADMIN_TAB_ALIAS = { felvetel: 'felvetel', szezonok: 'szezonok', nevek: 'nevek', tablazat: 'tablazat', eredmeny: 'tablazat' };
+  function setAdminTab(t){
+    if(t === 'eredmenyek'){
+      adminTab = 'eredmenyek';
+      if(!allowedSubs().some(function(s){ return s[0] === adminSub; })) adminSub = (allowedSubs()[0] || ['felvetel'])[0];
+    } else if(ADMIN_TAB_ALIAS[t]){
+      adminSub = ADMIN_TAB_ALIAS[t];
+      adminTab = 'eredmenyek';
+    } else {
+      adminTab = t;
+    }
+    renderAdmin(document.getElementById('view'));
+  }
 
   function login(){
     var email = document.getElementById('login-email').value.trim();
@@ -5334,7 +5490,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
           if(c) return c;
           return String(a).localeCompare(String(b), 'hu');
         });
-        body.innerHTML = '<div class="card" style="margin-bottom:1.2rem">'
+        body.innerHTML = '<div id="g-cover-box"></div>'
+          + '<div class="card" style="margin-bottom:1.2rem">'
           + '<span class="infolabel">'+esc(T('Hova kerüljenek a képek?','Kam majú fotky pribudnúť?'))+'</span>'
           + '<div class="radiorow"><label><input type="radio" name="g-mode" value="tournament" '+(galleryMode==='tournament'?'checked':'')+' onchange="MUB.setGalleryMode(this.value)"> '+esc(T('Versenyhez','K turnaju'))+'</label>'
           + '<label><input type="radio" name="g-mode" value="custom" '+(galleryMode==='custom'?'checked':'')+' onchange="MUB.setGalleryMode(this.value)"> '+esc(T('Egyéni albumba','Do vlastného albumu'))+'</label></div>'
@@ -5348,45 +5505,9 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
           + '<button type="button" class="btn sm" onclick="MUB.uploadPhotos()" id="g-upload-btn">'+esc(T('Feltöltés','Nahrať'))+'</button>'
           + '<p class="meta" style="margin:.6rem 0 0">'+esc(T('A dobogós (első) képet lentebb jelölheti ki, hogy mindig elöl jelenjen meg.','Fotku na stupni víťazov (prvú) označíte nižšie, aby sa zobrazovala vždy vpredu.'))+'</p>'
           + '</div>'
-          + '<div class="infobox" style="margin-top:1rem">'
-          + '<span class="infolabel">'+esc(T('2. Behozatal a régi weblapról','2. Import zo starého webu'))+'</span>'
-          + '<p class="meta" style="margin:.4rem 0 .7rem">'+esc(T('Ez a legegyszerűbb út: egy kattintással összegyűjti a régi galéria összes képét, albumonként, a régi címekkel és dátumokkal. Nem kell egyenként letölteni.','Toto je najjednoduchšia cesta: jedným klikom pozbiera všetky fotky starej galérie, po albumoch, so starými názvami a dátumami. Netreba ich sťahovať po jednej.'))+'</p>'
-          + '<ol class="steplist">'
-          + '<li>'+esc(T('Nyissa meg a régi galériát egy új lapon:','Otvorte starú galériu na novej karte:'))+' <a href="'+esc(OLD_SITE_URL)+'/galeria" target="_blank" rel="noopener">'+esc(T('régi galéria megnyitása','otvoriť starú galériu'))+'</a></li>'
-          + '<li>'+esc(T('Fogja meg az ALÁBBI GOMBOT az egérrel, és húzza fel a böngésző címsora alatti vékony sávba (ezt hívják könyvjelzősávnak). Ha nem látja azt a vékony sávot, nyomja meg egyszerre a Ctrl és Shift és B billentyűket.','Chyťte TLAČIDLO NIŽŠIE myšou a presuňte ho do tenkého pruhu pod adresným riadkom (panel záložiek). Ak ten pruh nevidíte, stlačte naraz Ctrl a Shift a B.'))+'</li>'
-          + '</ol>'
-          + '<div class="dragbox">'
-          + '<a class="btn drag-btn" href="'+GRAB_BOOKMARKLET+'" onclick="return false" title="'+esc(T('Húzza a könyvjelzősávra','Presuňte do panela záložiek'))+'">📷 '+esc(T('HÚZZA EZT A KÖNYVJELZŐSÁVRA','PRESUŇTE TOTO DO PANELA ZÁLOŽIEK'))+'</a>'
-          + '<p class="meta" style="margin:.5rem 0 0"><strong>'+esc(T('Ne kattintson rá — fogja meg és húzza fel!','Neklikajte naň — chyťte ho a presuňte nahor!'))+'</strong> '+esc(T('Utána a régi galéria lapján egyszer rá kell kattintania.','Potom na stránke starej galérie naň raz kliknite.'))+'</p>'
-          + '</div>'
-          + '<ol class="steplist" start="3">'
-          + '<li>'+esc(T('A régi galéria lapján kattintson a könyvjelzősávban lévő új gombra. Az oldal magától végiggörget, és összegyűjti a képeket — várjon 10-20 másodpercet.','Na stránke starej galérie kliknite na nové tlačidlo v paneli záložiek. Stránka sa sama prejde a pozbiera fotky — počkajte 10-20 sekúnd.'))+'</li>'
-          + '<li>'+esc(T('Jöjjön vissza erre a lapra, kattintson a lenti fehér mezőbe, és nyomja meg a Ctrl+V-t.','Vráťte sa na túto kartu, kliknite do bieleho poľa nižšie a stlačte Ctrl+V.'))+'</li>'
-          + '<li>'+esc(T('Megmutatja, hány album és hány kép — nyomja meg a behozatal gombot. Az albumok címe és dátuma pontosan a régi marad.','Ukáže, koľko albumov a fotiek — stlačte tlačidlo importu. Názvy a dátumy albumov zostanú presne ako predtým.'))+'</li>'
-          + '</ol>'
-          + '<div class="field" style="margin-bottom:.6rem"><textarea id="g-urls" rows="4" oninput="MUB.countImportUrls()" placeholder="https://lh3.googleusercontent.com/sitesv/..."></textarea></div>'
-          + '<p id="g-urls-count" class="meta" style="margin:0 0 .7rem">'+esc(T('A beillesztett hivatkozások itt jelennek meg…','Vložené odkazy sa zobrazia tu…'))+'</p>'
-          + '<button type="button" class="btn sm" onclick="MUB.importPhotoUrls()" id="g-import-btn">'+esc(T('Behozatal','Importovať'))+'</button>'
-          + '<details style="margin-top:1.1rem"><summary class="metasum">'+esc(T('Hol vannak a feltöltött képeim? Mi legyen, ha nem talál semmit?','Kde sú moje nahraté fotky? Čo ak nič nenájde?'))+'</summary>'
-          + '<p class="meta" style="margin:.7rem 0 .4rem">'+esc(T('A régi weblapra feltöltött képek a Google Sites saját tárhelyén vannak — a hivatkozásuk „lh3.googleusercontent.com/…" kezdetű. Ezért a gyűjtő be tudja hozni őket anélkül, hogy letöltené vagy tudná, hol vannak.','Fotky nahraté na starý web sú v úložisku Google Sites — ich adresa začína „lh3.googleusercontent.com/…". Preto ich zberač dokáže importovať bez toho, aby ste ich sťahovali alebo vedeli, kde sú.'))+'</p>'
-          + '<p class="meta" style="margin:.6rem 0 .4rem"><strong>'+esc(T('Ha a gyűjtő azt írja, hogy nem talált képet:','Ak zberač napíše, že nenašiel fotky:'))+'</strong> '+esc(T('akkor a régi galéria Google Photos albumokat ágyaz be. Ilyenkor se kell egyenként:','potom stará galéria vkladá albumy Google Photos. Aj vtedy to ide dostanete hromadne:'))+'</p>'
-          + '<p class="meta" style="margin:.3rem 0 .4rem">'+esc(T('1. Nyissa meg a photos.google.com oldalt → Albumok, és nyissa meg az egyik albumot.','Otvorte photos.google.com → Albumy a otvorte jeden album.'))+'<br>'
-          + esc(T('2. Ugyanezt a könyvjelzőt futtassa OTT is — az album nevét a lap címéből veszi, tehát a cím megmarad.','Tú istú záložku spustite AJ TAM — názov albumu vezme z titulku stránky, takže názov zostane.'))+'<br>'
-          + esc(T('3. Az így begyűjtött hivatkozásokat itt illessze be (Ctrl+V), és nyomja meg a behozatalt.','Takto pozbierané odkazy vložte sem (Ctrl+V) a stlačte import.'))+'<br>'
-          + esc(T('Ha ez sem megy, akkor töltse le az albumot (jobb felső menü → „Letöltés" — az egész albumot egyszerre), és itt fent az 1. pontban töltse fel.','Ak ani to nepôjde, stiahnite album (pravé horné menu → „Prevziať" — celý album naraz) a nahrajte ho vyššie v bode 1.'))+'</p>'
-          + '<p class="meta" style="margin:.6rem 0 .4rem">'+esc(T('A feltöltött képeinek teljes listáját a régi weboldal szerkesztőjében is látja: Google Sites → a régi oldal szerkesztése → jobb oldali panel → Beszúrás → Kép → „Feltöltések" fül.','Celý zoznam vašich nahratých fotiek vidíte v editore starého webu: Google Sites → úprava starej stránky → panel vpravo → Vložiť → Obrázok → karta „Nahrané".'))+'</p>'
-          + '</details>'
-          + '<details style="margin-top:.6rem"><summary class="metasum">'+esc(T('Ha a Ctrl+A / Ctrl+V nem működik','Ak Ctrl+A / Ctrl+V nefunguje'))+'</summary>'
-          + '<p class="meta" style="margin:.7rem 0 .4rem"><strong>'+esc(T('A könyvjelző nélkül is megy:','Ide to aj bez záložky:'))+'</strong> '+esc(T('a régi galéria lapján nyomja meg a Ctrl+A-t (mindent kijelöl), majd a Ctrl+C-t, és itt a mezőbe a Ctrl+V-t. A címek ilyenkor is megmaradnak.','na stránke starej galérie stlačte Ctrl+A (vybrať všetko), potom Ctrl+C, a tu do poľa Ctrl+V. Názvy zostanú zachované aj tak.'))+'</p>'
-          + '<p class="meta" style="margin:.6rem 0 .4rem">'+esc(T('Vagy töltse le a képeket a régi oldalról (jobb egérgomb a képre → „Kép mentése másként"), és itt fent töltse fel az 1. pontban. Egyszerre többet is kijelölhet.','Alebo stiahnite fotky zo starého webu (pravé tlačidlo na obrázok → „Uložiť obrázok ako") a nahrajte ich vyššie v bode 1. Môžete vybrať aj viac naraz.'))+'</p>'
-          + '<p class="meta" style="margin:.6rem 0 .4rem">'+esc(T('Vagy jobb egérgomb a képre → „Kép címének másolása", és illessze be a fenti mezőbe — többet is egymás alá.','Alebo pravé tlačidlo na obrázok → „Kopírovať adresu obrázka" a vložte do poľa vyššie — aj viac pod seba.'))+'</p>'
-          + '<p class="meta" style="margin:.6rem 0 0">'+esc(T('A húzható gombot fent, a 2. lépésnél találja.','Tlačidlo na presunutie nájdete vyššie v kroku 2.'))+'</p>'
-          + '</details>'
-          + '</div>'
           + '</div><div id="g-thumbs"></div>';
         renderGalleryModePicker(sorted, customTitles);
-        var urlsBox = document.getElementById('g-urls');
-        if(urlsBox && urlsBox.addEventListener) urlsBox.addEventListener('paste', importUrlsPaste);
+        renderGalleryCoverBox();
         renderGalleryThumbs();
       });
     });
@@ -5415,7 +5536,6 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         + '<div class="field" style="margin-top:.7rem"><label for="g-custom-title">'+esc(T('Album címe (magyar)','Názov albumu (maďarsky)'))+'</label><input id="g-custom-title" list="g-title-suggest" value="'+esc(galleryCustomTitle)+'" oninput="MUB.setGalleryCustomTitle(this.value)" placeholder="'+esc(T('pl. Évzáró vacsora','napr. Záverečná večera'))+'"><datalist id="g-title-suggest">'
         + (function(){
             var all = customTitles.slice();
-            for(var i = 0; i < OLD_ALBUMS.length; i++){ if(all.indexOf(OLD_ALBUMS[i]) < 0) all.push(OLD_ALBUMS[i]); }
             /* A címben lévő dátum szerint, legújabb elöl. */
             all.sort(function(a,b){
               var c = String(dateFromTitle(b)||'').localeCompare(String(dateFromTitle(a)||''));
@@ -5519,49 +5639,6 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
      az elmúlt három évből – csak javaslat a cím beírásához. */
   /* Ezt a linket a könyvjelzősávra húzva egy kattintással összegyűjthetők
      a régi weblap képhivatkozásai (a vágólapra kerülnek). */
-  var GRAB_BOOKMARKLET = `javascript:(function(){var y=0,steps=0;function clean(t){t=String(t||'').split(String.fromCharCode(10)).join(' ').split(String.fromCharCode(13)).join(' ').trim();while(t.indexOf('  ')>=0) t=t.split('  ').join(' ');return t;}function ok(u){if(!u) return false;u=String(u).trim();if(u.indexOf('//')===0) u='https:'+u;if(u.indexOf('http')!==0) return false;var lx=u.toLowerCase();var ex=['.jpg','.jpeg','.png','.gif','.webp','.bmp'];for(var k=0;k<ex.length;k++){ if(lx.indexOf(ex[k])>=0) return true; }if(lx.indexOf('googleusercontent')>=0) return true;if(lx.indexOf('ggpht')>=0) return true;if(lx.indexOf('blogspot')>=0) return true;return false;}var list=[],seen={},state={album:clean(document.title||'').split(' - Google Photos').join('').split(' - Google Photos').join('')};function push(u){if(!ok(u)) return;u=String(u).trim().split(' ')[0];if(u.indexOf('//')===0) u='https:'+u;if(seen[u]) return;seen[u]=1; list.push({a:state.album,u:u});}var blocked=0;
-function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[style*=background-image],a[href]');for(var i=0;i<nodes.length;i++){var n=nodes[i], tg=n.tagName.toLowerCase();if(tg==='h1'||tg==='h2'||tg==='h3'||tg==='h4'||tg==='h5'||tg==='summary'){var tx=clean(n.textContent);if(tx) state.album=tx;} else if(tg==='img'){push(n.currentSrc||n.src||n.getAttribute('data-src')||n.getAttribute('data-lazy'));var ss=n.getAttribute('srcset');if(ss){ var p=ss.split(','); if(p.length) push(p[p.length-1].trim().split(' ')[0]); }} else if(tg==='a'){push(n.getAttribute('href'));} else {var bg=''; try{ bg=getComputedStyle(n).backgroundImage||''; }catch(e){}if(bg.indexOf('url(')>=0){var ps=bg.split('url(');for(var j=1;j<ps.length;j++){ push(ps[j].split(')')[0].split(String.fromCharCode(34)).join('').split(String.fromCharCode(39)).join('')); }}}}var fr=doc.querySelectorAll('iframe');for(var f=0;f<fr.length;f++){ try{ if(fr[f].contentDocument){ walk(fr[f].contentDocument); } else { blocked++; } }catch(e){ blocked++; } }}function collect(){walk(document);if(!list.length){ alert('Nem találtam képet az oldalon.'+(blocked?(' Van '+blocked+' beágyazott keret, amit nem tudok elolvasni — azok valószínűleg Google Photos albumok, azokból külön kell letölteni a képeket.'):' Nyissa ki a galéria összecsukott részeit, görgessen végig, és próbálja újra.')); return; }var lines=[],last=null,albums=0;for(var i=0;i<list.length;i++){if(list[i].a!==last){ albums++; lines.push('# '+(list[i].a||'Regi kepek')); last=list[i].a; }lines.push(list[i].u);}var txt=lines.join(String.fromCharCode(10));function fallback(){var w=window.open('','_blank');if(w){if(w.document){var safe=txt.split(String.fromCharCode(60)).join('').split(String.fromCharCode(62)).join('');w.document.write('<title>Képhivatkozások</title><p>Jelölje ki az egészet (Ctrl+A), másolja ki (Ctrl+C), majd illessze be a MUB Portál admin galéria oldalán.</p><textarea style=width:98%;height:80vh;font-size:14px>'+safe+'</textarea>');w.document.close();var t=w.document.querySelector('textarea'); if(t) t.select();}} else { prompt('Masold ki (Ctrl+C):',txt); }}var msg='Kész! '+albums+' album, '+list.length+' kép hivatkozása a vágólapon.'+(blocked?(' ('+blocked+' beágyazott keret tartalmát nem láttam.)'):'')+' Most illessze be a MUB Portál admin galéria oldalán (Ctrl+V).';if(navigator.clipboard){if(navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(function(){ alert(msg); },fallback); }else { fallback(); }} else { fallback(); }}var timer=setInterval(function(){var step=Math.max(600,Math.round(window.innerHeight*0.9));window.scrollBy(0,step); y+=step; steps++;if(y>=document.body.scrollHeight||steps>400){ clearInterval(timer); window.scrollTo(0,0); setTimeout(collect,2500); }},110);})();`;
-  var OLD_ALBUMS = [
-    'MUB FINAL - Nagyszelmenc - Veľké Slemence 28.03.2026',
-    'Nagyszelmenc - Veľké Slemence 28.03.2026',
-    'Kisgéres - Malý Horeš 28.02.2026',
-    'Kaposkelecsény - Kapušianske Kľačany 14.02.2026',
-    'Zétény - Zatín 31.01.2026',
-    'Nagykapos - Veľké Kapušany 10.01.2026',
-    'Baráti nosztalgiaverseny - Nostalgická súťaž medzi priateľmi - Zétény - Zatín 13.12.2025',
-    'Dobóruszka - Ruská 07.12.2025',
-    'Dobóruszka - Ruská 08.11.2025',
-    'Bodrogszerdahely - Streda nad Bodrogom 11.10.2025',
-    'Nagykapos - Veľké Kapušany Ibiza 13.09.2025',
-    'Nagyszelmenc - Veľké Slemence 29.03.2025 Finale',
-    '13. Nagyszelmenc - Veľké Slemence 29.03.2025',
-    '12. Véke - Vojka 22.03.2025',
-    '11. Parchovany 08.03.2025',
-    '10. Dobóruszka - Ruská 01.03.2025',
-    '9. Kisgéres - Malý Horeš 15.02.2025',
-    '8. Kaposkelecsény - Kapušianske Kľačany 08.02.2025',
-    '7. Nagykapos - Veľké Kapušany 25.01.2025',
-    '6. Zétény - Zatín 11.01.2025',
-    'Kaposkelecsény - Kapušianske Kľačany 29.12.2024 - Falubeli verseny - Miestny turnaj',
-    '5. Csicser - Čičarovce 21.12.2024',
-    '4. Dobóruszka - Ruská 07.12.2024',
-    '3. Bodrogszerdahely - Streda nad Bodrogom 23.11.2024',
-    '2. Királyhelmec - Kráľovský Chlmec 09.11.2024',
-    'Nagykapos - Veľké Kapušany Ibiza 12.10.2024',
-    'Pavlovce nad Uhom I. In memoriam Milan Budiš 20.07.2024',
-    'Királyhelmec - Kráľovský Chlmec 04.05.2024',
-    'Nagyszelmenc - Veľké Slemence 13.04.2024 Finale',
-    'Dobóruszka - Ruská 16.03.2024',
-    'Parchovany 02.03.2024',
-    'Kisgéres - Malý Horeš 24.02.2024',
-    'Kaposkelecsény - Kapušianske Kľačany 10.02.2024',
-    'Zétény - Zatín 27.01.2024',
-    'Nagykapos - Veľké Kapušany 13.01.2024',
-    'Csicser - Čičarovce 16.12.2023 - 1. Forty Cup',
-    'Bodrogszerdahely - Streda nad Bodrogom 09.12.2023',
-    'Dobóruszka - Ruská 25.11.2023',
-    'Nagykapos - Veľké Kapušany Ibiza 04.11.2023'
-  ];
   /* Az aktuálisan kiválasztott album (verseny vagy egyéni) adatai. */
   function currentAlbumExtra(){
     if(galleryMode === 'tournament'){
@@ -5596,21 +5673,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     return out;
   }
   /* A lap Ctrl+A / Ctrl+C másolása HTML-ként érkezik: abból szedjük ki a képhivatkozásokat. */
-  function importUrlsPaste(ev){
-    if(!ev || !ev.clipboardData) return;
-    var html = '';
-    try { html = ev.clipboardData.getData('text/html') || ''; } catch(e){ html = ''; }
-    if(!html) return;                       /* ha nincs HTML-változat, marad a szokásos beillesztés */
-    /* Ha a másolt oldal HTML-je címsorokat is tartalmaz, albumonként bontjuk. */
-    var blocks = htmlToBlocks(html);
-    var text = (blocks && blocks.length) ? blocksToText(blocks) : extractImageUrls(html).join('\n');
-    if(!text) return;
-    ev.preventDefault();
-    var ta = document.getElementById('g-urls');
-    if(ta) ta.value = (ta.value ? ta.value + '\n' : '') + text;
-    countImportUrls();
-  }
-  /* Mindig látszik, hogy a behozatal hova kerül. */
+  /* Mindig látszik, hogy a feltöltés hova kerül. */
   var galleryTournaments = [];
   function updateImportTarget(){
     var box = document.getElementById('g-import-target');
@@ -5696,75 +5759,6 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       for(var j = 0; j < blocks[i].urls.length; j++) out.push(blocks[i].urls[j]);
     }
     return out.join('\n');
-  }
-  function countImportUrls(){
-    var ta = document.getElementById('g-urls');
-    var box = document.getElementById('g-urls-count');
-    if(!box) return;
-    var c = countBlocks(ta ? parseAlbumBlocks(ta.value) : []);
-    if(!c.total){ box.textContent = T('A beillesztett hivatkozások itt jelennek meg…','Vložené odkazy sa zobrazia tu…'); return; }
-    box.textContent = c.titled
-      ? T(c.titled + ' album, ' + c.total + ' kép ismerve — a címek az albumnevekből jönnek.',
-          c.titled + ' albumov, ' + c.total + ' fotiek — názvy pochádzajú z názvov albumov.')
-      : T(c.total + ' kép hivatkozása ismerve.','Rozpoznaných ' + c.total + ' odkazov na obrázky.');
-  }
-  function importPhotoUrls(){
-    var ta = document.getElementById('g-urls');
-    var blocks = ta ? parseAlbumBlocks(ta.value) : [];
-    var c = countBlocks(blocks);
-    if(!c.total){
-      alert(T('Nem találtam kép-hivatkozást a beillesztett szövegben.','V vloženom texte sa nenašli žiadne odkazy na obrázky.'));
-      return;
-    }
-    var target = currentAlbumExtra();
-    var perAlbum = c.titled > 0;                 /* ha vannak albumcímek, azok szerint bontunk */
-    if(!perAlbum && !target){
-      alert(T('Előbb válassza ki a versenyt, vagy írja be az album címét!','Najprv vyberte turnaj alebo zadajte názov albumu!'));
-      return;
-    }
-    var what = perAlbum
-      ? T(c.titled + ' album, összesen ' + c.total + ' kép', c.titled + ' albumov, spolu ' + c.total + ' fotiek')
-      : T(c.total + ' kép ide: ', c.total + ' fotiek sem: ') + (target.extra.customTitle || T('kiválasztott verseny','vybraný turnaj'));
-    if(!confirm(T('Behozom: ','Importujem: ') + what + '\n\n'
-      + (perAlbum ? T('Az albumok címe és dátuma pontosan az lesz, ami a régi weblapon volt.','Názvy a dátumy albumov budú presne také, aké boli na starom webe.') + '\n\n' : '')
-      + T('Folytatja?','Pokračovať?'))) return;
-    var btn = document.getElementById('g-import-btn');
-    if(btn){ btn.disabled = true; btn.textContent = T('Behozatal…','Importuje sa…'); }
-    function label(){ if(btn) btn.textContent = T('Behozatal','Importovať'); }
-    var all = [];
-    for(var i = 0; i < blocks.length; i++){
-      var b = blocks[i];
-      var extra;
-      if(perAlbum && b.title) extra = { customTitle: b.title, customTitle_sk: b.title, imported: true };
-      else extra = target.extra;
-      for(var j = 0; j < b.urls.length; j++) all.push({ url: b.urls[j], extra: extra });
-    }
-    var chunks = [];
-    for(var k = 0; k < all.length; k += 400) chunks.push(all.slice(k, k + 400));
-    var p = Promise.resolve();
-    chunks.forEach(function(chunk){
-      p = p.then(function(){
-        var batch = db.batch();
-        for(var n = 0; n < chunk.length; n++){
-          batch.set(db.collection('gallery').doc(), Object.assign({
-            url: chunk[n].url, isPodium: false, imported: true,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, chunk[n].extra));
-        }
-        return batch.commit();
-      });
-    });
-    p.then(function(){
-      label();
-      if(ta) ta.value = '';
-      countImportUrls();
-      alert(T('Kész! ' + all.length + ' kép bekerült a galériába' + (perAlbum ? ', ' + c.titled + ' albumba.' : '.'),
-              'Hotovo! ' + all.length + ' fotiek pribudlo do galérie' + (perAlbum ? ', do ' + c.titled + ' albumov.' : '.')));
-      renderGalleryThumbs();
-    }).catch(function(err){
-      label();
-      alert(T('A behozatal nem sikerült: ','Import sa nepodaril: ') + err.message);
-    });
   }
   function setUploadBtn(btn, text){
     if(!btn) return;
@@ -6182,6 +6176,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       + '<p id="import-status" class="meta" style="margin-top:.5rem">'+esc(lastImportStatus)+'</p>'
       + '</div>'
       + '<div class="card" style="margin-bottom:1.2rem"><h3 style="margin-bottom:.6rem">'+esc(T('Játékosok','Hráči'))+'</h3>'
+      + '<p class="meta" style="margin:-.2rem 0 .7rem">'+esc(T('Az itteni nevek a referencia nevek: a portál ezeket használja megjelenítésre, és az eredményeket is ezekhez köti. A felismerés közben tűri, ha egy nevet a táblázatban másképp írtak vagy elgépeltek — ilyenkor felajánlja az egységesítést.',
+                                                                 'Mená tu sú referenčné: portál ich používa na zobrazenie a priraďuje k nim výsledky. Rozpoznávanie toleruje iný zápis alebo preklep — vtedy ponúkne zjednotenie.'))+'</p>'
       + '<div class="toolbar" style="align-items:flex-end"><div class="field" style="flex:1 1 18rem"><label for="pl-q">'+esc(T('Keresés (név, sorszám, azonosító, község)','Hľadanie (meno, číslo, ID, obec)'))+'</label>'
       + '<input id="pl-q" type="search" value="'+esc(playerQuery)+'" oninput="MUB.setPlayerQuery(this.value)"></div>'
       + '<button type="button" class="btn sm secondary" onclick="MUB.exportContacts()">'+esc(T('Névjegyzék letöltése (CSV)','Stiahnuť zoznam kontaktov (CSV)'))+'</button></div>'
@@ -6189,7 +6185,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
       + '<details class="whobox"><summary>'+esc(T('Elhunyt játékos jelölése (†)','Označenie zosnulého hráča (†)'))+'</summary><div class="whobody"><div id="dead-list"></div></div></details>';
     invalidate('players');
     renderAdminDeadList();
-    loadAllPlayers(function(players){
+    loadNameVariants(function(){ loadAllPlayers(function(players){
       var sorted = players.slice().sort(function(a,b){ return String(a.code).localeCompare(String(b.code), undefined, {numeric:true}); });
       var q = deacc(playerQuery);
       if(q){
@@ -6213,6 +6209,17 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
           + shown.map(function(p){
               var c = esc(p.code);
               var ph = PHOTOS[photoKeyOf(p.name)];
+              var vs = NAMEVARS ? NAMEVARS[String(p.code).replace(/\D/g, '')] : null;
+              var extra = '';
+              if(vs && p.name){
+                var others = vs.names.filter(function(n){ return deacc(n) !== deacc(p.name); });
+                if(others.length){
+                  extra = '<div class="meta" style="font-size:.78rem">'+esc(T('a versenyeken: ','na turnajoch: '))+esc(others.join(', '))
+                    + ' <button type="button" class="linkbtn" onclick="MUB.unifyPlayerName(\''+jsq(p.code)+'\')">'+esc(T('egységesítés erre a névre','zjednotiť na toto meno'))+'</button></div>';
+                } else {
+                  extra = '<div class="meta" style="font-size:.78rem">✓ '+esc(T('a versenyeken ugyanígy szerepel','na turnajoch rovnako'))+'</div>';
+                }
+              }
               return '<tr><td class="num">'+c+(p.fromRoster ? '<div class="meta" style="font-size:.75rem">'+esc(T('nincs mentve','neuložené'))+'</div>' : '')+'</td>'
                 + '<td class="pface">'
                   + (ph ? '<img class="face" src="'+esc(ph)+'" alt="">' : '<span class="face none">?</span>')
@@ -6220,7 +6227,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
                   + '<input type="file" accept="image/*" onchange="MUB.uploadPlayerPhoto(\''+jsq(p.name)+'\', this)"></label>'
                   + (ph ? '<button type="button" class="facebtn danger" title="'+esc(T('Fotó törlése','Zmazať fotku'))+'" onclick="MUB.removePlayerPhoto(\''+jsq(p.name)+'\')">✕</button>' : '')
                 + '</td>'
-                + '<td>'+inp('pl-name-'+p.code, p.name)+'</td>'
+                + '<td>'+inp('pl-name-'+p.code, p.name)+extra+'</td>'
                 + '<td>'+inp('pl-nfc-'+p.code, p.nfcCode, ' inputmode="numeric"')+'</td>'
                 + '<td>'+inp('pl-phone-'+p.code, p.phone, ' inputmode="tel"')+'</td>'
                 + '<td>'+inp('pl-mail-'+p.code, p.email)+'</td>'
@@ -6236,7 +6243,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
           + (notSaved ? ' · ' + notSaved + ' ' + esc(T('még csak a beépített listában van, nincs elmentve a Firebase-be — használja a „Mentés” gombot, vagy az „Alap lista importálása” gombot.','je zatiaľ iba v zabudovanom zozname, nie je uložených vo Firebase — použite „Uložiť” alebo „Importovať základný zoznam”.')) : '')
           + '</p>')
         : '<p class="meta">'+esc(T('Nincs a keresésnek megfelelő játékos.','Žiadny hráč nezodpovedá hľadaniu.'))+'</p>';
-    });
+    }); });
   }
   function addPlayer(){
     var code = val('p-code');
@@ -6257,6 +6264,55 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
   function deletePlayer(code){
     if(!confirm(T('Biztosan törli?','Naozaj to chcete zmazať?'))) return;
     db.collection('players').doc(code).delete().then(function(){ invalidate('players'); renderAdminPlayers(); });
+  }
+  /* A verseny-eredményekben használt névalakok átírása a referencia névre. */
+  function unifyPlayerName(code){
+    if(!currentUser) return;
+    var key = String(code == null ? '' : code).replace(/\D/g, '');
+    loadAllPlayers(function(players){
+      var p = players.filter(function(x){ return String(x.code).replace(/\D/g, '') === key; })[0];
+      var refName = (p && p.name) ? String(p.name) : '';
+      if(!refName){ alert(T('Ehhez a sorszámhoz nincs referencia név.','K tomuto číslu nie je referenčné meno.')); return; }
+      loadResults(function(all){
+        var NG = nameGroups(all);
+        var targets = [];
+        NG.names.forEach(function(n){
+          var o = NG.info[n];
+          if(!o) return;
+          var hasId = !!o.ids[key];
+          var sameGroup = playerKey(NG.groupOf[n] || n) === playerKey(refName);
+          if((hasId || sameGroup) && deacc(n) !== deacc(refName)) targets.push(n);
+        });
+        if(!targets.length){ alert(T('Minden eredmény már a referencia néven szerepel.','Všetky výsledky už majú referenčné meno.')); return; }
+        if(!confirm(T('A verseny-eredményekben átírom erre a névre: ','Výsledky prepíšem na meno: ') + refName + '\n\n'
+          + T('Érintett írásmódok: ','Dotknuté podoby: ') + targets.join(', ') + '\n\n' + T('Folytatja?','Pokračovať?'))) return;
+        var jobs = [];
+        (all || []).forEach(function(s){
+          var hit = function(list){ return (list || []).some(function(r){ return targets.indexOf(String(r.n)) >= 0; }); };
+          if(!hit(s.rows) && !hit(s.aggRows)) return;
+          jobs.push({
+            id: s.id,
+            rows: (s.rows || []).map(function(r){ return targets.indexOf(String(r.n)) >= 0 ? Object.assign({}, r, { n: refName }) : r; }),
+            aggRows: (s.aggRows || []).map(function(r){ return targets.indexOf(String(r.n)) >= 0 ? Object.assign({}, r, { n: refName }) : r; })
+          });
+        });
+        if(!jobs.length){ alert(T('Nem volt mit átírni.','Nebolo čo prepísať.')); return; }
+        var chain = Promise.resolve();
+        jobs.forEach(function(j){
+          chain = chain.then(function(){
+            return db.collection('results').doc(String(j.id)).set({ rows: j.rows, aggRows: j.aggRows }, { merge: true });
+          });
+        });
+        chain.then(function(){
+          invalidate('results');
+          lastImportStatus = T('Név egységesítve: ','Meno zjednotené: ') + refName;
+          alert(T('Kész: ','Hotovo: ') + targets.length + T(' írásmód egységesítve.',' podôb zjednotených.'));
+          renderAdminPlayers();
+        }).catch(function(err){
+          alert(T('Nem sikerült: ','Nepodarilo sa: ') + ((err && err.message) || ''));
+        });
+      });
+    });
   }
 
   var PLAYER_ROSTER = [
@@ -7725,8 +7781,7 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     toggleLang: toggleLang, setLang: setLang, toggleTheme: toggleTheme, textSize: textSize,
     setCalFilter: setCalFilter, toggleHomeTournaments: toggleHomeTournaments, shiftHomeSeason: shiftHomeSeason,
     addInfoRow: addInfoRow, addInfoPreset: addInfoPreset, removeInfoRow: removeInfoRow, setInfoRow: setInfoRow,
-    importPhotoUrls: importPhotoUrls, countImportUrls: countImportUrls,
-    importUrlsPaste: importUrlsPaste, updateImportTarget: updateImportTarget,
+    updateImportTarget: updateImportTarget,
     parseAlbumBlocks: parseAlbumBlocks, blocksToText: blocksToText, htmlToBlocks: htmlToBlocks,
     selectTournament: selectTournament, lookupCode: lookupCode, resetRegForm: resetRegForm, cancelRegistration: cancelRegistration, clearRegForm: clearRegForm, useLastReg: useLastReg,
     withdrawByCode: withdrawByCode, deleteRegPublic: deleteRegPublic, adminDeleteReg: adminDeleteReg, printAttendance: printAttendance,
@@ -7764,7 +7819,8 @@ function walk(doc){var nodes=doc.querySelectorAll('h1,h2,h3,h4,h5,summary,img,[s
     savePlayer: savePlayer, setPlayerQuery: setPlayerQuery, playerShowMore: playerShowMore, exportContacts: exportContacts, setRegSort: setRegSort,
     uploadPlayerPhoto: uploadPlayerPhoto, removePlayerPhoto: removePlayerPhoto,
     setResSort: setResSort, setResMin: setResMin, setResSource: setResSource,
-    setResQ: setResQ, setResQYear: setResQYear, setResQTour: setResQTour, setResQReset: setResQReset
+    setResQ: setResQ, setResQYear: setResQYear, setResQTour: setResQTour, setResQReset: setResQReset,
+    setAdminSub: setAdminSub, unifyPlayerName: unifyPlayerName, uploadCoverPhoto: uploadCoverPhoto, removeCoverPhoto: removeCoverPhoto
   };
 
   render();
