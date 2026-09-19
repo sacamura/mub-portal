@@ -573,7 +573,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 61;
+  var BUILD = 62;
   var BUILD_DATE = '2026-09-18';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2311,16 +2311,24 @@
   /* A Játékosok menü nevei a „referencia nevek”: a megjelenítésnél ezeket használjuk,
      a felismerés pedig tűri az eltérő írásmódokat és az elgépelést. */
   var REFNAMES = {};
+  var NFCMAP = {};                 /* rövid kód → hosszú kártyaszám (NFC) */
   function setRefNames(players){
     REFNAMES = {};
+    NFCMAP = {};
     (players || []).forEach(function(p){
       var k = String(p.code == null ? '' : p.code).replace(/\D/g, '');
-      if(k && p.name) REFNAMES[k] = String(p.name);
+      if(!k) return;
+      if(p.name) REFNAMES[k] = String(p.name);
+      if(p.nfcCode) NFCMAP[k] = String(p.nfcCode);
     });
   }
   function refNameOf(code){
     var k = String(code == null ? '' : code).replace(/\D/g, '');
     return k ? (REFNAMES[k] || '') : '';
+  }
+  function nfcOf(code){
+    var k = String(code == null ? '' : code).replace(/\D/g, '');
+    return k ? (NFCMAP[k] || '') : '';
   }
   /* A versenyeken használt névalakok, referencia-kód szerint. */
   var NAMEVARS = null;
@@ -2928,6 +2936,8 @@
           + '<div class="pcbot"><button type="button" class="btn pcclosebot" onclick="MUB.closePlayerCard()" aria-label="'+esc(T('Bezárás','Zavrieť'))+'">✕ '+esc(T('Bezárás','Zavrieť'))+'</button></div>';
       }
     }
+    /* a nyilvántartásból tudjuk a hosszú kártyaszámot (NFC) is */
+    loadAllPlayers(function(ps){ setRefNames(ps); });
     loadResults(function(all){
       var list = resultsOfYear(all, resSeason);
       var p = findPlayer(list, resPlayerQ);
@@ -2936,6 +2946,12 @@
         put('<p class="meta">'+esc(T('Ezzel a névvel vagy azonosító számmal nem találok eredményt. Próbálja a vezetéknevet is.','S týmto menom alebo identifikačným číslom sa nenašli žiadne výsledky. Skúste aj priezvisko.'))+'</p>');
         return;
       }
+      /* a hosszú kártyaszám (NFC) a nyilvántartásból, a rövid kód mellé */
+      var nfc = '';
+      (p.codes || []).forEach(function(c){
+        var k = String(c).replace(/\D/g, '');
+        if(!nfc && nfcOf(k)) nfc = nfcOf(k);
+      });
       var rows = p.rows.slice().sort(function(a, b){
         if(a.year !== b.year) return String(b.year).localeCompare(String(a.year));
         return String(a.t).localeCompare(String(b.t), 'hu');
@@ -2950,7 +2966,8 @@
             : '')
         + '<div class="pcard-head"><div class="pcard-name">'+esc(p.name)+(p.deceased ? ' <span class="dagger" title="'+esc(T('Emlékezünk','Spomíname'))+'">†</span>' : '')+'</div>'
         + '<div class="pcard-rank">'+esc(T('Ranglista: ','Rebríček: '))+'<strong>'+p.rank+'.</strong>'
-        + (p.codes && p.codes.length ? ' · '+esc(T('azonosító: ','ID: '))+esc(p.codes.join(', ')) : '')+'</div>'
+        + (p.codes && p.codes.length ? ' · '+esc(T('azonosító: ','ID: '))+esc(p.codes.join(', ')) : '')
+        + (nfc ? ' · '+esc(T('kártyaszám: ','číslo karty: '))+esc(nfc) : '')+'</div>'
         + ((p.aliasList && p.aliasList.length > 1)
             ? '<div class="meta">'+esc(T('Névváltozatok a táblázatokban: ','Názvové varianty v tabuľkách: '))+esc((p.aliasNice || p.aliasList).join(' · '))+'</div>'
             : '')+'</div>'
@@ -6146,27 +6163,52 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   function setPlayerQuery(v){ playerQuery = String(v == null ? '' : v); playerLimit = 20; withFocus(renderAdminPlayers); }
   function playerShowMore(){ playerLimit += 40; renderAdminPlayers(); }
   function val(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
+  /* Egy játékos mentése. Két azonosító tartozhat hozzá:
+     – rövid kód (sorszám, pl. Czap Béla = 12): ez a nyilvántartás kulcsa,
+     – hosszú kártyaszám (NFC, pl. 2476289015).
+     Ha a rövid kódot átírják, a játékos átkerül az új sorszámra. */
   function savePlayer(code){
     if(!currentUser) return;
+    var oldKey = String(code);
+    var codeEl = document.getElementById('pl-code-' + oldKey);
+    var newKey = codeEl ? String(val('pl-code-' + oldKey) || '').replace(/\D/g, '') : oldKey;
     var data = {
-      name: val('pl-name-' + code),
-      nfcCode: val('pl-nfc-' + code),
-      phone: val('pl-phone-' + code),
-      email: val('pl-mail-' + code),
-      village: val('pl-vill-' + code)
+      name: val('pl-name-' + oldKey),
+      nfcCode: String(val('pl-nfc-' + oldKey) || '').replace(/\s+/g, ''),
+      phone: val('pl-phone-' + oldKey),
+      email: val('pl-mail-' + oldKey),
+      village: val('pl-vill-' + oldKey)
     };
-    db.collection('players').doc(String(code)).set(data, { merge: true }).then(function(){
-      invalidate('players');
-      lastImportStatus = T('Elmentve: ','Uložené: ') + (data.name || code);
-      renderAdminPlayers();
+    if(!newKey){ alert(T('A rövid kód (sorszám) nem maradhat üresen.','Krátky kód (poradové číslo) nemôže zostať prázdny.')); return; }
+    if(newKey === oldKey){
+      db.collection('players').doc(oldKey).set(data, { merge: true }).then(function(){
+        invalidate('players');
+        lastImportStatus = T('Elmentve: ','Uložené: ') + (data.name || oldKey);
+        renderAdminPlayers();
+      }).catch(function(err){
+        alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + err.message);
+      });
+      return;
+    }
+    /* új sorszám: előbb megnézzük, nem foglalt-e */
+    db.collection('players').doc(newKey).get().then(function(d){
+      var taken = d && d.exists;
+      if(taken && !confirm(T('A ','Číslo ')+newKey+T(' sorszám már használatban van. Biztosan összevonja vele?',' je už použité. Naozaj to spojiť?'))) return;
+      return db.collection('players').doc(newKey).set(data, { merge: true }).then(function(){
+        return db.collection('players').doc(oldKey).delete();
+      }).then(function(){
+        invalidate('players');
+        lastImportStatus = T('Elmentve: ','Uložené: ') + (data.name || newKey) + ' (' + newKey + ')';
+        renderAdminPlayers();
+      });
     }).catch(function(err){
-      alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + err.message);
+      alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + ((err && err.message) || ''));
     });
   }
   /* Névjegyzék letöltése (későbbi SMS / e-mail értesítéshez). */
   function exportContacts(){
     loadAllPlayers(function(players){
-      var rows = [['Sorszám', 'Név', 'Azonosító', 'Telefon', 'E-mail', 'Község']];
+      var rows = [['Rövid kód', 'Név', 'Hosszú kártyaszám (NFC)', 'Telefon', 'E-mail', 'Község']];
       players.slice().sort(function(a, b){ return String(a.code).localeCompare(String(b.code), undefined, { numeric: true }); })
         .forEach(function(p){ rows.push([p.code, p.name || '', p.nfcCode || '', p.phone || '', p.email || '', p.village || '']); });
       var csv = rows.map(function(r){ return r.map(function(v){ return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
@@ -6179,9 +6221,11 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   function renderAdminPlayers(){
     var body = document.getElementById('admin-body');
     body.innerHTML = '<div class="card" style="margin-bottom:1.2rem"><h3 style="margin-bottom:.8rem">'+esc(T('Új játékos','Nový hráč'))+'</h3>'
-      + '<div class="row2"><div class="field"><label for="p-code">'+esc(T('Sorszám (1–100)','Poradové číslo (1–100)'))+'</label><input id="p-code" inputmode="numeric"></div><div class="field"><label for="p-name">'+esc(T('Név','Meno'))+'</label><input id="p-name"></div></div>'
-      + '<div class="row2"><div class="field"><label for="p-nfc">'+esc(T('Azonosító szám (ID)','Identifikačné číslo (ID)'))+'</label><input id="p-nfc" inputmode="numeric"></div><div class="field"><label for="p-phone">'+esc(T('Telefonszám','Telefónne číslo'))+'</label><input id="p-phone" inputmode="tel"></div></div>'
+      + '<div class="row2"><div class="field"><label for="p-code">'+esc(T('Rövid kód (sorszám, 1–100)','Krátky kód (poradové číslo, 1–100)'))+'</label><input id="p-code" inputmode="numeric"></div><div class="field"><label for="p-nfc">'+esc(T('Hosszú kártyaszám (NFC)','Dlhé číslo karty (NFC)'))+'</label><input id="p-nfc" inputmode="numeric"></div></div>'
+      + '<div class="row2"><div class="field"><label for="p-name">'+esc(T('Név','Meno'))+'</label><input id="p-name"></div><div class="field"><label for="p-phone">'+esc(T('Telefonszám','Telefónne číslo'))+'</label><input id="p-phone" inputmode="tel"></div></div>'
       + '<div class="row2"><div class="field"><label for="p-mail">E-mail</label><input id="p-mail" type="email"></div><div class="field"><label for="p-vill">'+esc(T('Község','Obec'))+'</label><input id="p-vill"></div></div>'
+      + '<p class="meta" style="margin:.2rem 0 .7rem">'+esc(T('Mindkét azonosító megadható: a rövid kód (pl. 12) és a kártyán lévő hosszú szám (pl. 2476289015). A felismerés mindkettőt használja.',
+                                                                 'Možno zadať oba identifikátory: krátky kód (napr. 12) aj dlhé číslo na karte (napr. 2476289015). Rozpoznávanie používa oba.'))+'</p>'
       + '<button type="button" class="btn sm" onclick="MUB.addPlayer()">'+esc(T('Hozzáadás','Pridať'))+'</button></div>'
       + '<div class="card" style="margin-bottom:1.2rem"><h3 style="margin-bottom:.6rem">'+esc(T('Tömeges felvétel','Hromadné pridanie'))+'</h3>'
       + '<p class="meta" style="margin-bottom:.6rem">'+esc(T('Az alap 100 fős játékoslista importálása egy kattintással (csak azokat a sorszámokat veszi fel, amelyek még nincsenek benne).','Import základného zoznamu 100 hráčov jedným kliknutím (pridajú sa iba poradové čísla, ktoré tam ešte nie sú).'))+'</p>'
@@ -6236,9 +6280,10 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         }
         return '<div class="pcard2">'
           + '<div class="pcard2__top">'
-            + '<span class="pcode2">'+esc(p.code)+'</span>'
+            + '<span class="pcode2" title="'+esc(T('rövid kód','krátky kód'))+'">'+esc(p.code)+'</span>'
             + '<span class="pcard2__name">'+esc(p.name || T('(nincs név)','(bez mena)'))+'</span>'
             + (p.fromRoster ? '<span class="meta">'+esc(T('nincs mentve','neuložené'))+'</span>' : '')
+            + (p.nfcCode ? '<span class="meta num">'+esc(T('kártyaszám: ','číslo karty: '))+esc(p.nfcCode)+'</span>' : '')
             + '<span class="pcard2__act">'
               + '<button type="button" class="btn sm" onclick="MUB.savePlayer(\''+jsq(p.code)+'\')">'+esc(T('Mentés','Uložiť'))+'</button>'
               + ' <button type="button" class="btn sm danger" onclick="MUB.deletePlayer(\''+jsq(p.code)+'\')">'+esc(T('Törlés','Zmazať'))+'</button>'
@@ -6253,7 +6298,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
             + '</div>'
             + '<div class="pcard2__grid">'
               + fld('pl-name-'+p.code, T('Név (referencia)','Meno (referenčné)'), p.name, { wide: true })
-              + fld('pl-nfc-'+p.code, T('Azonosító szám (ID)','Identifikačné číslo (ID)'), p.nfcCode, { attrs: ' inputmode="numeric"' })
+              + fld('pl-code-'+p.code, T('Rövid kód (sorszám)','Krátky kód (poradové číslo)'), p.code, { attrs: ' inputmode="numeric"' })
+              + fld('pl-nfc-'+p.code, T('Hosszú kártyaszám (NFC)','Dlhé číslo karty (NFC)'), p.nfcCode, { attrs: ' inputmode="numeric"' })
               + fld('pl-vill-'+p.code, T('Község','Obec'), p.village)
               + fld('pl-phone-'+p.code, T('Telefonszám','Telefónne číslo'), p.phone, { attrs: ' inputmode="tel"' })
               + fld('pl-mail-'+p.code, 'E-mail', p.email, { attrs: ' type="email"' })
@@ -6274,18 +6320,18 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     }); });
   }
   function addPlayer(){
-    var code = val('p-code');
+    var code = String(val('p-code') || '').replace(/\D/g, '');
     var name = val('p-name');
-    if(!code || !name){ alert(T('A sorszám és a név kell.','Číslo a meno sú povinné.')); return; }
+    if(!code || !name){ alert(T('A rövid kód (sorszám) és a név kell.','Krátky kód (poradové číslo) a meno sú povinné.')); return; }
     var data = { name: name };
-    var nfc = val('p-nfc'), phone = val('p-phone'), mail = val('p-mail'), vill = val('p-vill');
-    if(nfc) data.nfcCode = nfc;
+    var nfc = String(val('p-nfc') || '').replace(/\s+/g, ''), phone = val('p-phone'), mail = val('p-mail'), vill = val('p-vill');
+    data.nfcCode = nfc;                         /* a hosszú kártyaszám is helyet kap */
     if(phone) data.phone = phone;
     if(mail) data.email = mail;
     if(vill) data.village = vill;
     db.collection('players').doc(code).set(data, {merge:true}).then(function(){
       invalidate('players');
-      lastImportStatus = T('Felvéve: ','Pridané: ') + name;
+      lastImportStatus = T('Felvéve: ','Pridané: ') + name + ' (' + code + (nfc ? ' · ' + nfc : '') + ')';
       renderAdminPlayers();
     });
   }
