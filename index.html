@@ -397,6 +397,21 @@
   td.pface{white-space:nowrap}
   .face{width:2.4rem; height:2.4rem; object-fit:cover; border-radius:8px; border:1px solid var(--border); vertical-align:middle; display:inline-block}
   .face.none{display:inline-flex; align-items:center; justify-content:center; color:var(--ink-soft); background:var(--surface-2); font-weight:700}
+  /* Admin: játékos-kártyák (könnyen szerkeszthető, mobilon is) */
+  .pcard2{border:1px solid var(--border); border-radius:14px; padding:.75rem .85rem; margin-bottom:.7rem; background:var(--surface-2)}
+  .pcard2__top{display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; margin-bottom:.55rem}
+  .pcard2__name{font-weight:800; font-size:1.06rem}
+  .pcard2__act{margin-left:auto; display:flex; gap:.35rem; flex-wrap:wrap}
+  .pcode2{display:inline-flex; align-items:center; justify-content:center; min-width:2.5rem; padding:.15rem .55rem; border-radius:999px; background:var(--accent-soft); color:var(--accent-strong); font-weight:800; font-variant-numeric:tabular-nums}
+  .pcard2__body{display:flex; gap:.9rem; align-items:flex-start; flex-wrap:wrap}
+  .pcard2__face{display:flex; flex-direction:column; gap:.35rem; align-items:center}
+  .pcard2__grid{flex:1 1 22rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(11rem,1fr)); gap:.55rem .8rem}
+  .pcard2__grid .field{margin:0}
+  .pcard2__grid .field.wide{grid-column:1 / -1}
+  .pcard2 .face.big{width:4.2rem; height:4.2rem; border-radius:10px}
+  .pcard2 .pin{width:100%; padding:.45rem .55rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; font-size:1rem}
+  .pcard2__note{border-top:1px dashed var(--border); margin-top:.6rem; padding-top:.45rem; font-size:.82rem; color:var(--ink-soft)}
+  .pcard2__note .linkbtn{font-size:.82rem}
   .facebtn{display:inline-flex; align-items:center; justify-content:center; cursor:pointer; border:1px solid var(--border); border-radius:8px; padding:.15rem .35rem; margin-left:.2rem; background:var(--surface); color:var(--ink); font-size:.95rem; min-height:1.9rem}
   .facebtn:hover{border-color:var(--accent); background:var(--accent-soft)}
   .facebtn input{display:none}
@@ -6127,8 +6142,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     });
   }
   /* ---------- Admin: játékosok (sorszám, azonosító, elérhetőségek) ---------- */
-  var playerQuery = '', playerLimit = 30;
-  function setPlayerQuery(v){ playerQuery = String(v == null ? '' : v); playerLimit = 30; withFocus(renderAdminPlayers); }
+  var playerQuery = '', playerLimit = 20;
+  function setPlayerQuery(v){ playerQuery = String(v == null ? '' : v); playerLimit = 20; withFocus(renderAdminPlayers); }
   function playerShowMore(){ playerLimit += 40; renderAdminPlayers(); }
   function val(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
   function savePlayer(code){
@@ -6176,8 +6191,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '<p id="import-status" class="meta" style="margin-top:.5rem">'+esc(lastImportStatus)+'</p>'
       + '</div>'
       + '<div class="card" style="margin-bottom:1.2rem"><h3 style="margin-bottom:.6rem">'+esc(T('Játékosok','Hráči'))+'</h3>'
-      + '<p class="meta" style="margin:-.2rem 0 .7rem">'+esc(T('Az itteni nevek a referencia nevek: a portál ezeket használja megjelenítésre, és az eredményeket is ezekhez köti. A felismerés közben tűri, ha egy nevet a táblázatban másképp írtak vagy elgépeltek — ilyenkor felajánlja az egységesítést.',
-                                                                 'Mená tu sú referenčné: portál ich používa na zobrazenie a priraďuje k nim výsledky. Rozpoznávanie toleruje iný zápis alebo preklep — vtedy ponúkne zjednotenie.'))+'</p>'
+      + '<p class="meta" style="margin:-.2rem 0 .7rem">'+esc(T('Az itteni nevek a referencia nevek: a portál ezeket használja megjelenítésre, és az eredményeket is ezekhez köti. A felismerés közben tűri, ha egy nevet a táblázatban másképp írtak vagy elgépeltek — ilyenkor felajánlja az egységesítést. Minden játékos egy kártyán van: írja át a mezőt, majd nyomja meg a Mentés gombot.',
+                                                                 'Mená tu sú referenčné: portál ich používa na zobrazenie a priraďuje k nim výsledky. Rozpoznávanie toleruje iný zápis alebo preklep — vtedy ponúkne zjednotenie. Každý hráč má svoju kartu: prepíšte pole a stlačte Uložiť.'))+'</p>'
       + '<div class="toolbar" style="align-items:flex-end"><div class="field" style="flex:1 1 18rem"><label for="pl-q">'+esc(T('Keresés (név, sorszám, azonosító, község)','Hľadanie (meno, číslo, ID, obec)'))+'</label>'
       + '<input id="pl-q" type="search" value="'+esc(playerQuery)+'" oninput="MUB.setPlayerQuery(this.value)"></div>'
       + '<button type="button" class="btn sm secondary" onclick="MUB.exportContacts()">'+esc(T('Névjegyzék letöltése (CSV)','Stiahnuť zoznam kontaktov (CSV)'))+'</button></div>'
@@ -6201,41 +6216,54 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       function inp(id, v, extra){
         return '<input id="'+id+'" class="pin" value="'+esc(v || '')+'"'+(extra || '')+'>';
       }
+      /* Egy játékos egy kártya: jól áttekinthető, mobilon is kényelmesen szerkeszthető. */
+      function pcard(p){
+        var ph = PHOTOS[photoKeyOf(p.name)];
+        var vs = NAMEVARS ? NAMEVARS[String(p.code).replace(/\D/g, '')] : null;
+        var note = '';
+        if(vs && p.name){
+          var others = vs.names.filter(function(n){ return deacc(n) !== deacc(p.name); });
+          if(others.length){
+            note = '<div class="pcard2__note">'+esc(T('a versenyeken: ','na turnajoch: '))+esc(others.join(', '))
+              + ' <button type="button" class="linkbtn" onclick="MUB.unifyPlayerName(\''+jsq(p.code)+'\')">'+esc(T('egységesítés erre a névre','zjednotiť na toto meno'))+'</button></div>';
+          } else {
+            note = '<div class="pcard2__note meta">✓ '+esc(T('a versenyeken ugyanígy szerepel','na turnajoch rovnako'))+'</div>';
+          }
+        }
+        function fld(id, label, v, extra){
+          return '<div class="field'+(extra && extra.wide ? ' wide' : '')+'"><label for="'+id+'">'+esc(label)+'</label>'
+            + inp(id, v, extra && extra.attrs) + '</div>';
+        }
+        return '<div class="pcard2">'
+          + '<div class="pcard2__top">'
+            + '<span class="pcode2">'+esc(p.code)+'</span>'
+            + '<span class="pcard2__name">'+esc(p.name || T('(nincs név)','(bez mena)'))+'</span>'
+            + (p.fromRoster ? '<span class="meta">'+esc(T('nincs mentve','neuložené'))+'</span>' : '')
+            + '<span class="pcard2__act">'
+              + '<button type="button" class="btn sm" onclick="MUB.savePlayer(\''+jsq(p.code)+'\')">'+esc(T('Mentés','Uložiť'))+'</button>'
+              + ' <button type="button" class="btn sm danger" onclick="MUB.deletePlayer(\''+jsq(p.code)+'\')">'+esc(T('Törlés','Zmazať'))+'</button>'
+            + '</span>'
+          + '</div>'
+          + '<div class="pcard2__body">'
+            + '<div class="pcard2__face">'
+              + (ph ? '<img class="face big" src="'+esc(ph)+'" alt="">' : '<span class="face big none">?</span>')
+              + '<label class="facebtn" title="'+esc(T('Fotó feltöltése','Nahrať fotku'))+'">📷'
+              + '<input type="file" accept="image/*" onchange="MUB.uploadPlayerPhoto(\''+jsq(p.name)+'\', this)"></label>'
+              + (ph ? '<button type="button" class="facebtn danger" title="'+esc(T('Fotó törlése','Zmazať fotku'))+'" onclick="MUB.removePlayerPhoto(\''+jsq(p.name)+'\')">✕</button>' : '')
+            + '</div>'
+            + '<div class="pcard2__grid">'
+              + fld('pl-name-'+p.code, T('Név (referencia)','Meno (referenčné)'), p.name, { wide: true })
+              + fld('pl-nfc-'+p.code, T('Azonosító szám (ID)','Identifikačné číslo (ID)'), p.nfcCode, { attrs: ' inputmode="numeric"' })
+              + fld('pl-vill-'+p.code, T('Község','Obec'), p.village)
+              + fld('pl-phone-'+p.code, T('Telefonszám','Telefónne číslo'), p.phone, { attrs: ' inputmode="tel"' })
+              + fld('pl-mail-'+p.code, 'E-mail', p.email, { attrs: ' type="email"' })
+            + '</div>'
+          + '</div>'
+          + note
+        + '</div>';
+      }
       pList.innerHTML = sorted.length
-        ? ('<div class="table-wrap"><table class="list players"><thead><tr>'
-          + '<th class="num">'+esc(T('Sorsz.','Č.'))+'</th><th>'+esc(T('Név','Meno'))+'</th>'
-          + '<th>'+esc(T('Azonosító (ID)','ID'))+'</th><th>'+esc(T('Telefon','Telefón'))+'</th><th>E-mail</th><th>'+esc(T('Község','Obec'))+'</th><th></th>'
-          + '</tr></thead><tbody>'
-          + shown.map(function(p){
-              var c = esc(p.code);
-              var ph = PHOTOS[photoKeyOf(p.name)];
-              var vs = NAMEVARS ? NAMEVARS[String(p.code).replace(/\D/g, '')] : null;
-              var extra = '';
-              if(vs && p.name){
-                var others = vs.names.filter(function(n){ return deacc(n) !== deacc(p.name); });
-                if(others.length){
-                  extra = '<div class="meta" style="font-size:.78rem">'+esc(T('a versenyeken: ','na turnajoch: '))+esc(others.join(', '))
-                    + ' <button type="button" class="linkbtn" onclick="MUB.unifyPlayerName(\''+jsq(p.code)+'\')">'+esc(T('egységesítés erre a névre','zjednotiť na toto meno'))+'</button></div>';
-                } else {
-                  extra = '<div class="meta" style="font-size:.78rem">✓ '+esc(T('a versenyeken ugyanígy szerepel','na turnajoch rovnako'))+'</div>';
-                }
-              }
-              return '<tr><td class="num">'+c+(p.fromRoster ? '<div class="meta" style="font-size:.75rem">'+esc(T('nincs mentve','neuložené'))+'</div>' : '')+'</td>'
-                + '<td class="pface">'
-                  + (ph ? '<img class="face" src="'+esc(ph)+'" alt="">' : '<span class="face none">?</span>')
-                  + '<label class="facebtn" title="'+esc(T('Fotó feltöltése','Nahrať fotku'))+'">📷'
-                  + '<input type="file" accept="image/*" onchange="MUB.uploadPlayerPhoto(\''+jsq(p.name)+'\', this)"></label>'
-                  + (ph ? '<button type="button" class="facebtn danger" title="'+esc(T('Fotó törlése','Zmazať fotku'))+'" onclick="MUB.removePlayerPhoto(\''+jsq(p.name)+'\')">✕</button>' : '')
-                + '</td>'
-                + '<td>'+inp('pl-name-'+p.code, p.name)+extra+'</td>'
-                + '<td>'+inp('pl-nfc-'+p.code, p.nfcCode, ' inputmode="numeric"')+'</td>'
-                + '<td>'+inp('pl-phone-'+p.code, p.phone, ' inputmode="tel"')+'</td>'
-                + '<td>'+inp('pl-mail-'+p.code, p.email)+'</td>'
-                + '<td>'+inp('pl-vill-'+p.code, p.village)+'</td>'
-                + '<td class="pactions"><button type="button" class="btn sm" onclick="MUB.savePlayer(\''+jsq(p.code)+'\')">'+esc(T('Mentés','Uložiť'))+'</button>'
-                + ' <button type="button" class="btn sm danger" onclick="MUB.deletePlayer(\''+jsq(p.code)+'\')">'+esc(T('Törlés','Zmazať'))+'</button></td></tr>';
-            }).join('')
-          + '</tbody></table></div>'
+        ? (shown.map(pcard).join('')
           + (sorted.length > shown.length
               ? '<p class="meta"><button type="button" class="btn sm secondary" onclick="MUB.playerShowMore()">'+esc(T('Több megjelenítése','Zobraziť viac'))+' (' + (sorted.length - shown.length) + ')</button></p>'
               : '')
