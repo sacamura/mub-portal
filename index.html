@@ -379,6 +379,11 @@
   #mr-preview input.pin{width:100%; min-width:5rem; padding:.25rem .4rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; font-size:.95rem}
   table.players input.pin{width:100%; min-width:5.5rem; padding:.35rem .45rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); font:inherit; font-size:.98rem}
   table.players td.pactions{white-space:nowrap}
+  /* Jelentkezők: a javított (nem mentett) sor és a kód-javaslat jelölése */
+  tr.dirty td{background:#fff8e1}
+  tr.regsug td{background:#f4f8ff}
+  tr.dirty td:first-child{box-shadow:inset 3px 0 0 #e8a33d}
+  tr.regsug .pin::placeholder{color:#8a6d00; font-weight:700; opacity:1}
   /* Elhunyt jelölése: visszafogott lista apró kereszt-gombokkal */
   .deadlist{display:flex; flex-direction:column; gap:.15rem; max-height:24rem; overflow:auto; margin-top:.5rem; border:1px solid var(--border); border-radius:10px; padding:.4rem}
   .deadrow{display:flex; align-items:center; gap:.5rem; padding:.15rem .2rem}
@@ -573,8 +578,8 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 62;
-  var BUILD_DATE = '2026-09-18';
+  var BUILD = 63;
+  var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
   var OLD_SITE_URL = 'https://sites.google.com/view/mariasub';
@@ -3839,8 +3844,9 @@
         + '</select></div>'
         + '<p class="chosenline">'+esc(T('Jelentkezik: ','Prihlasujete sa na: '))+'<strong>'+esc(regChosenLabel)+'</strong></p>'
         + '<div class="field"><label for="f-code">'+esc(T('Azonosító szám','Identifikačné číslo'))+'</label><input id="f-code" inputmode="numeric" autocomplete="off" placeholder="1234567890" oninput="MUB.lookupCode(this.value)"></div>'
-        + '<p class="meta hintline">'+esc(T('Írja be a kártyáján lévő azonosító számot — a nevét magától kitöltjük.','Zadajte identifikačné číslo z vašej karty — meno doplníme automaticky.'))+'</p>'
-        + '<div class="field"><label for="f-name">'+esc(T('Név','Meno'))+'</label><input id="f-name" required autocomplete="name" placeholder="'+esc(T('Vezetéknév és keresztnév','Priezvisko a meno'))+'"></div>'
+        + '<p class="meta hintline">'+esc(T('Írja be a kártyáján lévő azonosító számot — a nevét magától kitöltjük. Ha nem tudja a számot, kezdje el írni a nevét: a listából kiválasztva az azonosítót is kitöltjük.',
+                                                'Zadajte identifikačné číslo z vašej karty — meno doplníme automaticky. Ak číslo neviete, začnite písať meno: po výbere zo zoznamu doplníme aj identifikačné číslo.'))+'</p>'
+        + '<div class="field"><label for="f-name">'+esc(T('Név','Meno'))+'</label><input id="f-name" list="reg-name-suggest" required autocomplete="name" placeholder="'+esc(T('Vezetéknév és keresztnév','Priezvisko a meno'))+'" oninput="MUB.lookupName(this.value)"></div>'
         + '<p id="f-name-hint" class="meta" hidden></p>'
         + '<p class="chosenline">'+esc(T('Jelentkezés ide: ','Prihláška na: '))+'<strong>'+esc(regChosenLabel)+'</strong></p>'
         + '<button class="btn" type="submit" id="submit-btn">'+esc(T('Jelentkezés elküldése','Odoslať prihlášku'))+'</button>'
@@ -3852,7 +3858,103 @@
         + '<button type="button" class="btn secondary sm" onclick="MUB.resetRegForm()">'+esc(T('Új jelentkezés','Nová prihláška'))+'</button></div>';
       document.getElementById('reg-form').addEventListener('submit', submitRegistration);
       prefillRegForm();
+      fillNameSuggest(regBody);
       });
+    });
+  }
+  /* A név-mező kínálata: a nyilvántartásban szereplő nevek — így az is
+     be tudja írni a nevét, aki nem tudja a kártyája számát. */
+  function fillNameSuggest(container){
+    if(!container) return;
+    loadAllPlayers(function(players){
+      var names = (players || []).filter(function(p){ return p && p.name; })
+        .map(function(p){ return niceName(p.name); })
+        .filter(function(n, i, a){ return n && a.indexOf(n) === i; })
+        .sort(function(a, b){ return String(a).localeCompare(String(b), 'hu'); });
+      var html = '<datalist id="reg-name-suggest">' + names.map(function(n){ return '<option value="'+esc(n)+'"></option>'; }).join('') + '</datalist>';
+      if(container.insertAdjacentHTML){ container.insertAdjacentHTML('beforeend', html); return; }
+      var box = document.createElement('div');
+      box.innerHTML = html;
+      if(container.appendChild) container.appendChild(box);
+    });
+  }
+  /* Ugyanaz a személy-e? A portál név-ismerőjét használja: vezetéknév-váz,
+     magyar/szlovák keresztnév (István = Štefan), felcserélt sorrend, elgépelés.
+     A feleség/női alak (Sándorné, Kováčová) külön személy. */
+  function samePersonHint(a, b){
+    var ka = deacc(a), kb = deacc(b);
+    if(!ka || !kb) return 0;
+    if(ka === kb) return 1;
+    if(/\b(ne|ova)$/.test(ka) !== /\b(ne|ova)$/.test(kb)) return 0;
+    var pa = parsePName(a), pb = parsePName(b);
+    if(!pa.surname || !pb.surname) return 0;
+    /* ugyanazok a szavak, csak más sorrendben (Frantisk Timko ↔ Timko František) */
+    var wa = pToks(ka), wb = pToks(kb);
+    if(wa.length === wb.length && wa.length >= 2){
+      var used = {}, hits = 0;
+      wa.forEach(function(x){
+        var bi = -1, bs = 0;
+        wb.forEach(function(y, i){ if(used[i]) return; var s = textSim(x, y); if(s > bs){ bs = s; bi = i; } });
+        if(bs >= 0.8){ used[bi] = 1; hits++; }
+      });
+      if(hits === wa.length) return 0.95;
+    }
+    var sa = surSkeleton(pa.surname), sb = surSkeleton(pb.surname);
+    if(!sa || sa !== sb) return 0;                       /* más vezetéknév */
+    var ca = pa.canon || [], cb = pb.canon || [];
+    if(!ca.length || !cb.length) return 0.9;             /* csak vezetéknév */
+    if(ca.some(function(x){ return cb.indexOf(x) >= 0; })) return 1;    /* István = Štefan */
+    var best = 0;
+    ca.forEach(function(x){ cb.forEach(function(y){ var s = textSim(x, y); if(s > best) best = s; }); });
+    return (best >= 0.85) ? best : 0;
+  }
+  /* Név alapján játékos keresése: pontos egyezés, kód/kártyaszám, majd
+     egyértelmű hasonlóság (elgépelés, más írásmód). */
+  function findPlayerByText(players, text){
+    var raw = String(text == null ? '' : text).trim();
+    if(!raw) return null;
+    var list = (players || []).filter(function(p){ return p && p.name; });
+    var q = deacc(raw);
+    var hit = list.filter(function(p){ return deacc(p.name) === q; })[0];
+    if(hit) return hit;
+    var d = raw.replace(/\D/g, '');
+    if(d){
+      hit = list.filter(function(p){ return String(p.code) === d || (p.nfcCode && String(p.nfcCode) === d); })[0];
+      if(hit) return hit;
+    }
+    var best = null, bestS = 0, second = 0;
+    list.forEach(function(p){
+      var s = samePersonHint(raw, p.name);
+      if(s > bestS){ second = bestS; bestS = s; best = p; }
+      else if(s > second) second = s;
+    });
+    return (best && bestS >= 0.9 && bestS - second >= 0.05) ? best : null;
+  }
+  /* A jelentkező elkezdi írni a nevét → ha ismert, az azonosítóját is kitöltjük. */
+  function lookupName(v){
+    var codeEl = document.getElementById('f-code');
+    var nameEl = document.getElementById('f-name');
+    var hint = document.getElementById('f-name-hint');
+    if(!codeEl || !nameEl) return;
+    var q = String(v == null ? '' : v).trim();
+    if(q.length < 3) return;
+    loadAllPlayers(function(players){
+      var m = findPlayerByText(players, q);
+      var id = m ? String(m.code || m.nfcCode || '') : '';
+      if(m && id){
+        var cur = String(codeEl.value || '').trim();
+        if(!cur || codeEl.getAttribute('data-auto') === '1'){
+          codeEl.value = id;
+          if(codeEl.setAttribute) codeEl.setAttribute('data-auto', '1');
+        }
+        if(hint){
+          hint.hidden = false;
+          hint.textContent = T('Azonosító: ','ID: ') + id + ' — ' + T('kitöltöttük a mezőt. Ha nem jó, írja át.','doplnili sme do poľa. Ak nie je správne, prepíšte.');
+        }
+      } else if(hint){
+        hint.hidden = false;
+        hint.textContent = T('Ezt a nevet nem találom a nyilvántartásban — írja be a kártyáján lévő azonosítót is, vagy szóljon a szervezőnek.','Toto meno sa v evidencii nenašlo — zadajte aj identifikačné číslo z karty alebo sa obráťte na organizátora.');
+      }
     });
   }
   function selectTournament(id){ selectedTid = id; renderRegister(document.getElementById('view')); }
@@ -5966,6 +6068,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     renderRegList();
   }
   var lastRegList = [];
+  var regDirty = {};               /* mely sorokat javították (még nincs mentve) */
   var regSort = 'name';            /* 'name' = névsor, 'time' = jelentkezés ideje */
   function setRegSort(v){
     regSort = (v === 'time') ? 'time' : 'name';
@@ -6049,7 +6152,10 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         }
         return (a.name||'').localeCompare(b.name||'', 'hu');
       });
+      /* az eredeti értékek megjegyzése: a „Minden mentése” ehhez hasonlít */
+      regs.forEach(function(r){ r._origName = String(r.name || ''); r._origCode = String(r.code || ''); });
       lastRegList = regs;
+      regDirty = {};
       var listBox = document.getElementById('reg-list');
       if(!listBox) return;
       if(!regs.length){
@@ -6068,25 +6174,122 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
           + '<div class="table-wrap"><table class="list"><thead><tr><th>#</th><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Kód','Kód'))+'</th>'
           + '<th>'+esc(T('Jelentkezés ideje','Čas prihlásenia'))+'</th><th class="noprint">'+esc(T('Jelen','Prítomný'))+'</th><th class="noprint"></th></tr></thead><tbody>'
           + regs.map(function(r,i){
-              return '<tr><td class="num">'+(i+1)+'</td>'
+              /* ha nincs kód, de a név ismert: javasoljuk (szürke helykitöltő) */
+              var sug = String(r.code || '').trim() ? '' : (function(){
+                var m = findPlayerByText(players, r.name);
+                return m ? String(m.code || m.nfcCode || '') : '';
+              })();
+              return '<tr id="reg-row-'+i+'"'+(sug ? ' class="regsug"' : '')+'><td class="num">'+(i+1)+'</td>'
                 + '<td><input class="pin" id="reg-n-'+i+'" list="reg-names" value="'+esc(niceName(r.name||''))+'" oninput="MUB.regEdit('+i+',\'name\',this.value)"></td>'
-                + '<td><input class="pin" id="reg-c-'+i+'" list="reg-codes" inputmode="numeric" value="'+esc(r.code||'')+'" oninput="MUB.regEdit('+i+',\'code\',this.value)"></td>'
+                + '<td><input class="pin" id="reg-c-'+i+'" list="reg-codes" inputmode="numeric" value="'+esc(r.code||'')+'"'+(sug ? ' placeholder="'+esc(sug)+'" title="'+esc(T('javaslat a név alapján','návrh podľa mena'))+'"' : '')+' oninput="MUB.regEdit('+i+',\'code\',this.value)">'
+                  + (sug ? '<div class="meta" style="font-size:.75rem">'+esc(T('javaslat: ','návrh: '))+esc(sug)+'</div>' : '')+'</td>'
                 + '<td class="num">'+esc(fmtDateTime(regDate(r)))+'</td>'
                 + '<td class="noprint"><span class="checkbox"></span></td>'
                 + '<td class="noprint" style="white-space:nowrap">'
                 + '<button type="button" class="btn sm" onclick="MUB.saveReg('+i+')">'+esc(T('Mentés','Uložiť'))+'</button> '
                 + '<button type="button" class="btn sm danger" onclick="MUB.adminDeleteReg(\''+jsq(r.id)+'\',\''+jsq(r.name)+'\')">'+esc(T('Törlés','Zmazať'))+'</button></td></tr>';
             }).join('') + '</tbody></table></div>'
-          + '<div class="meta" style="margin-top:.5rem">'+regs.length+' '+esc(T('jelentkező','prihlásených'))
-          + ' · ' + esc(T('a nevet és a kódot közvetlenül a táblázatban javíthatja','meno a kód môžete opraviť priamo v tabuľke'))+'</div>';
+          + '<div class="toolbar noprint" style="margin-top:.8rem; align-items:center">'
+          + '<div class="meta" id="reg-dirty-line">'+regDirtyText(players)+'</div>'
+          + '<div><button type="button" class="btn" onclick="MUB.saveAllRegs()">'+esc(T('Minden mentése','Uložiť všetko'))+'</button></div></div>'
+          + '<p class="meta">'+regs.length+' '+esc(T('jelentkező','prihlásených'))
+          + ' · ' + esc(T('a nevet és a kódot közvetlenül a táblázatban javíthatja. A hiányzó kódot a név alapján magától pótolja, és a „Minden mentése” gombbal egyszerre mentheti az összes javítást.',
+                             'meno a kód môžete opraviť priamo v tabuľke. Chýbajúci kód doplní podľa mena a tlačidlom „Uložiť všetko” uložíte všetky opravy naraz.'))+'</p>';
       });
     });
   }
-  /* Admin: a jelentkező adatainak szerkesztése (pl. hiányzó kód pótlása). */
+  /* Nem mentett javítások száma. */
+  function regDirtyCount(){ var n = 0; for(var k in regDirty){ if(regDirty[k]) n++; } return n; }
+  function regDirtyText(players){
+    var n = regDirtyCount();
+    var missing = 0;
+    (lastRegList || []).forEach(function(r){
+      if(String(r.code || '').trim()) return;
+      if(findPlayerByText(players || [], r.name)) missing++;
+    });
+    return (n ? '<strong>'+n+' '+esc(T('nem mentett javítás','neuložených opráv'))+'</strong>' : esc(T('nincs nem mentett javítás','žiadne neuložené opravy')))
+      + (missing ? ' · ' + missing + ' ' + esc(T('jelentkezőnek pótolható a kódja a neve alapján','prihláseným možno doplniť kód podľa mena')) : '');
+  }
+  /* Admin: a jelentkező adatainak szerkesztése — a nevet és a kódot egyszerre,
+     egy lépésben pótolja (a nyilvántartásból). */
   function regEdit(i, k, v){
     var r = lastRegList[i];
     if(!r) return;
-    r[k === 'name' ? 'name' : 'code'] = String(v == null ? '' : v);
+    if(k === 'name'){
+      r.name = String(v == null ? '' : v);
+      regDirty[i] = 1;
+      loadAllPlayers(function(players){
+        var m = findPlayerByText(players, r.name);
+        var cEl = document.getElementById('reg-c-' + i);
+        if(m){
+          var id = String(m.code || m.nfcCode || '');
+          var cur = cEl ? String(cEl.value || '').trim() : String(r.code || '');
+          if(id && (!cur || cur === id)){
+            if(cEl) cEl.value = id;
+            r.code = id;
+          }
+        }
+        markDirtyRow(i, players);
+      });
+    } else {
+      r.code = String(v == null ? '' : v).replace(/\s+/g, '');
+      regDirty[i] = 1;
+      loadAllPlayers(function(players){
+        var m = players.filter(function(p){ return String(p.code) === r.code || (p.nfcCode && String(p.nfcCode) === r.code); })[0];
+        var nEl = document.getElementById('reg-n-' + i);
+        if(m && m.name && nEl && !String(nEl.value || '').trim()){
+          nEl.value = niceName(m.name);
+          r.name = m.name;
+        }
+        markDirtyRow(i, players);
+      });
+    }
+    markDirtyRow(i, null);
+  }
+  /* A sor megjelölése (nem mentett javítás) — a lista újrarajzolása nélkül,
+     hogy a kurzor a helyén maradjon. */
+  function markDirtyRow(i, players){
+    var tr = document.getElementById('reg-row-' + i);
+    if(tr && tr.classList && tr.classList.add) tr.classList.add('dirty');
+    var line = document.getElementById('reg-dirty-line');
+    if(line && players) line.innerHTML = regDirtyText(players);
+  }
+  /* Egyszerre minden javítás mentése (egy kötegben). */
+  function saveAllRegs(){
+    if(!currentUser) return;
+    var rows = lastRegList || [];
+    if(!rows.length) return;
+    loadAllPlayers(function(players){
+      var changed = [];
+      rows.forEach(function(r, i){
+        var nEl = document.getElementById('reg-n-' + i), cEl = document.getElementById('reg-c-' + i);
+        var rawName = nEl ? String(nEl.value || '').trim() : '';
+        var rawCode = cEl ? String(cEl.value || '').trim().replace(/\s+/g, '') : '';
+        /* biztonság: üres mezővel nem törlünk nevet és kódot — csak pótolunk */
+        var name = rawName || String(r._origName || r.name || '');
+        var code = rawCode || String(r._origCode || r.code || '');
+        var m = code ? players.filter(function(p){ return String(p.code) === code || (p.nfcCode && String(p.nfcCode) === code); })[0] : null;
+        if(!name && m && m.name) name = niceName(m.name);              /* kódból név */
+        if(!code && name){ var hit = findPlayerByText(players, name); if(hit) code = String(hit.code || hit.nfcCode || ''); }  /* névből kód */
+        if(name !== String(r._origName || '') || code !== String(r._origCode || '')) changed.push({ id: r.id, name: name, code: code, r: r });
+      });
+      if(!changed.length){ alert(T('Nincs mentenivaló javítás.','Nie sú žiadne opravy na uloženie.')); return; }
+      if(!confirm(T('Egyszerre elmentem ezt a ','Naraz uložím toto: ')+changed.length+T(' javítást? (Csak a nevet és a kódot írom át, mást nem.)',' opráv? (Prepíšem iba meno a kód, nič iné.)'))) return;
+      var batch = db.batch();
+      changed.forEach(function(ch){
+        /* CSAK a név és a kód mezőt írjuk — a jelentkezés többi adata érintetlen marad */
+        batch.set(db.collection('registrations').doc(ch.id), { name: ch.name, code: ch.code }, { merge: true });
+      });
+      batch.commit().then(function(){
+        changed.forEach(function(ch){ ch.r.name = ch.name; ch.r.code = ch.code; });
+        regDirty = {};
+        invalidate('registrations');
+        alert(T('Elmentve: ','Uložené: ')+changed.length+T(' jelentkező javítása.',' opráv prihlásených.'));
+        renderRegList();
+      }).catch(function(err){
+        alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + ((err && err.message) || ''));
+      });
+    });
   }
   function saveReg(i){
     var r = lastRegList[i];
@@ -7884,7 +8087,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     addDownload: addDownload, deleteDownload: deleteDownload,
     nameDecide: nameDecide, nameUndo: nameUndo, nameClearAll: nameClearAll, setNameQuery: setNameQuery, nameShowMore: nameShowMore, nameManual: nameManual,
     deadToggle: deadToggle, setDeadQuery: setDeadQuery,
-    saveReg: saveReg, regEdit: regEdit,
+    saveReg: saveReg, regEdit: regEdit, saveAllRegs: saveAllRegs, lookupName: lookupName,
     mrField: mrField, mrToggleMub: mrToggleMub, mrPasteSet: mrPasteSet, mrParse: mrParse, mrAddRow: mrAddRow, mrClear: mrClear,
     mrName: mrName, mrMoney: mrMoney, mrAccept: mrAccept, mrKeep: mrKeep, mrSave: mrSave, mrDeleteTour: mrDeleteTour,
     mrSetMode: mrSetMode, mrCode: mrCode, mrDeleteAgg: mrDeleteAgg, mrFile: mrFile,
