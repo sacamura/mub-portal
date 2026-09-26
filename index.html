@@ -17,6 +17,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="MUB Portál">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -278,6 +279,13 @@
   .prefillnote{background:var(--accent-soft); border:1px solid var(--accent); border-radius:10px; padding:.7rem .9rem; margin-bottom:.3rem; font-size:.98rem; line-height:1.5}
   .toolbar{display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:1.1rem}
   .checkbox{width:1.5rem; height:1.5rem; border:2px solid var(--ink-soft); display:inline-block; border-radius:4px}
+  /* Telepítés a telefonra (PWA) */
+  .installcard{border:2px solid var(--accent); background:var(--accent-soft); margin-bottom:1.4rem}
+  .pwa-bar{position:fixed; left:0; right:0; bottom:0; z-index:70; display:flex; gap:.6rem; align-items:center; justify-content:center;
+    flex-wrap:wrap; background:var(--surface); border-top:2px solid var(--accent); padding:.6rem .8rem;
+    box-shadow:0 -2px 10px rgba(0,0,0,.18); font-size:1rem}
+  .pwa-bar.offline{border-top-color:var(--danger)}
+  body.has-pwabar{padding-bottom:4.6rem}
   .sheetwrap{border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:1rem}
   .sheetwrap iframe{width:100%; height:480px; border:0; display:block}
   /* A Google-táblázat csak kattintásra töltődik be (a magától betöltő táblázat
@@ -578,12 +586,126 @@
   };
   firebase.initializeApp(firebaseConfig);
   var db = firebase.firestore();
+
+/* ---------- Naplózás (belépés és minden változás) ----------
+   Az admin „Napló” fülén látszik, ki mikor mit módosított. A naplóírás soha
+   nem akadályozhatja a mentést: minden hiba csendben elmúlik. */
+var RAW_DB = db;                    /* a naplóíráshoz (nem megy át a naplózáson) */
+var LOG_HINT = '';                  /* a következő írás emberi leírása */
+var LOG_SKIP = { likes: 1, pollVotes: 1, logs: 1 };
+var LOG_LABEL = {
+  tournaments: { hu: 'verseny', sk: 'turnaj' }, news: { hu: 'hír', sk: 'správa' },
+  gallery: { hu: 'galéria', sk: 'galéria' }, players: { hu: 'játékos', sk: 'hráč' },
+  registrations: { hu: 'jelentkezés', sk: 'prihláška' }, results: { hu: 'eredmény', sk: 'výsledok' },
+  seasons: { hu: 'szezon', sk: 'sezóna' }, downloads: { hu: 'letöltés', sk: 'súbor' },
+  settings: { hu: 'beállítás', sk: 'nastavenie' }, admins: { hu: 'adminok', sk: 'administrátori' }
+};
+function logLabel(coll){ var l = LOG_LABEL[String(coll || '')]; return l ? T(l.hu, l.sk) : String(coll || ''); }
+/* Rövid eszköz-leírás a naplóhoz (böngésző és rendszer). */
+function logDevice(){
+  try{
+    var ua = String((typeof navigator !== 'undefined' && navigator.userAgent) || '');
+    var os = /Android/i.test(ua) ? 'Android' : (/iPhone|iPad|iPod/i.test(ua) ? 'iOS' : (/Windows/i.test(ua) ? 'Windows'
+      : (/Mac OS X/i.test(ua) ? 'Mac' : (/Linux/i.test(ua) ? 'Linux' : ''))));
+    var br = /Edg\//i.test(ua) ? 'Edge' : (/OPR\//i.test(ua) ? 'Opera' : (/Chrome\//i.test(ua) ? 'Chrome'
+      : (/Firefox\//i.test(ua) ? 'Firefox' : (/Safari\//i.test(ua) ? 'Safari' : ''))));
+    return [os, br].filter(Boolean).join(' · ');
+  }catch(e){ return ''; }
+}
+/* Kézi naplóbejegyzés (belépés, kilépés). A who felülírhatja a beírt nevet. */
+/* A napló rendes helye a 'logs' gyűjtemény. Ha a Firebase szabályai ezt még nem
+   engedik, a bejegyzés a settings/log dokumentumba kerül (amit az admin mentései
+   már bizonyítottan írhatnak) — így a napló azonnal működik. */
+var LOG_FALLBACK = 'settings/log';
+var LOG_MAX = 300;
+function logPersist(rec){
+  RAW_DB.collection('logs').add(rec).catch(function(){
+    try{
+      RAW_DB.collection('settings').doc('log').get().then(function(d){
+        var items = (d && d.exists) ? ((d.data() || {}).items || []) : [];
+        if(!Array.isArray(items)) items = [];
+        items = items.slice(-(LOG_MAX - 1));
+        items.push(rec);
+        return RAW_DB.collection('settings').doc('log').set({ items: items }, { merge: true });
+      }).catch(function(){});
+    }catch(e){}
+  });
+}
+function alog(kind, text, detail, who){
+  try{
+    var rec = { kind: String(kind || 'egyeb'), text: String(text || ''), ts: new Date().toISOString(),
+                email: String(who || (currentUser && currentUser.email) || 'vendég'),
+                uid: String((currentUser && currentUser.uid) || ''), build: BUILD, device: logDevice() };
+    if(detail) rec.detail = String(detail);
+    logPersist(rec);
+  }catch(e){}
+}
+/* A következő írás leírása (pl. melyik verseny). */
+function alogSet(text){ LOG_HINT = String(text || ''); }
+function logWrite(coll, id, what, data){
+  if(LOG_SKIP[String(coll || '')]) return;
+  var fields = [];
+  try{ if(data && typeof data === 'object') fields = Object.keys(data).filter(function(k){ return k.indexOf('__') !== 0; }).slice(0, 8); }catch(e){}
+  var text = LOG_HINT || (logLabel(coll) + ' ' + what);
+  LOG_HINT = '';
+  alog('change', text, String(coll || '') + (id ? '/' + id : '') + (fields.length ? ' · ' + fields.join(', ') : ''));
+}
+function logRefPath(ref){
+  var p = String((ref && ref.path) || '');
+  var parts = p.split('/');
+  return { coll: parts[0] || '', id: parts[1] || '' };
+}
+/* Minden írás naplózva. Ha a böngésző nem tudja (Proxy nélkül), marad az eredeti. */
+function logWrapDb(real){
+  function docWrap(ref, coll, id){
+    return new Proxy(ref, {
+      get: function(t, p){
+        if(p === '__real') return t;
+        if(p === 'set') return function(data, opts){ logWrite(coll, id, T('mentése','uloženie'), data); return t.set(data, opts); };
+        if(p === 'update') return function(data){ logWrite(coll, id, T('módosítása','zmena'), data); return t.update(data); };
+        if(p === 'delete') return function(){ logWrite(coll, id, T('törlése','zmazanie'), null); return t.delete(); };
+        var v = t[p];
+        return (typeof v === 'function') ? v.bind(t) : v;
+      }
+    });
+  }
+  function collWrap(ref, name){
+    return new Proxy(ref, {
+      get: function(t, p){
+        if(p === '__real') return t;
+        if(p === 'doc') return function(id){ return docWrap(t.doc(id), name, id); };
+        if(p === 'add') return function(data){ logWrite(name, '', T('hozzáadása','pridanie'), data); return t.add(data); };
+        var v = t[p];
+        return (typeof v === 'function') ? v.bind(t) : v;
+      }
+    });
+  }
+  function batchWrap(b){
+    function real(ref){ return (ref && ref.__real) ? ref.__real : ref; }
+    return {
+      set: function(ref, data, opts){ var r = real(ref), w = logRefPath(r); logWrite(w.coll, w.id, T('mentése','uloženie'), data); return b.set(r, data, opts); },
+      update: function(ref, data){ var r = real(ref), w = logRefPath(r); logWrite(w.coll, w.id, T('módosítása','zmena'), data); return b.update(r, data); },
+      delete: function(ref){ var r = real(ref), w = logRefPath(r); logWrite(w.coll, w.id, T('törlése','zmazanie'), null); return b.delete(r); },
+      commit: function(){ return b.commit(); }
+    };
+  }
+  return new Proxy(real, {
+    get: function(t, p){
+      if(p === '__real') return t;
+      if(p === 'collection') return function(name){ return collWrap(t.collection(name), name); };
+      if(p === 'batch') return function(){ return batchWrap(t.batch()); };
+      var v = t[p];
+      return (typeof v === 'function') ? v.bind(t) : v;
+    }
+  });
+}
+try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás nélküli írás */ }
   var auth = firebase.auth();
   var storage = firebase.storage();
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 71;
+  var BUILD = 77;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1510,6 +1632,7 @@
           var html = '';
           /* A szervező által feltöltött kezdő kép (díjátadó) legfelül. */
           html += coverHtml('coverimg');
+          html += installCardHtml();
           html += '<h2>'+esc(T('Következő versenyek','Najbližšie turnaje'))+'</h2>';
           if(next){
             var d = daysUntil(next.date);
@@ -4697,6 +4820,140 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     return ADMIN_B_TABS.indexOf(t) >= 0;
   }
   function allowedSubs(){ return ADMIN_SUBS.filter(function(s){ return tabAllowed(s[0]); }); }
+  /* --- admin: napló (belépések és változások) --- */
+  var LOG_ROWS = [], logKind = 'all', logWho = '', logMsg = '', logLoaded = false;
+  function setLogKind(v){ logKind = String(v || 'all'); renderAdminLog(); }
+  function setLogWho(v){ logWho = String(v || ''); withFocus(renderAdminLog); }
+  function sortLogs(a, b){ return String(b.ts || '').localeCompare(String(a.ts || '')); }
+  function loadLogs(cb){
+    logLoaded = false;
+    logMsg = '';
+    function pack(rows, msg){
+      rows.sort(sortLogs);
+      LOG_ROWS = rows; logLoaded = true;
+      logMsg = msg || '';
+      cb(rows);
+    }
+    function fromFallback(msg){
+      RAW_DB.collection('settings').doc('log').get().then(function(d){
+        var items = (d && d.exists) ? ((d.data() || {}).items || []) : [];
+        if(!Array.isArray(items)) items = [];
+        var rows = items.map(function(v, i){ var o = Object.assign({}, v); o.id = 's' + i; return o; });
+        pack(rows, msg);
+      }).catch(function(){ pack([], msg); });
+    }
+    RAW_DB.collection('logs').orderBy('ts', 'desc').limit(600).get().then(function(snap){
+      var rows = [];
+      snap.forEach(function(d){ var v = d.data() || {}; v.id = d.id; rows.push(v); });
+      if(rows.length) pack(rows, '');
+      else fromFallback('');
+    }).catch(function(e){
+      fromFallback(T('A napló a tartalék helyről látszik (a „logs” gyűjteményt a Firebase szabályai még nem engedik).','Záznam sa zobrazuje zo záložného miesta (kolekciu „logs” pravidlá Firebase ešte nepovoľujú).'));
+    });
+  }
+  function logKindLabel(k){ return (k === 'login') ? T('belépés','prihlásenie') : (k === 'logout' ? T('kilépés','odhlásenie') : T('változás','zmena')); }
+  function logWhen(ts){
+    var d = new Date(String(ts || ''));
+    if(isNaN(d.getTime())) return String(ts || '');
+    return d.getFullYear() + '.' + pad2(d.getMonth()+1) + '.' + pad2(d.getDate()) + '. ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+  function logFiltered(){
+    var q = deacc(logWho);
+    return (LOG_ROWS || []).filter(function(r){
+      if(logKind !== 'all' && String(r.kind || '') !== logKind) return false;
+      if(!q) return true;
+      return deacc(String(r.email || '')).indexOf(q) >= 0 || deacc(String(r.text || '')).indexOf(q) >= 0
+        || deacc(String(r.detail || '')).indexOf(q) >= 0;
+    });
+  }
+  function renderAdminLog(){
+    if(!requireFull()){ setAdminTab('versenyek'); return; }
+    var body = document.getElementById('admin-body');
+    if(!body) return;
+    body.innerHTML = '<h3 class="adminsub">'+esc(T('Napló','Záznam'))+'</h3>'
+      + '<p class="meta" style="margin:0 0 .8rem">'+esc(T('Minden belépés és minden módosítás ide kerül: ki, mikor, mit változtatott. A legfrissebb van elöl. A napló legfeljebb 600 bejegyzést mutat.',
+                                                              'Každé prihlásenie a každá zmena sa zapisuje sem: kto, kedy a čo zmenil. Najnovšie je prvé. Záznam zobrazuje najviac 600 položiek.'))+'</p>'
+      + '<div class="resbar noprint">'
+      + '<div class="field"><label for="log-kind">'+esc(T('Művelet','Operácia'))+'</label>'
+      + '<select id="log-kind" onchange="MUB.setLogKind(this.value)">'
+      + [['all', T('mind','všetko')], ['login', T('belépés','prihlásenie')], ['logout', T('kilépés','odhlásenie')], ['change', T('változás','zmena')]]
+          .map(function(o){ return '<option value="'+esc(o[0])+'"'+(logKind===o[0]?' selected':'')+'>'+esc(o[1])+'</option>'; }).join('')
+      + '</select></div>'
+      + '<div class="field"><label for="log-who">'+esc(T('Keresés (ki vagy mi)','Hľadať (kto alebo čo)'))+'</label>'
+      + '<input id="log-who" type="search" value="'+esc(logWho)+'" placeholder="'+esc(T('pl. jani991 vagy verseny','napr. jani991 alebo turnaj'))+'" oninput="MUB.setLogWho(this.value)"></div>'
+      + '<div class="field" style="align-self:flex-end"><button type="button" class="btn sm secondary" onclick="MUB.reloadLogs()">'+esc(T('Frissítés','Obnoviť'))+'</button> '
+      + '<button type="button" class="btn sm secondary" onclick="MUB.logCsv()">CSV '+esc(T('letöltés','stiahnuť'))+'</button> '
+      + '<button type="button" class="btn sm secondary" onclick="MUB.cleanLogs()">'+esc(T('Régiek törlése','Zmazať staré'))+'</button></div>'
+      + '</div>'
+      + '<div id="log-list">'+esc(T('Betöltés…','Načítava sa…'))+'</div>';
+    loadLogs(function(){ renderLogList(); });
+  }
+  function renderLogList(){
+    var box = document.getElementById('log-list');
+    if(!box) return;
+    var banner = logMsg ? '<div class="banner err" role="status">'+esc(logMsg)+'</div>' : '';
+    var rows = logFiltered();
+    if(!rows.length){
+      box.innerHTML = banner + '<p class="meta">'+esc(T('Nincs a szűrésnek megfelelő bejegyzés.','Záznamu nezodpovedá žiadna položka.'))+'</p>';
+      return;
+    }
+    box.innerHTML = banner + '<div class="table-wrap"><table class="list"><thead><tr>'
+      + '<th>'+esc(T('Mikor','Kedy'))+'</th><th>'+esc(T('Ki','Kto'))+'</th><th>'+esc(T('Művelet','Operácia'))+'</th>'
+      + '<th>'+esc(T('Mi történt','Čo sa stalo'))+'</th><th class="noprint">'+esc(T('Részletek','Podrobnosti'))+'</th></tr></thead><tbody>'
+      + rows.slice(0, 400).map(function(r){
+          var k = String(r.kind || '');
+          var mark = (k === 'login') ? '🔓' : (k === 'logout' ? '🔒' : '✏️');
+          return '<tr><td class="num" style="white-space:nowrap">'+esc(logWhen(r.ts))+'</td>'
+            + '<td>'+esc(String(r.email || ''))+(r.device ? '<div class="meta" style="font-size:.75rem">'+esc(String(r.device))+'</div>' : '')+'</td>'
+            + '<td>'+mark+' '+esc(logKindLabel(k))+'</td>'
+            + '<td>'+esc(String(r.text || ''))+'</td>'
+            + '<td class="noprint meta" style="font-size:.78rem">'+esc(String(r.detail || ''))+'</td></tr>';
+        }).join('')
+      + '</tbody></table></div>'
+      + '<p class="meta">'+rows.length+' '+esc(T('bejegyzés','položiek'))+' · '+esc(T('összes betöltve: ','spolu načítaných: '))+LOG_ROWS.length+'</p>';
+  }
+  function reloadLogs(){ logMsg = ''; renderAdminLog(); }
+  function logCsv(){
+    var rows = [[T('Mikor','Kedy'), T('Ki','Kto'), T('Művelet','Operácia'), T('Mi történt','Čo sa stalo'), T('Részletek','Podrobnosti'), T('Eszköz','Zariadenie')]]
+      .concat(logFiltered().map(function(r){ return [logWhen(r.ts), r.email || '', logKindLabel(String(r.kind || '')), r.text || '', r.detail || '', r.device || '']; }));
+    var csv = rows.map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+    var blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a'); a.href = url; a.download = 'mub-naplo-' + todayISO() + '.csv';
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
+  /* Csak a legutóbbi 300 bejegyzés marad. */
+  function cleanLogs(){
+    if(!requireFull()) return;
+    if(!confirm(T('Törlöm a napló régi bejegyzéseit, és csak a legutóbbi 300 marad. Biztos?','Zmažem staré položky záznamu, zostane len posledných 300. Naozaj?'))) return;
+    RAW_DB.collection('logs').orderBy('ts', 'desc').limit(1000).get().then(function(snap){
+      var rows = [];
+      snap.forEach(function(d){ var v = d.data() || {}; rows.push({ id: d.id, ts: String(v.ts || '') }); });
+      rows.sort(sortLogs);
+      var del = rows.slice(300);
+      if(!del.length){ alert(T('Nincs mit törölni.','Nie je čo zmazať.')); return; }
+      var batch = RAW_DB.batch();
+      del.forEach(function(r){ batch.delete(RAW_DB.collection('logs').doc(r.id)); });
+      batch.commit().then(function(){
+        alert(T('Kész: ','Hotovo: ') + del.length + T(' régi bejegyzés törölve.',' starých položiek zmazaných.'));
+        reloadLogs();
+      }).catch(function(err){ alert(T('Nem sikerült törölni: ','Nepodarilo sa zmazať: ') + ((err && err.message) || '')); });
+    }).catch(function(err){
+      /* tartalék: a settings/log dokumentumban csak az utolsó 300 marad */
+      var keep = 300;
+      RAW_DB.collection('settings').doc('log').get().then(function(d){
+        var items = (d && d.exists) ? ((d.data() || {}).items || []) : [];
+        if(!Array.isArray(items) || items.length <= keep){ alert(T('Nincs mit törölni.','Nie je čo zmazať.')); return; }
+        var del2 = items.length - keep;
+        items = items.slice(-keep);
+        RAW_DB.collection('settings').doc('log').set({ items: items }, { merge: true }).then(function(){
+          alert(T('Kész: ','Hotovo: ') + del2 + T(' régi bejegyzés törölve.',' starých položiek zmazaných.'));
+          reloadLogs();
+        }).catch(function(e2){ alert(T('Nem sikerült törölni: ','Nepodarilo sa zmazať: ') + ((e2 && e2.message) || '')); });
+      }).catch(function(e2){ alert(T('Nem sikerült betölteni a naplót: ','Záznam sa nepodarilo načítať: ') + ((e2 && e2.message) || '')); });
+    });
+  }
+
   function requireFull(){
     if(isFullAdmin()) return true;
     alert(T('Ehhez a művelethez teljes admin jogosultság kell.','Na túto operáciu je potrebné plné administrátorské oprávnenie.'));
@@ -4791,7 +5048,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     }
     /* Egyszerűbb felület: az eredményekkel kapcsolatos minden egy fül alatt van
        (felvétel, szezonok, név-egyesítés, táblázat-beolvasás). */
-    var tabs = [['versenyek',T('Versenyek','Turnaje')],['eredmenyek',T('Eredmények','Výsledky')],['hirek',T('Hírek','Novinky')],['galeria',T('Galéria','Galéria')],['jelentkezok',T('Jelentkezők','Prihlásení')],['jatekosok',T('Játékosok','Hráči')],['szabalyok',T('Szabályok','Pravidlá')],['letoltesek',T('Letöltések','Na stiahnutie')],['mentes',T('Mentés','Záloha')],['adminok',T('Adminok','Administrátori')]];
+    var tabs = [['versenyek',T('Versenyek','Turnaje')],['eredmenyek',T('Eredmények','Výsledky')],['hirek',T('Hírek','Novinky')],['galeria',T('Galéria','Galéria')],['jelentkezok',T('Jelentkezők','Prihlásení')],['jatekosok',T('Játékosok','Hráči')],['szabalyok',T('Szabályok','Pravidlá')],['letoltesek',T('Letöltések','Na stiahnutie')],['mentes',T('Mentés','Záloha')],['adminok',T('Adminok','Administrátori')],['naplo',T('Napló','Záznam')]];
     tabs = tabs.filter(function(t){ return tabAllowed(t[0]); });
     if(!tabAllowed(adminTab)) adminTab = 'versenyek';
     if(adminTab === 'eredmenyek' && !tabAllowed(adminSub)) adminSub = (allowedSubs()[0] || ['felvetel'])[0];
@@ -4818,6 +5075,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     else if(adminTab==='letoltesek') renderAdminDownloads();
     else if(adminTab==='mentes') renderAdminBackup();
     else if(adminTab==='adminok') renderAdminUsers();
+    else if(adminTab==='naplo') renderAdminLog();
   }
   /* Az összevont „Eredmények” fül: alpont-választó + az alpont tartalma. */
   function setAdminSub(s){ adminSub = s; renderAdminEredmenyek(); }
@@ -4990,10 +5248,13 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       }).filter(function(r){ return r.hu || r.sk; })
     };
     var ref = id ? db.collection('tournaments').doc(id) : db.collection('tournaments').doc();
+    alogSet(T('Verseny mentése: ','Uloženie turnaja: ') + loc_hu + ' · ' + (data.date || ''));
     ref.set(data, {merge:true}).then(function(){ invalidate('tournaments'); renderAdminTournaments(); });
   }
   function deleteTournament(id){
     if(!confirm(T('Biztosan törli?','Naozaj to chcete zmazať?'))) return;
+    var t = (CACHE.tournaments || []).filter(function(x){ return x.id === id; })[0];
+    alogSet(T('Verseny törlése: ','Zmazanie turnaja: ') + ((t && t.location_hu) || id) + (t && t.date ? ' · ' + t.date : ''));
     db.collection('tournaments').doc(id).delete().then(function(){ invalidate('tournaments'); renderAdminTournaments(); });
   }
 
@@ -8476,8 +8737,18 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   /* ---------- auth wiring + boot ---------- */
   auth.onAuthStateChanged(function(user){
     var prevUid = (currentUser && currentUser.uid) || null;
+    var prevEmail = (currentUser && currentUser.email) || '';
     var nextUid = (user && user.uid) || null;
     currentUser = user; isAdmin = !!user;
+    /* Belépés és kilépés a naplóba (munkamenetenként egyszer). */
+    if(nextUid && !prevUid){
+      var fresh = false;
+      try{ fresh = !sessionStorage.getItem('mub-log-session'); sessionStorage.setItem('mub-log-session', '1'); }catch(e){ fresh = true; }
+      if(fresh) alog('login', T('Belépés a szervezői felületre','Prihlásenie do organizátorskej časti'), '', (user && user.email) || '');
+    } else if(!nextUid && prevUid){
+      alog('logout', T('Kilépés a szervezői felületről','Odhlásenie z organizátorskej časti'), '', prevEmail);
+      try{ sessionStorage.removeItem('mub-log-session'); }catch(e){}
+    }
     /* Csak akkor rajzolunk újra, ha tényleg változott a bejelentkezés.
        A Firebase óránként megújítja a tokent; a felesleges újrarajzolás közben
        a lap összeesett, ezért a böngésző felgörgetett, és a félig betöltött
@@ -8516,10 +8787,74 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     /* A service worker csak akkor kell, ha nem fájlból nyitották meg. */
     if(location.protocol !== 'file:' && navigator.serviceWorker && navigator.serviceWorker.register){
       window.addEventListener('load', function(){
-        navigator.serviceWorker.register('sw.js').catch(function(){});
+        navigator.serviceWorker.register('sw.js').then(function(reg){
+          /* Ha új változat készül, és átveszi az irányítást, jelezzük. */
+          if(reg && reg.addEventListener){
+            reg.addEventListener('updatefound', function(){ /* a következő controllerchange jelzi */ });
+          }
+        }).catch(function(){});
+        /* Új változat lépett életbe: a nyitott lap még a régit mutatja. */
+        if(navigator.serviceWorker.addEventListener){
+          navigator.serviceWorker.addEventListener('controllerchange', function(){
+            pwaBar(T('Elkészült az új változat.','Je pripravená nová verzia.'), T('Frissítés','Obnoviť'), 'MUB.reloadPage()');
+          });
+        }
       });
+      setTimeout(offlineNote, 600);
     }
   }
+  /* Telepítés-kártya a kezdőlapra (elrejthető). */
+  function installCardHidden(){
+    try{ return localStorage.getItem('mub-install-hide') === '1'; }catch(e){ return false; }
+  }
+  function hideInstallCard(){
+    try{ localStorage.setItem('mub-install-hide', '1'); }catch(e){}
+    var c = document.getElementById('install-card'); if(c) c.remove();
+  }
+  function installSteps(){
+    if(isIOS()) return T('iPhone-on: a lap alján a „Megosztás” gomb (négyzet felfelé nyíllal), majd „Főképernyőhöz adás”.',
+                         'Na iPhone: dole tlačidlo „Zdieľať” (štvorec so šípkou), potom „Pridať na plochu”.');
+    return T('A böngésző menüjében (⋮ a jobb felső sarokban) válassza a „Telepítés” vagy „Hozzáadás a kezdőképernyőhöz” pontot.',
+             'V ponuke prehliadača (⋮ vpravo hore) zvoľte „Nainštalovať” alebo „Pridať na plochu”.');
+  }
+  function installCardHtml(){
+    if(location.protocol === 'file:') return '';
+    if(isStandalone() || appInstalled) return '';
+    if(installCardHidden()) return '';
+    return '<div class="card installcard noprint" id="install-card">'
+      + '<h3 style="margin:0 0 .3rem">📱 '+esc(T('Tegye a telefonjára','Dajte si to do telefónu'))+'</h3>'
+      + '<p class="meta" style="margin:0 0 .7rem">'+esc(T('Így egy érintéssel nyílik, mint egy alkalmazás, és gyenge interneten is megnyílik.','Takto sa otvorí jedným klepnutím ako aplikácia a aj pri slabom internete.'))+'</p>'
+      + '<div class="toolbar" style="margin:0; align-items:center"><div>'
+      + (canInstall ? '<button type="button" class="btn" onclick="MUB.installApp()">📱 '+esc(T('Telepítés most','Nainštalovať teraz'))+'</button> ' : '')
+      + '<button type="button" class="btn sm secondary" onclick="MUB.hideInstallCard()">'+esc(T('Most nem','Teraz nie'))+'</button>'
+      + '</div><div class="meta" style="max-width:26rem">'+esc(installSteps())+'</div></div></div>';
+  }
+  /* Alsó sáv: új változat vagy nincs internet. */
+  function pwaBar(text, btnText, onClick, offline){
+    if(typeof document === 'undefined' || !document.body) return;
+    var bar = document.getElementById('pwa-bar');
+    if(!bar){
+      bar = document.createElement('div'); bar.id = 'pwa-bar'; bar.className = 'pwa-bar noprint';
+      document.body.appendChild(bar);
+    }
+    if(offline) bar.className = 'pwa-bar noprint offline'; else bar.className = 'pwa-bar noprint';
+    bar.innerHTML = '<span>'+esc(text)+'</span>'
+      + (btnText ? ' <button type="button" class="btn sm" onclick="'+onClick+'">'+esc(btnText)+'</button>' : '');
+    if(document.body.classList) document.body.classList.add('has-pwabar');
+  }
+  function pwaBarClear(){
+    var bar = document.getElementById('pwa-bar');
+    if(bar) bar.innerHTML = '';
+    if(document.body && document.body.classList) document.body.classList.remove('has-pwabar');
+  }
+  function reloadPage(){ try{ location.reload(); }catch(e){} }
+  function offlineNote(){
+    if(typeof navigator !== 'undefined' && navigator.onLine === false){
+      pwaBar(T('Nincs internet — a mentett oldal látható. Az új adatokhoz kapcsolódjon a hálózatra.','Bez internetu — zobrazuje sa uložená stránka. Pre nové údaje sa pripojte na sieť.'), '', '', true);
+    }
+  }
+  window.addEventListener('offline', offlineNote);
+  window.addEventListener('online', function(){ pwaBarClear(); });
   /* A lábléc kis sora: telepítés gomb / útmutató. */
   function pwaFooterHtml(){
     if(location.protocol === 'file:') return '';
@@ -8580,6 +8915,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     setResQ: setResQ, setResQYear: setResQYear, setResQTour: setResQTour, setResQVill: setResQVill, setResQReset: setResQReset,
     shortCodeOf: shortCodeOf, isLongId: isLongId, regOpenNow: regOpenNow, skClock: skClock,
     setAdminSub: setAdminSub, unifyPlayerName: unifyPlayerName, uploadCoverPhoto: uploadCoverPhoto, removeCoverPhoto: removeCoverPhoto,
+    alog: alog, setLogKind: setLogKind, setLogWho: setLogWho, reloadLogs: reloadLogs, logCsv: logCsv, cleanLogs: cleanLogs,
+    hideInstallCard: hideInstallCard, reloadPage: reloadPage,
     loadSheet: loadSheet,
   };
 
