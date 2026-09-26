@@ -583,7 +583,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 69;
+  var BUILD = 70;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -756,7 +756,13 @@
     }
     return '';
   }
-  function todayISO(){ return new Date().toISOString().slice(0,10); }
+  /* A mai nap HELYI idő szerint. Az UTC-s dátum (toISOString) éjfél után
+     1–2 óráig még a tegnapi napot adná, ezért a verseny egy nappal korábban
+     tűnne el a fő oldalról, és a jelentkezés gomb is rosszul maradna meg. */
+  function todayISO(){
+    var n = new Date();
+    return n.getFullYear() + '-' + pad2(n.getMonth() + 1) + '-' + pad2(n.getDate());
+  }
 
   /* ---------- Naptárba (Google Naptár link + letölthető .ics fájl) ---------- */
   function calParts(t){
@@ -1304,7 +1310,7 @@
       + infoList(t)
       + regCountLine(t.id)
       + (t.date < todayISO() ? '<div style="margin-top:.5rem"><a href="#eredmenyek">'+esc(T('Eredmények a szezonhoz →','Výsledky sezóny →'))+'</a></div>' : '')
-      + (t.registrationOpen ? '<div style="margin-top:.6rem"><a class="btn sm" href="#jelentkezes">'+esc(T('Jelentkezés','Prihlásenie'))+'</a></div>' : '')
+      + ((t.registrationOpen && String(t.date||'') >= todayISO()) ? '<div style="margin-top:.6rem"><a class="btn sm" href="#jelentkezes">'+esc(T('Jelentkezés','Prihlásenie'))+'</a></div>' : '')
       + '</div>';
   }
   function eventCard(t){ return eventCardLevel(t, ''); }
@@ -4008,7 +4014,8 @@
       TID_COUNTS = countByTid(regs);
       var regBody = document.getElementById('reg-body');
       if(!regBody) return;
-      var open = ts.filter(function(t){ return t.registrationOpen; }).sort(byDateAsc);
+      /* Csak a NYITOTT és még el nem múlt versenyekre lehet jelentkezni. */
+      var open = ts.filter(function(t){ return t.registrationOpen && String(t.date||'') >= todayISO(); }).sort(byDateAsc);
       /* A fülek felül mindig látszanak, ezért itt nincs szükség külön linkekre. */
       var whoLink = '';
       if(!open.length){
@@ -4290,7 +4297,7 @@
       /* Védelem: a kiválasztott verseny létezzen, és legyen nyitva. */
       loadTournaments(function(ts){
         var t = ts.filter(function(x){ return x.id === selectedTid; })[0];
-        if(!t || !t.registrationOpen){
+        if(!t || !t.registrationOpen || String(t.date||'') < todayISO()){
           reset();
           alert(T('A kiválasztott verseny nem található, vagy már lezárult a jelentkezés. Kérjük, válassza ki újra a versenyt.',
                   'Vybraný turnaj sa nenašiel alebo je prihlasovanie už uzavreté. Vyberte turnaj znova.'));
