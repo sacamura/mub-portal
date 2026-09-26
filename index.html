@@ -280,6 +280,11 @@
   .checkbox{width:1.5rem; height:1.5rem; border:2px solid var(--ink-soft); display:inline-block; border-radius:4px}
   .sheetwrap{border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:1rem}
   .sheetwrap iframe{width:100%; height:480px; border:0; display:block}
+  /* A Google-táblázat csak kattintásra töltődik be (a magától betöltő táblázat
+     odagörgette az oldalt — ezért ugrált a weblap). */
+  .sheetload{display:flex; align-items:center; justify-content:center; min-height:8.5rem; padding:1rem; background:var(--surface-2); text-align:center}
+  .sheetload .sheetload-t{font-weight:700; font-size:1.08rem; margin:0 0 .35rem}
+  .sheetload .meta{max-width:44rem; margin:0 auto .85rem}
   .rules-label{font-size:.8rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:.5rem}
   .rulestitle{font-size:1.3rem; margin:0 0 .8rem; color:var(--accent-strong); border-bottom:2px solid var(--accent-soft); padding-bottom:.4rem}
   .rules-main{font-size:1.05rem; line-height:1.7}
@@ -578,7 +583,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 67;
+  var BUILD = 68;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -993,6 +998,33 @@
     var gid = gidm ? gidm[1] : '0';
     return 'https://docs.google.com/spreadsheets/d/'+idm[1]+'/edit?usp=sharing&rm=minimal&single=true&widget=true&headers=false&gid='+gid;
   }
+  /* A beágyazott Google-táblázat helye a weblapon. Amíg a látogató rá nem
+     kattint, ide csak egy kattintható doboz kerül: a magától betöltő táblázat
+     ugyanis odagörgette az oldalt (ugrált a weblap), ráadásul nagyon nehéz. */
+  var sheetSeq = 0, SHEET_SRC = {};
+  function sheetPlaceholder(url, title, tag){
+    var embed = sheetEmbedUrl(url);
+    if(!embed) return '';                 /* nem Google-táblázat: nem ágyazzuk be */
+    var key = 'sheet-' + (++sheetSeq);
+    SHEET_SRC[key] = url;
+    return '<div class="sheetwrap sheetload" id="'+esc(key)+'">'
+      + '<div>'
+      + '<p class="sheetload-t">'+esc(title)+'</p>'
+      + '<p class="meta">'+esc(T('A táblázat a Google-tól töltődik be, ezért csak kattintásra nyílik meg az oldalon — így a weblap nem ugrál, és gyorsabban betölt.',
+                                'Tabuľka sa načítava z Google, preto sa na stránke otvorí až po kliknutí — web tak neposkakuje a načíta sa rýchlejšie.'))+'</p>'
+      + '<button type="button" class="btn sm" onclick="MUB.loadSheet(\''+jsq(key)+'\')">📊 '+esc(T('Táblázat megjelenítése','Zobraziť tabuľku'))+'</button>'
+      + '</div></div>';
+  }
+  /* A táblázat beágyazása a helyére — a magasság fix (480 px), így a betöltés
+     nem mozdítja el az oldalt. */
+  function loadSheet(key){
+    var url = SHEET_SRC[key], box = document.getElementById(key);
+    if(!url || !box) return;
+    var embed = sheetEmbedUrl(url);
+    if(!embed) return;
+    box.className = 'sheetwrap';
+    box.innerHTML = '<iframe src="'+esc(embed)+'" title="'+esc(T('Google-táblázat','Google tabuľka'))+'"></iframe>';
+  }
 
   /* ---------- auth state ---------- */
   var currentUser = null;
@@ -1402,11 +1434,13 @@
     html += '<h3 class="seasonname">'+esc(T('Szezon','Sezóna'))+' '+esc(seasonTitle(s))+(s.current?'<span class="badge">'+esc(T('aktuális','aktuálna'))+'</span>':'')+'</h3>';
     if(s.perTournamentUrl){
       html += '<div class="meta" style="margin-top:.6rem">'+esc(T('Versenyenkénti eredmények','Výsledky podľa turnajov'))+'</div>'
-        + '<div class="sheetwrap"><iframe src="'+esc(sheetEmbedUrl(s.perTournamentUrl))+'" loading="lazy"></iframe></div>' + sheetLink(s.perTournamentUrl);
+        + sheetPlaceholder(s.perTournamentUrl, T('Versenyenkénti eredmények','Výsledky podľa turnajov')+' · '+seasonTitle(s), 'per')
+        + sheetLink(s.perTournamentUrl);
     }
     if(s.aggregateUrl){
       html += '<div class="meta" style="margin-top:.9rem">'+esc(T('Összesített eredmény','Súhrnné výsledky'))+'</div>'
-        + '<div class="sheetwrap"><iframe src="'+esc(sheetEmbedUrl(s.aggregateUrl))+'" loading="lazy"></iframe></div>' + sheetLink(s.aggregateUrl);
+        + sheetPlaceholder(s.aggregateUrl, T('Összesített eredmény','Súhrnné výsledky')+' · '+seasonTitle(s), 'agg')
+        + sheetLink(s.aggregateUrl);
     }
     if(!s.perTournamentUrl && !s.aggregateUrl){
       html += '<p class="meta">'+esc(T('Ehhez a szezonhoz még nincs feltöltve eredmény.','Pre túto sezónu ešte nie sú nahraté výsledky.'))+'</p>';
@@ -3060,8 +3094,8 @@
     if(!sortedSeasons || !sortedSeasons.length) return '<p class="meta">'+esc(T('Még nincs feltöltött eredmény.','Zatiaľ nie sú nahraté výsledky.'))+'</p>';
     return sortedSeasons.map(function(se){
       return '<div class="seasonblock"><h3 class="seasonname">'+esc(T('Szezon','Sezóna'))+' '+esc(seasonTitle(se))+(se.current?'<span class="badge">'+esc(T('aktuális','aktuálna'))+'</span>':'')+'</h3>'
-        + (se.aggregateUrl ? '<div class="meta" style="margin-bottom:.3rem">'+esc(T('Összesített eredmény','Súhrnné výsledky'))+'</div><div class="sheetwrap"><iframe src="'+esc(sheetEmbedUrl(se.aggregateUrl))+'" loading="lazy"></iframe></div>'+sheetLink(se.aggregateUrl) : '')
-        + (se.perTournamentUrl ? '<div class="meta" style="margin:.6rem 0 .3rem">'+esc(T('Versenyenkénti eredmények','Výsledky podľa turnajov'))+'</div><div class="sheetwrap"><iframe src="'+esc(sheetEmbedUrl(se.perTournamentUrl))+'" loading="lazy"></iframe></div>'+sheetLink(se.perTournamentUrl) : '')
+        + (se.aggregateUrl ? '<div class="meta" style="margin-bottom:.3rem">'+esc(T('Összesített eredmény','Súhrnné výsledky'))+'</div>'+sheetPlaceholder(se.aggregateUrl, T('Összesített eredmény','Súhrnné výsledky')+' · '+seasonTitle(se), 'agg')+sheetLink(se.aggregateUrl) : '')
+        + (se.perTournamentUrl ? '<div class="meta" style="margin:.6rem 0 .3rem">'+esc(T('Versenyenkénti eredmények','Výsledky podľa turnajov'))+'</div>'+sheetPlaceholder(se.perTournamentUrl, T('Versenyenkénti eredmények','Výsledky podľa turnajov')+' · '+seasonTitle(se), 'per')+sheetLink(se.perTournamentUrl) : '')
         + (!se.aggregateUrl && !se.perTournamentUrl ? '<p class="meta">'+esc(T('Ehhez a szezonhoz még nincs feltöltve eredmény.','Pre túto sezónu ešte nie sú nahraté výsledky.'))+'</p>' : '')
         + '</div>';
     }).join('');
@@ -3444,8 +3478,8 @@
         var box = document.getElementById('res-body');
         if(!box) return;
         box.innerHTML = '<h3 class="adminsub" style="margin-top:1.6rem">'+esc(T('Hivatalos táblázatok (Google)','Oficiálne tabuľky (Google)'))+'</h3>'
-          + '<p class="meta">'+esc(T('A versenyek hivatalos eredménytáblázatai szezononként. A táblázatban görgetni és lapozni is lehet.',
-                                    'Oficiálne výsledkové tabuľky turnajov podľa sezón. V tabuľke sa dá posúvať a listovať.'))+'</p>'
+          + '<p class="meta">'+esc(T('A versenyek hivatalos eredménytáblázatai szezononként. A táblázatot kattintásra nyitja meg az oldal (így gyorsabb, és nem ugrál a weblap), utána a táblázatban görgetni és lapozni is lehet.',
+                                    'Oficiálne výsledkové tabuľky turnajov podľa sezón. Tabuľku stránka otvorí po kliknutí (je to rýchlejšie a web neposkakuje), potom sa v tabuľke dá posúvať a listovať.'))+'</p>'
           + resultsSheetsHtml(seasons.slice().sort(bySeasonDesc))
           + (FEAT.statistics ? '<p class="meta" style="margin-top:1.4rem"><a href="#statisztika">'+esc(T('Összesített statisztika és játékos-adatlapok →','Súhrnná štatistika a karty hráčov →'))+'</a></p>' : '');
       });
@@ -8438,10 +8472,13 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     uploadPlayerPhoto: uploadPlayerPhoto, removePlayerPhoto: removePlayerPhoto,
     setResSort: setResSort, setResMin: setResMin, setResSource: setResSource, setResVillage: setResVillage, resVillageOpen: resVillageOpen,
     setResQ: setResQ, setResQYear: setResQYear, setResQTour: setResQTour, setResQVill: setResQVill, setResQReset: setResQReset,
-    setAdminSub: setAdminSub, unifyPlayerName: unifyPlayerName, uploadCoverPhoto: uploadCoverPhoto, removeCoverPhoto: removeCoverPhoto
+    setAdminSub: setAdminSub, unifyPlayerName: unifyPlayerName, uploadCoverPhoto: uploadCoverPhoto, removeCoverPhoto: removeCoverPhoto,
+    loadSheet: loadSheet,
   };
 
   syncVillageDatalists();
+  /* A böngésző ne próbálja visszaállítani a görgetést, amíg az oldal töltődik. */
+  try{ if(window.history && 'scrollRestoration' in window.history) window.history.scrollRestoration = 'manual'; }catch(e){}
   render();
   /* A menüben a Statisztika gomb csak akkor jelenik meg, ha be van kapcsolva. */
   loadFeatures(function(){ renderNav(); });
