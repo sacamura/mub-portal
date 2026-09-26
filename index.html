@@ -583,7 +583,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 70;
+  var BUILD = 71;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -756,12 +756,51 @@
     }
     return '';
   }
-  /* A mai nap HELYI idő szerint. Az UTC-s dátum (toISOString) éjfél után
+  /* A SZLOVÁKIAI (kelet-európai) helyi idő: a mai dátum és a nap percei.
+     Így mindenkinél ugyanakkor zárul a jelentkezés, akármilyen időzónára van
+     állítva a telefonja vagy a számítógépe. */
+  var SK_TZ = 'Europe/Bratislava';
+  function skClock(){
+    try{
+      var s = new Intl.DateTimeFormat('sv-SE', { timeZone: SK_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
+      var m = String(s).match(/(\d{4})-(\d{2})-(\d{2})[ ,T]+(\d{1,2}):(\d{2})/);
+      if(m){
+        var h = Number(m[4]) % 24;
+        return { date: m[1] + '-' + m[2] + '-' + m[3], min: h * 60 + Number(m[5]) };
+      }
+    }catch(e){}
+    /* ha nincs időzóna-támogatás: a gép saját ideje */
+    var n = new Date();
+    return { date: n.getFullYear() + '-' + pad2(n.getMonth() + 1) + '-' + pad2(n.getDate()), min: n.getHours() * 60 + n.getMinutes() };
+  }
+  /* A mai nap Kelet-Európa (Szlovákia) szerint. Az UTC-s dátum éjfél után
      1–2 óráig még a tegnapi napot adná, ezért a verseny egy nappal korábban
      tűnne el a fő oldalról, és a jelentkezés gomb is rosszul maradna meg. */
-  function todayISO(){
-    var n = new Date();
-    return n.getFullYear() + '-' + pad2(n.getMonth() + 1) + '-' + pad2(n.getDate());
+  function todayISO(){ return skClock().date; }
+  /* A verseny kezdésének percei („8:30” → 510). Alapból 8:30. */
+  function startMinutes(t){
+    var m = String((t && t.time_start) || '').match(/\d{1,2}/g);
+    if(!m || !m.length) m = ['8', '30'];
+    return (Number(m[0]) || 0) * 60 + (Number(m[1]) || 0);
+  }
+  /* Jelentkezhet-e még valaki? A szervező pipája ÉS az idő számít:
+     a verseny napján a kezdés időpontjában (alapból 8:30) magától lezárul. */
+  function regOpenNow(t){
+    if(!t || !t.registrationOpen) return false;
+    var d = String(t.date || '');
+    if(!d) return true;                    /* dátum nélkül a kézi kapcsoló dönt */
+    var c = skClock();
+    if(d > c.date) return true;
+    if(d < c.date) return false;
+    return c.min < startMinutes(t);
+  }
+  /* Figyelmeztetés a versenykártyára: ma meddig lehet jelentkezni. */
+  function regDeadlineNote(t){
+    if(!regOpenNow(t)) return '';
+    var c = skClock();
+    if(String(t.date || '') !== c.date) return '';
+    return '<div class="meta">'+esc(T('A jelentkezés ma ','Prihlasovanie dnes do ')+String(t.time_start || '8:30')+T('-ig tart (szlovákiai idő szerint).',' (slovenského času).'))+'</div>';
   }
 
   /* ---------- Naptárba (Google Naptár link + letölthető .ics fájl) ---------- */
@@ -1310,7 +1349,8 @@
       + infoList(t)
       + regCountLine(t.id)
       + (t.date < todayISO() ? '<div style="margin-top:.5rem"><a href="#eredmenyek">'+esc(T('Eredmények a szezonhoz →','Výsledky sezóny →'))+'</a></div>' : '')
-      + ((t.registrationOpen && String(t.date||'') >= todayISO()) ? '<div style="margin-top:.6rem"><a class="btn sm" href="#jelentkezes">'+esc(T('Jelentkezés','Prihlásenie'))+'</a></div>' : '')
+      + (t.registrationOpen ? regDeadlineNote(t) : '')
+      + (regOpenNow(t) ? '<div style="margin-top:.6rem"><a class="btn sm" href="#jelentkezes">'+esc(T('Jelentkezés','Prihlásenie'))+'</a></div>' : '')
       + '</div>';
   }
   function eventCard(t){ return eventCardLevel(t, ''); }
@@ -1485,7 +1525,8 @@
               + regCountLine(next.id)
               + ' <a href="#jelentkezok">'+esc(T('kik jelentkeztek már?','kto sa už prihlásil?'))+'</a>'
               + (when ? '<div class="nextup__count">'+esc(when)+'</div>' : '')
-              + (next.registrationOpen ? '<div style="margin-top:.8rem"><a class="btn" href="#jelentkezes">'+esc(T('Jelentkezés','Prihlásenie'))+'</a></div>' : '')
+              + (next.registrationOpen ? regDeadlineNote(next) : '')
+              + (regOpenNow(next) ? '<div style="margin-top:.8rem"><a class="btn" href="#jelentkezes">'+esc(T('Jelentkezés','Prihlásenie'))+'</a></div>' : '')
               + '</div>';
           }
           if(!next){
@@ -4014,8 +4055,9 @@
       TID_COUNTS = countByTid(regs);
       var regBody = document.getElementById('reg-body');
       if(!regBody) return;
-      /* Csak a NYITOTT és még el nem múlt versenyekre lehet jelentkezni. */
-      var open = ts.filter(function(t){ return t.registrationOpen && String(t.date||'') >= todayISO(); }).sort(byDateAsc);
+      /* Csak arra a versenyre lehet jelentkezni, amelyik nyitva van, és még
+         nem kezdődött el (a verseny napján a kezdésig, alapból 8:30-ig). */
+      var open = ts.filter(regOpenNow).sort(byDateAsc);
       /* A fülek felül mindig látszanak, ezért itt nincs szükség külön linkekre. */
       var whoLink = '';
       if(!open.length){
@@ -4071,6 +4113,7 @@
         + '</select></div>'
         + '<p class="chosenline">'+esc(T('Jelentkezik: ','Prihlasujete sa na: '))+'<strong>'+esc(regChosenLabel)+'</strong></p>'
         + '<div class="field"><label for="f-code">'+esc(T('Azonosító (rövid kód)','Identifikačné číslo (krátky kód)'))+'</label><input id="f-code" inputmode="numeric" autocomplete="off" placeholder="43" oninput="MUB.lookupCode(this.value)"></div>'
+        + '<p class="meta hintline">'+esc(T('A jelentkezés a verseny napján a kezdés időpontjáig tart (alapból 8:30), utána magától lezárul.','Prihlasovanie trvá do času začiatku turnaja (štandardne 8:30), potom sa automaticky uzavrie.'))+'</p>'
         + '<p class="meta hintline">'+esc(T('Írja be a rövid azonosítóját (a neve melletti sorszámot) — a nevét magától kitöltjük. A kártyán lévő hosszú szám is jó: abból is megkeressük a rövid kódot. Ha egyiket sem tudja, kezdje el írni a nevét: a listából kiválasztva az azonosítót is kitöltjük.',
                                                 'Zadajte svoj krátky identifikačný kód (poradové číslo pri mene) — meno doplníme automaticky. Dobré je aj dlhé číslo z karty: krátky kód z neho zistíme. Ak neviete ani jedno, začnite písať meno: po výbere zo zoznamu doplníme aj identifikáciu.'))+'</p>'
         + '<div class="field"><label for="f-name">'+esc(T('Név','Meno'))+'</label><input id="f-name" list="reg-name-suggest" required autocomplete="name" placeholder="'+esc(T('Vezetéknév és keresztnév','Priezvisko a meno'))+'" oninput="MUB.lookupName(this.value)"></div>'
@@ -4297,7 +4340,7 @@
       /* Védelem: a kiválasztott verseny létezzen, és legyen nyitva. */
       loadTournaments(function(ts){
         var t = ts.filter(function(x){ return x.id === selectedTid; })[0];
-        if(!t || !t.registrationOpen || String(t.date||'') < todayISO()){
+        if(!t || !regOpenNow(t)){
           reset();
           alert(T('A kiválasztott verseny nem található, vagy már lezárult a jelentkezés. Kérjük, válassza ki újra a versenyt.',
                   'Vybraný turnaj sa nenašiel alebo je prihlasovanie už uzavreté. Vyberte turnaj znova.'));
@@ -4418,7 +4461,7 @@
               return '<tr><td>'+esc(T(t.location_hu,t.location_sk))+tagBadge(t.tag)+'</td>'
                 + '<td class="num">'+esc(t.date||'')+'</td>'
                 + '<td class="num"><strong>'+(counts[t.id]||0)+'</strong></td>'
-                + '<td>'+(t.registrationOpen ? '<span class="openmark">'+esc(T('nyitva','otvorené'))+'</span>' : esc(T('zárva','zatvorené')))+'</td></tr>';
+                + '<td>'+(regOpenNow(t) ? '<span class="openmark">'+esc(T('nyitva','otvorené'))+'</span>' : esc(T('zárva','zatvorené')))+'</td></tr>';
             }).join('')
           + '</tbody></table></div>';
         var withRegs = sorted.filter(function(t){ return (counts[t.id]||0) > 0; }).sort(byDateDesc);
@@ -4429,7 +4472,7 @@
         html += withRegs.map(function(t){
           var mine = regs.filter(function(r){ return String(r.tournamentId) === String(t.id); });
           mine.sort(function(a,b){ return String(a.name||'').localeCompare(String(b.name||''), 'hu'); });
-          return '<details class="whobox"'+(t.registrationOpen?' open':'')+'>'
+          return '<details class="whobox"'+(regOpenNow(t)?' open':'')+'>'
             + '<summary>'+esc(T(t.location_hu,t.location_sk))
             + '<span class="meta num">'+esc(t.date||'')+'</span>'
             + tagBadge(t.tag)
@@ -4845,7 +4888,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         + sorted.map(function(t){
           var nInfo = (t.info||[]).filter(function(r){ return String((r&&r.hu)||(r&&r.sk)||'').trim(); }).length;
           return '<tr><td>'+esc(t.location_hu)+(nInfo?'<div class="meta num">'+nInfo+' '+esc(T('info','info'))+'</div>':'')+'</td><td class="num">'+esc(t.date)+'</td><td class="num">'+esc(t.time_start||'8:30')+'–'+esc(t.time_end||'15:30')+'</td><td>'+esc(tagLabel(t.tag)||'—')+'</td>'
-            + '<td>'+(t.registrationOpen?'<span style="color:var(--accent-strong);font-weight:700">'+esc(T('nyitva','otvorené'))+'</span>':esc(T('zárva','zatvorené')))+'</td>'
+            + '<td>'+(regOpenNow(t) ? '<span style="color:var(--accent-strong);font-weight:700">'+esc(T('nyitva','otvorené'))+'</span>'
+                        : esc(T('zárva','zatvorené')) + (t.registrationOpen ? '<div class="meta" style="font-size:.78rem">'+esc(T('idő szerint lezárult','uzavreté podľa času'))+'</div>' : ''))+'</td>'
             + '<td><button type="button" class="btn sm secondary" onclick="MUB.editTournament(\''+jsq(t.id)+'\')">'+esc(T('Szerkeszt','Upraviť'))+'</button> <button type="button" class="btn sm danger" onclick="MUB.deleteTournament(\''+jsq(t.id)+'\')">'+esc(T('Törlés','Zmazať'))+'</button></td></tr>';
         }).join('') + '</tbody></table></div>';
     });
@@ -4919,6 +4963,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '</div>'
       + '<div id="t-info-rows">'+infoRowsHtml()+'</div></div>'
       + '<div class="field" style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" id="t-open" '+(t.registrationOpen?'checked':'')+' style="width:auto"><label for="t-open" style="margin:0">'+esc(T('Nyitva a jelentkezésre','Otvorené prihlasovanie'))+'</label></div>'
+      + '<p class="meta" style="margin:-.4rem 0 .8rem">'+esc(T('A jelentkezés a verseny napján a kezdés időpontjában (alapból 8:30, szlovákiai idő szerint) magától lezárul, akkor is, ha ez a pipa be van jelölve. Előbb is lezárhatja a pipa kivételével.',
+                                                                'V deň turnaja sa prihlasovanie automaticky uzavrie v čase začiatku (štandardne 8:30, slovenského času), aj keď je toto políčko zaškrtnuté. Skôr ho uzavriete odškrtnutím políčka.'))+'</p>'
       + (t.id ? '' : '<p class="meta" style="margin:-.5rem 0 .8rem">'+esc(T('Új versenynél ez alapból be van jelölve — így azonnal lehet jelentkezni. Ha még nem szeretné, vegye ki a pipát.','Pri novom turnaji je to zaškrtnuté — hneď sa dá prihlásiť. Ak ešte nechcete, odškrtnite.'))+'</p>')
       + '<button type="button" class="btn sm" onclick="MUB.saveTournament()">'+esc(T('Mentés','Uložiť'))+'</button> '+(t.id?'<button type="button" class="btn sm secondary" onclick="MUB.editTournament(null)">'+esc(T('Mégse','Zrušiť'))+'</button>':'');
     document.getElementById('t-form').innerHTML = html;
@@ -8532,7 +8578,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     uploadPlayerPhoto: uploadPlayerPhoto, removePlayerPhoto: removePlayerPhoto,
     setResSort: setResSort, setResMin: setResMin, setResSource: setResSource, setResVillage: setResVillage, resVillageOpen: resVillageOpen,
     setResQ: setResQ, setResQYear: setResQYear, setResQTour: setResQTour, setResQVill: setResQVill, setResQReset: setResQReset,
-    shortCodeOf: shortCodeOf, isLongId: isLongId,
+    shortCodeOf: shortCodeOf, isLongId: isLongId, regOpenNow: regOpenNow, skClock: skClock,
     setAdminSub: setAdminSub, unifyPlayerName: unifyPlayerName, uploadCoverPhoto: uploadCoverPhoto, removeCoverPhoto: removeCoverPhoto,
     loadSheet: loadSheet,
   };
