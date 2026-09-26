@@ -578,7 +578,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 64;
+  var BUILD = 65;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2468,6 +2468,7 @@
       setDeadList(v.names_dead);
       setPhotoMap(v.photos);
       setCover(v.cover);
+      setVillageExtras(v.villages);
       if(cb) cb(NAME_RULES);
     }).catch(function(){ if(cb) cb(NAME_RULES); });
   }
@@ -2871,6 +2872,7 @@
   var resSort = { key: 'points', dir: -1 };
   var resMin = 0;
   var resSource = 'new';        /* 'new' = új feltöltés, 'ref' = régi (referencia) */
+  var resVillage = '';          /* egy községre szűkítve (statisztika) */
   function setResSource(v){
     resSource = (v === 'ref') ? 'ref' : 'new';
     renderStats(document.getElementById('view'));
@@ -2879,6 +2881,15 @@
     if(resSort.key === key) resSort.dir = -resSort.dir;
     else resSort = { key: key, dir: (key === 'avgPlace' || key === 'official') ? 1 : -1 };
     renderStats(document.getElementById('view'));
+  }
+  function setResVillage(v){
+    resVillage = String(v || '');
+    renderStats(document.getElementById('view'));
+  }
+  /* A község részletes listája az Eredmények oldalon (dátum, győztes, létszám). */
+  function resVillageOpen(hu){
+    resQVill = String(hu || ''); resQTour = ''; resQ = '';
+    location.hash = '#eredmenyek';
   }
   function setResMin(v){
     var x = parseInt(String(v || '0').replace(/\D/g, ''), 10);
@@ -3055,7 +3066,9 @@
   /* ---------- EREDMÉNYEK: kereső a feltöltött eredmények között ----------
      A szervező idő és község szerint tölti fel a versenyeket. Itt játékos,
      azonosító, szezon és verseny szerint lehet szűrni — és látszik, ki hogy állt. */
-  var resQ = '', resQYear = 'all', resQTour = '', RES_INDEX = null, RES_GROUPS = null;
+  var resQ = '', resQYear = 'all', resQTour = '', resQVill = '', RES_INDEX = null, RES_GROUPS = null;
+  /* A verseny helyszíne a község-táblázat szerint (hivatalos magyar és szlovák név). */
+  function resVillOf(o){ if(!o) return null; if(o.vill === undefined) o.vill = villageOf(o.name); return o.vill; }
   /* A verseny nevéből kiolvasott dátum (pl. „Ruszka 7.3.2020” → 2020-03-07). */
   function tourDateFromName(name){
     var m = String(name || '').match(/(\d{1,2})\.\s?(\d{1,2})\.\s?(\d{2,4})/);
@@ -3114,8 +3127,9 @@
   /* Gépelés közben csak a találat frissül, így a kurzor a helyén marad. */
   function setResQ(v){ resQ = String(v == null ? '' : v); renderResFound(); }
   function setResQYear(v){ resQYear = String(v || 'all'); resQTour = ''; renderResSearch(); }
-  function setResQTour(v){ resQTour = String(v || ''); renderResSearch(); }
-  function setResQReset(){ resQ = ''; resQYear = 'all'; resQTour = ''; renderResSearch(); }
+  function setResQVill(v){ resQVill = String(v || ''); resQTour = ''; resQ = ''; renderResSearch(); }
+  function setResQTour(v){ resQTour = String(v || ''); resQVill = ''; renderResSearch(); }
+  function setResQReset(){ resQ = ''; resQYear = 'all'; resQTour = ''; resQVill = ''; renderResSearch(); }
   function renderResSearch(){
     var box = document.getElementById('res-search');
     if(!box) return;
@@ -3130,6 +3144,11 @@
     years.sort().reverse();
     var tours = idx.filter(function(o){ return resQYear === 'all' || o.year === resQYear; });
     var players = resPlayersOf(tours);
+    /* a községek, ahol a szűrt szezonokban verseny volt — hivatalos név szerint */
+    var villMap = {};
+    tours.forEach(function(o){ var v = resVillOf(o); if(v) villMap[v.hu] = v; });
+    var vills = Object.keys(villMap).map(function(k){ return villMap[k]; })
+      .sort(function(a, b){ return String(a.hu).localeCompare(String(b.hu), 'hu'); });
     /* a játékos-csoportok (név-egyesítés) a kiválasztott szezonokra — gépeléskor már nem számoljuk újra */
     RES_GROUPS = resPersonGroups(tours);
     box.innerHTML = '<div class="card noprint">'
@@ -3142,15 +3161,20 @@
       + '<option value="all"'+(resQYear === 'all' ? ' selected' : '')+'>'+esc(T('összes szezon','všetky sezóny'))+'</option>'
       + years.map(function(y){ return '<option value="'+esc(y)+'"'+(resQYear === y ? ' selected' : '')+'>'+esc(y)+'</option>'; }).join('')
       + '</select></div>'
+      + '<div class="field"><label for="res-q-vill">'+esc(T('Község','Obec'))+'</label>'
+      + '<select id="res-q-vill" onchange="MUB.setResQVill(this.value)">'
+      + '<option value="">'+esc(T('összes község','všetky obce'))+'</option>'
+      + vills.map(function(v){ return '<option value="'+esc(v.hu)+'"'+(resQVill === v.hu ? ' selected' : '')+'>'+esc(villageLabel(v))+'</option>'; }).join('')
+      + '</select></div>'
       + '<div class="field"><label for="res-q-tour">'+esc(T('Verseny','Turnaj'))+'</label>'
       + '<select id="res-q-tour" onchange="MUB.setResQTour(this.value)">'
       + '<option value="">'+esc(T('összes verseny','všetky turnaje'))+'</option>'
       + tours.map(function(o){ return '<option value="'+esc(o.name)+'"'+(resQTour === o.name ? ' selected' : '')+'>'+esc(resTourLabel(o))+'</option>'; }).join('')
       + '</select></div>'
       + '</div>'
-      + '<p class="meta">'+esc(T('Írja be a nevet (elég a vezetéknév is) vagy az azonosító számot, és/vagy válasszon szezont és versenyt. A nevekre kattintva megnyílik a játékos adatlapja.',
-                                'Napíšte meno (stačí priezvisko) alebo identifikačné číslo, prípadne vyberte sezónu a turnaj. Kliknutím na meno sa otvorí karta hráča.'))+'</p>'
-      + ((resQ || resQTour || resQYear !== 'all')
+      + '<p class="meta">'+esc(T('Írja be a nevet (elég a vezetéknév is) vagy az azonosító számot, és/vagy válasszon szezont, községet és versenyt. A nevekre kattintva megnyílik a játékos adatlapja.',
+                                'Napíšte meno (stačí priezvisko) alebo identifikačné číslo, prípadne vyberte sezónu, obec a turnaj. Kliknutím na meno sa otvorí karta hráča.'))+'</p>'
+      + ((resQ || resQTour || resQVill || resQYear !== 'all')
           ? '<div class="toolbar" style="margin-top:.2rem"><div class="meta">'+idx.length+' '+esc(T('feltöltött verseny','nahratých turnajov'))+'</div>'
             + '<div><button type="button" class="btn sm secondary" onclick="MUB.setResQReset()">'+esc(T('Szűrők törlése','Zrušiť filtre'))+'</button></div></div>'
           : '')
@@ -3161,8 +3185,11 @@
   }
   /* Egy verseny eredménytáblázata (helyezés, azonosító, név, körök, össz pénz és pont). */
   function resTourTable(o, withRounds){
+    var vv = resVillOf(o);
+    var vTxt = (vv && villageKey(o.name).indexOf(villageKey(vv.hu)) < 0) ? villageLabel(vv) : '';
     return '<h3 class="adminsub">'+esc(o.name)
       + (o.date ? ' <span class="meta">'+esc(fmtDateHu(o.date))+'</span>' : '')
+      + (vTxt ? ' <span class="meta">'+esc(T('hivatalos név: ','oficiálny názov: ')+vTxt)+'</span>' : '')
       + ' <span class="badge">'+o.size+' '+esc(T('játékos','hráčov'))+'</span></h3>'
       + '<div class="table-wrap"><table class="list"><thead><tr>'
       + '<th class="num">'+esc(T('Hely','Miesto'))+'</th><th class="num">'+esc(T('Azonosító','ID'))+'</th><th>'+esc(T('Név','Meno'))+'</th>'
@@ -3263,6 +3290,80 @@
       return g.aliases.some(function(n){ return deacc(n).indexOf(qk) >= 0; }) || deacc(g.name).indexOf(qk) >= 0;
     });
   }
+  /* Egy község összefoglalója: mely versenyek voltak ott, mikor kik nyertek,
+     hányan vettek részt — és ki a község legeredményesebb játékosa. */
+  function resVillageReport(list, vill){
+    var tours = list.filter(function(o){ var v = resVillOf(o); return v && v.hu === vill.hu; });
+    tours.sort(function(a, b){
+      return String(a.year).localeCompare(String(b.year)) || String(a.date).localeCompare(String(b.date)) || String(a.name).localeCompare(String(b.name), 'hu');
+    });
+    var players = {}, order = [];
+    var NG = nameGroups(tours);
+    tours.forEach(function(o){
+      o.rows.forEach(function(r){
+        var root = NG.groupOf[r.n] || String(r.n);
+        var p = players[root];
+        if(!p){
+          var info = NG.byName[root] || null;
+          p = players[root] = { raw: root, name: (info && info.name) || niceName(r.n),
+                                ids: (info && info.ids) || [], code: '', n: 0, wins: 0, podiums: 0, best: 999, winsAt: [] };
+          order.push(root);
+        }
+        if(!p.code && r.code) p.code = String(r.code);
+        p.n++;
+        var pl = Number(r.place) || 999;
+        if(pl === 1){ p.wins++; if(p.winsAt.length < 4) p.winsAt.push(String(o.year) + ' · ' + o.name); }
+        if(pl <= 3) p.podiums++;
+        if(pl < p.best) p.best = pl;
+      });
+    });
+    /* a Játékosok menü neve a referencia név */
+    order.forEach(function(k){
+      var p = players[k], ref = '';
+      (p.ids || []).forEach(function(id){ if(!ref) ref = refNameOf(id); });
+      if(!ref && p.code) ref = refNameOf(p.code);
+      if(ref) p.name = ref;
+    });
+    var plist = order.map(function(k){ return players[k]; }).sort(function(a, b){
+      return b.wins - a.wins || b.podiums - a.podiums || b.n - a.n || a.best - b.best || String(a.name).localeCompare(String(b.name), 'hu');
+    });
+    var parts = 0; tours.forEach(function(o){ parts += o.rows.length; });
+    var seasons = {}; tours.forEach(function(o){ if(o.year) seasons[o.year] = 1; });
+    var ys = Object.keys(seasons).sort();
+    var winners = plist.filter(function(p){ return p.wins > 0; });
+    return '<h3 class="adminsub">'+esc(villageLabel(vill))
+      + ' <span class="badge">'+tours.length+' '+esc(T('verseny','turnajov'))+'</span></h3>'
+      + '<p class="meta">'+esc(T('Összes verseny: ','Spolu turnajov: '))+tours.length
+      + ' · '+esc(T('összes indulás: ','spolu štartov: '))+parts
+      + ' · '+esc(T('játékos: ','hráčov: '))+plist.length
+      + (ys.length ? ' · '+esc(T('szezonok: ','sezóny: '))+esc(ys[0] === ys[ys.length - 1] ? ys[0] : ys[0] + '–' + ys[ys.length - 1]) : '')
+      + (winners.length ? ' · '+esc(T('győztes: ','víťazov: ')) + winners.length : '')
+      + '</p>'
+      + '<div class="table-wrap"><table class="list"><thead><tr>'
+      + '<th>'+esc(T('Szezon','Sezóna'))+'</th><th>'+esc(T('Dátum','Dátum'))+'</th><th>'+esc(T('Verseny','Turnaj'))+'</th>'
+      + '<th class="num">'+esc(T('Játékos','Hráčov'))+'</th><th>'+esc(T('Dobogó','Pódium'))+'</th><th class="noprint"></th></tr></thead><tbody>'
+      + tours.map(function(o){
+          var pod = o.rows.filter(function(r){ return (Number(r.place) || 999) <= 3; }).slice(0, 3).map(function(r){
+            return (Number(r.place) || '') + '. ' + (refNameOf(r.code) || niceName(r.n));
+          }).join(' · ');
+          return '<tr><td class="num">'+esc(o.year)+'</td><td class="num">'+esc(o.date ? fmtDateHu(o.date) : '—')+'</td><td>'+esc(o.name)+'</td>'
+            + '<td class="num">'+o.size+'</td><td>'+esc(pod || '—')+'</td>'
+            + '<td class="noprint"><button type="button" class="btn sm secondary" onclick="MUB.setResQTour('+jsq(o.name)+')">'+esc(T('Eredmény','Výsledky'))+'</button></td></tr>';
+        }).join('')
+      + '</tbody></table></div>'
+      + '<h3 class="adminsub" style="margin-top:1.2rem">'+esc(T('A község legeredményesebb játékosai','Najúspešnejší hráči obce'))+'</h3>'
+      + '<div class="table-wrap"><table class="list"><thead><tr>'
+      + '<th>'+esc(T('Név','Meno'))+'</th><th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">'+esc(T('Győzelem','Víťazstiev'))+'</th>'
+      + '<th class="num">'+esc(T('Dobogó','Pódium'))+'</th><th class="num">'+esc(T('Legjobb hely','Najlepšie miesto'))+'</th>'
+      + '<th class="noprint">'+esc(T('Hol nyert','Kde vyhral'))+'</th></tr></thead><tbody>'
+      + plist.slice(0, 25).map(function(p){
+          return '<tr><td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard('+jsq(p.raw)+')">'+esc(p.name)+'</button></td>'
+            + '<td class="num">'+p.n+'</td><td class="num">'+(p.wins || '')+'</td><td class="num">'+(p.podiums || '')+'</td>'
+            + '<td class="num">'+(p.best < 999 ? p.best + '.' : '')+'</td>'
+            + '<td class="noprint meta">'+esc(p.winsAt.join(' · '))+'</td></tr>';
+        }).join('')
+      + '</tbody></table></div>';
+  }
   function renderResFound(){
     var box = document.getElementById('res-found');
     if(!box) return;
@@ -3275,7 +3376,19 @@
       box.innerHTML = list.map(function(o){ return resTourTable(o, true); }).join('');
       return;
     }
-    /* 2) játékos neve vagy azonosítója szerint */
+    /* 2) egy község minden versenye */
+    if(resQVill){
+      var vfind = null;
+      idx.forEach(function(o){ var v = resVillOf(o); if(v && v.hu === resQVill) vfind = v; });
+      if(!vfind){
+        box.innerHTML = '<p class="meta">'+esc(T('Ez a község nincs a feltöltött eredmények között.','Táto obec nie je medzi nahratými výsledkami.'))+'</p>';
+        return;
+      }
+      var vlist = idx.filter(function(o){ return resQYear === 'all' || o.year === resQYear; });
+      box.innerHTML = resVillageReport(vlist, vfind);
+      return;
+    }
+    /* 3) játékos neve vagy azonosítója szerint */
     if(q){
       var persons = resPersonHits(RES_GROUPS || [], q);
       if(!persons.length){
@@ -3300,9 +3413,12 @@
       + ' · ' + rows + ' ' + esc(T('eredménysor','výsledkov')) + '</h3>'
       + '<div class="table-wrap"><table class="list"><thead><tr>'
       + '<th>'+esc(T('Szezon','Sezóna'))+'</th><th>'+esc(T('Dátum','Dátum'))+'</th><th>'+esc(T('Verseny','Turnaj'))+'</th>'
+      + '<th>'+esc(T('Község','Obec'))+'</th>'
       + '<th class="num">'+esc(T('Játékos','Hráčov'))+'</th><th>'+esc(T('Győztes','Víťaz'))+'</th><th class="noprint"></th></tr></thead><tbody>'
       + list.slice(0, 400).map(function(o){
+          var ov = resVillOf(o);
           return '<tr><td class="num">'+esc(o.year)+'</td><td class="num">'+esc(o.date ? fmtDateHu(o.date) : '—')+'</td><td>'+esc(o.name)+'</td>'
+            + '<td>'+(ov ? '<button type="button" class="linkbtn" onclick="MUB.setResQVill('+jsq(ov.hu)+')">'+esc(villageLabel(ov))+'</button>' : '—')+'</td>'
             + '<td class="num">'+o.size+'</td>'
             + '<td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard('+jsq(o.winner)+')">'+esc(refNameOf(o.winnerCode) || niceName(o.winner))+'</button></td>'
             + '<td class="noprint"><button type="button" class="btn sm secondary" onclick="MUB.setResQTour('+jsq(o.name)+')">'+esc(T('Eredmény','Výsledky'))+'</button></td></tr>';
@@ -3352,9 +3468,35 @@
         if(!box) return;
         var years = seasonYears(all);
         var list = resultsOfYear(all, resSeason);
+        /* Község szerint: csak az ott játszott versenyek sorai számítanak
+           (a szezon-összesítő nem községhez kötött, ezért ilyenkor kimarad). */
+        var vill = null;
+        allVillages().forEach(function(v){ if(v.hu === resVillage) vill = v; });
+        if(vill){
+          list = list.map(function(s){
+            var rows = (s.rows || []).filter(function(r){ var v = villageOf(r.t); return v && v.hu === vill.hu; });
+            return Object.assign({}, s, { rows: rows, aggRows: [] });
+          }).filter(function(s){ return (s.rows || []).length; });
+        }
         var stats = buildStats(list);
         var html = '';
 
+        /* 0) ha egy községre szűkítettünk, azt írjuk ki */
+        if(vill){
+          var vTours = {}, vPlayers = {};
+          list.forEach(function(s){
+            (s.rows || []).forEach(function(r){
+              vTours[String(s.year) + '|' + String(r.t)] = 1;
+              var k = playerKey(r.n); if(k) vPlayers[k] = 1;
+            });
+          });
+          var vN = Object.keys(vTours).length;
+          html += '<div class="banner noprint" role="status"><strong>'+esc(villageLabel(vill))+'</strong> — '
+            + vN + ' ' + esc(T('verseny','turnajov')) + ' · ' + Object.keys(vPlayers).length + ' ' + esc(T('játékos','hráčov')) + ' · '
+            + esc(T('a ranglista csak az itteni versenyeket számolja.','rebríček počíta len tunajšie turnaje.'))
+            + ' <a href="#eredmenyek" onclick="MUB.resVillageOpen('+jsq(vill.hu)+')">'+esc(T('Részletes község-lista (dátum, győztes, létszám) →','Podrobný zoznam obce (dátum, víťaz, počet) →'))+'</a>'
+            + ' <button type="button" class="btn sm secondary" onclick="MUB.setResVillage(\'\')">'+esc(T('Szűrő törlése','Zrušiť filter'))+'</button></div>';
+        }
         /* 1) ranglista */
         if(years.length){
           /* A szezonválasztó: a felirat felül, a mező alatta — mobilon is jól látszik. */
@@ -3370,6 +3512,16 @@
             + '<select id="res-src" onchange="MUB.setResSource(this.value)">'
             + '<option value="new"'+(resSource === 'new' ? ' selected' : '')+'>'+esc(T('új feltöltés','nové nahranie'))+'</option>'
             + '<option value="ref"'+(resSource === 'ref' ? ' selected' : '')+'>'+esc(T('régi (referencia)','staré (referencia)'))+'</option>'
+            + '</select></div>'
+            + '<div class="field resvill"><label for="res-vill">'+esc(T('Község','Obec'))+'</label>'
+            + '<select id="res-vill" onchange="MUB.setResVillage(this.value)">'
+            + '<option value="">'+esc(T('összes község','všetky obce'))+'</option>'
+            + (function(){
+                var vm2 = {};
+                resultsOfYear(all, 'all').forEach(function(s){ (s.rows || []).forEach(function(r){ var v = villageOf(r.t); if(v) vm2[v.hu] = v; }); });
+                return Object.keys(vm2).map(function(k){ return vm2[k]; }).sort(function(a, b){ return String(a.hu).localeCompare(String(b.hu), 'hu'); })
+                  .map(function(v){ return '<option value="'+esc(v.hu)+'"'+(resVillage === v.hu ? ' selected' : '')+'>'+esc(villageLabel(v))+'</option>'; }).join('');
+              })()
             + '</select></div>'
             + '</div>';
           if(resSource === 'ref'){
@@ -4662,8 +4814,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     t = t || {location_hu:'',location_sk:'',date:'',time_start:'8:30',time_end:'15:30',tag:'',registrationOpen:true,info:[]};
     tInfoRows = (t.info||[]).map(function(r){ return { hu: String((r&&r.hu)||''), sk: String((r&&r.sk)||'') }; });
     var html = '<input type="hidden" id="t-id" value="'+esc(t.id||'')+'">'
-      + '<div class="row2"><div class="field"><label for="t-loc-hu">'+esc(T('Helyszín (magyar)','Miesto (maďarsky)'))+'</label><input id="t-loc-hu" value="'+esc(t.location_hu)+'"></div>'
-      + '<div class="field"><label for="t-loc-sk">'+esc(T('Helyszín (szlovák)','Miesto (slovensky)'))+'</label><input id="t-loc-sk" value="'+esc(t.location_sk)+'"></div></div>'
+      + '<div class="row2"><div class="field"><label for="t-loc-hu">'+esc(T('Helyszín (magyar)','Miesto (maďarsky)'))+'</label><input id="t-loc-hu" list="vill-hu" autocomplete="off" value="'+esc(t.location_hu)+'" onchange="MUB.villagePair(\'t-loc-hu\',\'t-loc-sk\',\'hu\')"></div>'
+      + '<div class="field"><label for="t-loc-sk">'+esc(T('Helyszín (szlovák)','Miesto (slovensky)'))+'</label><input id="t-loc-sk" list="vill-sk" autocomplete="off" value="'+esc(t.location_sk)+'" onchange="MUB.villagePair(\'t-loc-hu\',\'t-loc-sk\',\'sk\')"></div></div>'
       + '<div class="row2"><div class="field"><label for="t-date">'+esc(T('Dátum','Dátum'))+'</label><input id="t-date" type="date" value="'+esc(t.date)+'"></div>'
       + '<div class="field"><label for="t-tag">'+esc(T('Jelzés a verseny mellett','Označenie pri turnaji'))+'</label><select id="t-tag">'+tagOptions(t.tag)+'</select></div></div>'
       + '<div class="row2"><div class="field"><label for="t-start">'+esc(T('Kezdés','Začiatok'))+'</label><input id="t-start" value="'+esc(t.time_start)+'"></div>'
@@ -6503,7 +6655,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
               + fld('pl-name-'+p.code, T('Név (referencia)','Meno (referenčné)'), p.name, { wide: true })
               + fld('pl-code-'+p.code, T('Rövid kód (sorszám)','Krátky kód (poradové číslo)'), p.code, { attrs: ' inputmode="numeric"' })
               + fld('pl-nfc-'+p.code, T('Hosszú kártyaszám (NFC)','Dlhé číslo karty (NFC)'), p.nfcCode, { attrs: ' inputmode="numeric"' })
-              + fld('pl-vill-'+p.code, T('Község','Obec'), p.village)
+              + fld('pl-vill-'+p.code, T('Község','Obec'), p.village, { attrs: ' list="vill-hu" autocomplete="off"' })
               + fld('pl-phone-'+p.code, T('Telefonszám','Telefónne číslo'), p.phone, { attrs: ' inputmode="tel"' })
               + fld('pl-mail-'+p.code, 'E-mail', p.email, { attrs: ' type="email"' })
             + '</div>'
@@ -6627,6 +6779,101 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     [95,'2475081431','Roffar Ján'],[96,'3049948103','Adam Ján'],[97,'3031433959','Muščík Peter'],
     [98,'2479702439','Györgyfi Lóránt'],[99,'2817402807','Karafa Tomáš'],[100,'3023693367','Žilla Vladimír']
   ];
+  /* ---------- Községek (hivatalos magyar és szlovák név) ----------
+     A táblázatokban gyakran rövidített alak szerepel (Kapos, Szelmenc, Ruszka,
+     Kelecseny, Sz.Hely…). A statisztikában ezek szerint lehet községre keresni,
+     a felvitelnél pedig ezek a hivatalos nevek kínálhatók fel. */
+  var VILLAGES = [
+    { hu: 'Kaposkelecsény',   sk: 'Kapušianske Kľačany',  keys: ['kaposkelecs', 'kelecs', 'kelcsen', 'kapusianske klacany'] },
+    { hu: 'Dobóruszka',       sk: 'Ruská',                keys: ['doborusz', 'ruszka', 'ruska'] },
+    { hu: 'Nagyszelmenc',     sk: 'Veľké Slemence',       keys: ['nagyszelmenc', 'szelmenc', 'slemence', 'velke slemence'] },
+    { hu: 'Nagygéres',        sk: 'Veľký Horeš',          keys: ['nagyeres', 'velky hores'] },
+    { hu: 'Kisgéres',         sk: 'Malý Horeš',           keys: ['kisgeres', 'maly hores'] },
+    { hu: 'Zétény',           sk: 'Zatín',                keys: ['zeten', 'zatin'] },
+    { hu: 'Királyhelmec',     sk: 'Kráľovský Chlmec',     keys: ['kiralyhelmec', 'helmec', 'chlmec', 'kralovsky chlmec'] },
+    { hu: 'Bodrogszerdahely', sk: 'Streda nad Bodrogom',  keys: ['bodrogszerdahely', 'szerdahely', 'szhely', 'streda'] },
+    { hu: 'Véke',             sk: 'Vojka',                keys: ['veke', 'vojka'] },
+    { hu: 'Nagykapos',        sk: 'Veľké Kapušany',       keys: ['nagykapos', 'kapos', 'velke kapusany'] },
+    { hu: 'Csicser',          sk: 'Čičarovce',            keys: ['csicser', 'cicarovce'] },
+    { hu: 'Parnó',            sk: 'Parchovany',           keys: ['parno', 'parchovan'] },
+    { hu: 'Szőlőske',         sk: 'Viničky',              keys: ['szoloske', 'vinicky'] },
+    { hu: 'Hatalov',          sk: 'Hatalov',              keys: ['hatalov'] }
+  ];
+  var VILLAGE_EXTRA = [];            /* a szervező által hozzáadott községek */
+  function setVillageExtras(list){
+    VILLAGE_EXTRA = [];
+    (list || []).forEach(function(x){
+      if(!x) return;
+      var hu = String(x.hu || (x[0] || '')).trim(), sk = String(x.sk || (x[1] || '')).trim();
+      if(!hu) return;
+      var keys = [deacc(hu).replace(/[^a-z ]+/g, '')];
+      if(sk) keys.push(deacc(sk).replace(/[^a-z ]+/g, ''));
+      VILLAGE_EXTRA.push({ hu: hu, sk: sk, keys: keys, extra: true });
+    });
+    if(typeof document !== 'undefined' && document.body) syncVillageDatalists();
+  }
+  function allVillages(){ return VILLAGES.concat(VILLAGE_EXTRA); }
+  function villageKey(s){ return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+  /* Melyik község ez a szöveg? (hosszú alak, majd hasonlóság az első szóra) */
+  function villageOf(text){
+    var s = villageKey(text);
+    if(!s) return null;
+    var best = null, bestLen = 0;
+    /* a „Sz.Hely” alakban a pont szóközzé válik — ezért szóköz nélkül is keresünk */
+    var sq = s.replace(/ /g, '');
+    allVillages().forEach(function(v){
+      (v.keys || []).forEach(function(k){
+        if(!k) return;
+        var kq = k.replace(/ /g, '');
+        if((s.indexOf(k) >= 0 || (kq && sq.indexOf(kq) >= 0)) && k.length > bestLen){ best = v; bestLen = k.length; }
+      });
+    });
+    if(best) return best;
+    var first = s.split(' ')[0];
+    var bestS = 0, hit = null;
+    allVillages().forEach(function(v){
+      (v.keys || []).forEach(function(k){
+        var sc = textSim(first, k);
+        if(sc > bestS){ bestS = sc; hit = v; }
+      });
+    });
+    return (hit && bestS >= 0.8) ? hit : null;
+  }
+  function villageLabel(v){ return v ? (v.hu + (v.sk && v.sk !== v.hu ? ' (' + v.sk + ')' : '')) : ''; }
+  /* A szervező által hozzáadott községek szöveges formája (egy sor: Magyar = Szlovák). */
+  function villageExtraText(){
+    return VILLAGE_EXTRA.map(function(v){ return v.hu + ' = ' + (v.sk || v.hu); }).join('\n');
+  }
+  function parseVillageText(txt){
+    var out2 = [];
+    String(txt || '').split(/\r?\n/).forEach(function(line){
+      line = String(line || '').trim();
+      if(!line) return;
+      var p = line.split(/\s*[=;\t]\s*/);
+      var hu = String(p[0] || '').trim(), sk = String(p[1] || '').trim();
+      if(!hu) return;
+      out2.push({ hu: hu, sk: sk || hu });
+    });
+    return out2;
+  }
+  /* A községnevek kínálata minden helyszín-mezőhöz (egyszer az oldalon). */
+  function syncVillageDatalists(){
+    if(typeof document === 'undefined' || !document.body) return;
+    var box = document.getElementById('vill-datalists');
+    if(!box){ box = document.createElement('div'); box.id = 'vill-datalists'; document.body.appendChild(box); }
+    box.innerHTML = '<datalist id="vill-hu">' + allVillages().map(function(v){ return '<option value="' + esc(v.hu) + '"></option>'; }).join('')
+      + '</datalist><datalist id="vill-sk">' + allVillages().map(function(v){ return '<option value="' + esc(v.sk || v.hu) + '"></option>'; }).join('') + '</datalist>';
+  }
+  /* Ha a magyar mezőbe hivatalos nevet írnak (vagy a listából választanak), a
+     szlovák mező magától kitöltődik — és fordítva. A kézzel írt szöveget nem írja felül. */
+  function villagePair(huId, skId, which){
+    var huEl = document.getElementById(huId), skEl = document.getElementById(skId);
+    if(!huEl || !skEl) return;
+    var v = villageOf(which === 'sk' ? skEl.value : huEl.value);
+    if(!v) return;
+    if(which === 'sk'){ if(v.hu && !String(huEl.value || '').trim()) huEl.value = v.hu; }
+    else { if(v.sk && !String(skEl.value || '').trim()) skEl.value = v.sk; }
+  }
   var lastImportStatus = '';
   function importRosterRows(rows){
     lastImportStatus = T('Importálás…','Importuje sa…');
@@ -6781,6 +7028,11 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     else if(k === 'venue_sk') mrVenueSk = String(v || '');
     else if(k === 'date') mrDate = String(v || '');
     /* gépelés közben nem rajzoljuk újra az egészet (különben elugrik a kurzor) */
+  }
+  function mrSyncVenue(){
+    var a = document.getElementById('mr-venue'), b = document.getElementById('mr-venue-sk');
+    if(a) mrVenue = String(a.value || '');
+    if(b) mrVenueSk = String(b.value || '');
   }
   function mrToggleMub(on){ mrMub = !!on; renderAdminMr(); }
   /* Excel (.xlsx) vagy CSV/TXT fájl beolvasása a beillesztő mezőbe. */
@@ -7250,8 +7502,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '<div class="row3">'
       + '<div class="field"><label for="mr-year">'+esc(T('Szezon (év)','Sezóna (rok)'))+'</label><input id="mr-year" inputmode="numeric" value="'+esc(mrYear)+'" oninput="MUB.mrField(\'year\', this.value)"></div>'
       + (isAgg ? '' :
-          '<div class="field"><label for="mr-venue">'+esc(T('Verseny helyszíne (magyar)','Miesto turnaja (maďarsky)'))+'</label><input id="mr-venue" value="'+esc(mrVenue)+'" oninput="MUB.mrField(\'venue\', this.value)"></div>'
-        + '<div class="field"><label for="mr-venue-sk">'+esc(T('Verseny helyszíne (szlovák)','Miesto turnaja (slovensky)'))+'</label><input id="mr-venue-sk" value="'+esc(mrVenueSk)+'" oninput="MUB.mrField(\'venue_sk\', this.value)"></div>'
+          '<div class="field"><label for="mr-venue">'+esc(T('Verseny helyszíne (magyar)','Miesto turnaja (maďarsky)'))+'</label><input id="mr-venue" list="vill-hu" autocomplete="off" value="'+esc(mrVenue)+'" oninput="MUB.mrField(\'venue\', this.value)" onchange="MUB.villagePair(\'mr-venue\',\'mr-venue-sk\',\'hu\'); MUB.mrSyncVenue()"></div>'
+        + '<div class="field"><label for="mr-venue-sk">'+esc(T('Verseny helyszíne (szlovák)','Miesto turnaja (slovensky)'))+'</label><input id="mr-venue-sk" list="vill-sk" autocomplete="off" value="'+esc(mrVenueSk)+'" oninput="MUB.mrField(\'venue_sk\', this.value)" onchange="MUB.villagePair(\'mr-venue\',\'mr-venue-sk\',\'sk\'); MUB.mrSyncVenue()"></div>'
         + '<div class="field"><label for="mr-date">'+esc(T('Dátum','Dátum'))+'</label><input id="mr-date" type="date" value="'+esc(mrDate)+'" oninput="MUB.mrField(\'date\', this.value)"></div>')
       + '</div>'
       + (isAgg ? '' :
@@ -7993,6 +8245,14 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
           'A játék szabályai. Ami itt nincs kitöltve, az nem jelenik meg a Szabályok oldalon.',
           'Pravidlá hry. Čo tu nie je vyplnené, to sa na stránke Pravidlá nezobrazí.',
           r.card_hu, r.card_sk)
+        + '<div class="card" style="margin-bottom:1.2rem">'
+        + '<h3 style="margin-bottom:.3rem">'+esc(T('Községek hivatalos nevei','Oficiálne názvy obcí'))+'</h3>'
+        + '<p class="meta" style="margin:0 0 .9rem">'+esc(T('A statisztikában és a keresőben a verseny helyszíne ezek szerint a hivatalos nevek szerint csoportosul, és a helyszín mezők ezeket kínálják fel. Ami a beépített listában nincs benne, azt ide írhatja, soronként egyet: Magyar név = Szlovák név.',
+                                                              'V štatistike a vyhľadávaní sa miesto turnaja zoskupuje podľa týchto oficiálnych názvov a polia miesta ich ponúkajú. Čo v základnom zozname nie je, dopíšte sem, jeden riadok: maďarský názov = slovenský názov.'))+'</p>'
+        + '<div class="field"><label for="r-vill">'+esc(T('További községek','Ďalšie obce'))+'</label><textarea id="r-vill" rows="4" placeholder="'+esc(T('pl. Bodrogmező = Bodrog','napr. Bodrogmező = Bodrog'))+'">'+esc(villageExtraText())+'</textarea></div>'
+        + '<details style="margin-top:.5rem"><summary class="meta">'+esc(T('A beépített községlista (','Základný zoznam obcí ('))+VILLAGES.length+esc(T(' község)',' obcí)'))+'</summary><p class="meta" style="margin:.4rem 0 0">'
+        + VILLAGES.map(function(v){ return esc(villageLabel(v)); }).join(' · ')+'</p></details>'
+        + '</div>'
         + '<div class="toolbar"><div><button type="button" class="btn" onclick="MUB.saveRules()">'+esc(T('Mentés','Uložiť'))+'</button> '
         + '<button type="button" class="btn sm secondary" onclick="MUB.resetRulesToDefault()">'+esc(T('Kártyaszabályok visszaállítása az eredeti szövegre','Obnoviť pôvodné kartové pravidlá'))+'</button></div></div>'
         + '<p class="meta">'+esc(T('A magyar szöveg a magyar oldalra kerül, a szlovák a szlovákra. Mentés után a Szabályok oldal azonnal ezt mutatja mindenkinek.',
@@ -8001,7 +8261,9 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   }
   function saveRules(){
     var val = function(id){ var e = document.getElementById(id); return e ? String(e.value||'') : ''; };
-    var v = { org_hu: val('r-org-hu'), org_sk: val('r-org-sk'), card_hu: val('r-card-hu'), card_sk: val('r-card-sk') };
+    var v = { org_hu: val('r-org-hu'), org_sk: val('r-org-sk'), card_hu: val('r-card-hu'), card_sk: val('r-card-sk'),
+              villages: parseVillageText(val('r-vill')) };
+    setVillageExtras(v.villages);
     var btn = document.querySelector ? null : null;
     db.collection('settings').doc('rules').set(v, { merge: true }).then(function(){
       CACHE.rules = null;
@@ -8150,15 +8412,16 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     mrField: mrField, mrToggleMub: mrToggleMub, mrPasteSet: mrPasteSet, mrParse: mrParse, mrAddRow: mrAddRow, mrClear: mrClear,
     mrName: mrName, mrNameCommit: mrNameCommit, mrMoney: mrMoney, mrAccept: mrAccept, mrKeep: mrKeep, mrSave: mrSave, mrDeleteTour: mrDeleteTour,
     mrSetMode: mrSetMode, mrCode: mrCode, mrDeleteAgg: mrDeleteAgg, mrFile: mrFile,
-    mrSetIdPos: mrSetIdPos,
+    mrSetIdPos: mrSetIdPos, mrSyncVenue: mrSyncVenue, villagePair: villagePair,
     mrSetYear: mrSetYear, mrEdit: mrEdit, mrCancelEdit: mrCancelEdit, mrReload: mrReload,
     savePlayer: savePlayer, setPlayerQuery: setPlayerQuery, playerShowMore: playerShowMore, exportContacts: exportContacts, setRegSort: setRegSort,
     uploadPlayerPhoto: uploadPlayerPhoto, removePlayerPhoto: removePlayerPhoto,
-    setResSort: setResSort, setResMin: setResMin, setResSource: setResSource,
-    setResQ: setResQ, setResQYear: setResQYear, setResQTour: setResQTour, setResQReset: setResQReset,
+    setResSort: setResSort, setResMin: setResMin, setResSource: setResSource, setResVillage: setResVillage, resVillageOpen: resVillageOpen,
+    setResQ: setResQ, setResQYear: setResQYear, setResQTour: setResQTour, setResQVill: setResQVill, setResQReset: setResQReset,
     setAdminSub: setAdminSub, unifyPlayerName: unifyPlayerName, uploadCoverPhoto: uploadCoverPhoto, removeCoverPhoto: removeCoverPhoto
   };
 
+  syncVillageDatalists();
   render();
   /* A menüben a Statisztika gomb csak akkor jelenik meg, ha be van kapcsolva. */
   loadFeatures(function(){ renderNav(); });
