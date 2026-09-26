@@ -1,8 +1,9 @@
 /* MUB Portál – service worker
    Cél: a portál a telefonon telepíthető legyen, és gyenge interneten is megnyíljon.
    Mindig a hálózatról tölti a friss oldalt; csak akkor adja a mentett változatot,
-   ha nincs internet. A Firebase és a külső (CDN) kéréseket nem érinti. */
-var CACHE = 'mub-portal-v1';
+   ha nincs internet. A Firebase és a külső (CDN) kéréseket nem érinti.
+   Ha új változat érkezik, szól a nyitott lapnak, hogy frissíthető. */
+var CACHE = 'mub-portal-v2';
 var SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', function(e){
@@ -21,6 +22,11 @@ self.addEventListener('activate', function(e){
       return Promise.all(keys.map(function(k){ return k === CACHE ? null : caches.delete(k); }));
     }).then(function(){ return self.clients.claim(); })
   );
+});
+
+/* A lap kérheti, hogy azonnal lépjen életbe az új változat. */
+self.addEventListener('message', function(e){
+  if(e && e.data === 'skipWaiting' && self.skipWaiting) self.skipWaiting();
 });
 
 self.addEventListener('fetch', function(e){
