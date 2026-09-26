@@ -583,7 +583,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 68;
+  var BUILD = 69;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2361,7 +2361,11 @@
       var k = String(p.code == null ? '' : p.code).replace(/\D/g, '');
       if(!k) return;
       if(p.name) REFNAMES[k] = String(p.name);
-      if(p.nfcCode) NFCMAP[k] = String(p.nfcCode);
+      if(p.nfcCode){
+        NFCMAP[k] = String(p.nfcCode);
+        var nn = String(p.nfcCode).replace(/\D/g, '');
+        if(nn.length >= 6){ var mm = nfcShortMap(); if(!mm[nn]) mm[nn] = k; }
+      }
     });
   }
   function refNameOf(code){
@@ -2371,6 +2375,31 @@
   function nfcOf(code){
     var k = String(code == null ? '' : code).replace(/\D/g, '');
     return k ? (NFCMAP[k] || '') : '';
+  }
+  /* A RÖVID KÓD az elsődleges azonosító. Ha valahol a hosszú kártyaszám (NFC)
+     került be, akkor is a rövid kódot mutatjuk és mentjük: a névsorból és a
+     nyilvántartásból visszafejtjük, melyik rövid kód tartozik hozzá. */
+  var NFC2SHORT = null;
+  function nfcShortMap(){
+    if(NFC2SHORT) return NFC2SHORT;
+    var m = NFC2SHORT = {};
+    var add = function(code, nfc){
+      var c = String(code == null ? '' : code).replace(/\D/g, '');
+      var n = String(nfc == null ? '' : nfc).replace(/\D/g, '');
+      if(c && n.length >= 6 && !m[n]) m[n] = c;
+    };
+    (typeof PLAYER_ROSTER !== 'undefined' && PLAYER_ROSTER ? PLAYER_ROSTER : []).forEach(function(r){ add(r[0], r[1]); });
+    (typeof CACHE !== 'undefined' && CACHE && CACHE.players ? CACHE.players : []).forEach(function(p){ add(p.code, p.nfcCode); });
+    return m;
+  }
+  function isLongId(code){ return String(code == null ? '' : code).replace(/\D/g, '').length >= 6; }
+  /* Megjelenítésre és mentésre is a rövid kódot adja (ha ismert). */
+  function shortCodeOf(code){
+    var c = String(code == null ? '' : code).trim();
+    var d = c.replace(/\D/g, '');
+    if(!d) return c;
+    var m = nfcShortMap();
+    return m[d] || c;
   }
   /* A versenyeken használt névalakok, referencia-kód szerint. */
   var NAMEVARS = null;
@@ -3843,7 +3872,9 @@
       + '<div class="whobody">'
       + '<p class="meta">'+esc(T('Írja be ugyanazt az azonosító számot, amivel jelentkezett — a jelentkezés törlődik. Az is rendben van, ha valaki mást jelent ki (pl. egy fiatal segít egy idős játékosnak).','Zadajte to isté identifikačné číslo, ktorým ste sa prihlásili — prihláška sa zruší. Je v poriadku aj to, ak niekto odhlási niekoho iného (napr. mladý pomôže staršiemu hráčovi).'))+'</p>'
       + '<div class="field"><label for="w-tid">'+esc(T('Melyik verseny?','Ktorý turnaj?'))+'</label><select id="w-tid">'+opts+'</select></div>'
-      + '<div class="field"><label for="w-code">'+esc(T('Azonosító szám','Identifikačné číslo'))+'</label><input id="w-code" inputmode="numeric" autocomplete="off" placeholder="1234567890"></div>'
+      + '<div class="field"><label for="w-code">'+esc(T('Azonosító (rövid kód)','Identifikačné číslo (krátky kód)'))+'</label><input id="w-code" inputmode="numeric" autocomplete="off" placeholder="43"></div>'
+      + '<p class="meta" style="margin:-.3rem 0 .6rem">'+esc(T('A rövid kód a név melletti sorszám. Ha csak a kártyán lévő hosszú számot tudja, azt is beírhatja.',
+                                                              'Krátky kód je poradové číslo pri mene. Ak poznáte len dlhé číslo z karty, môžete zadať aj to.'))+'</p>'
       + '<button type="button" class="btn danger" onclick="MUB.withdrawByCode()" id="w-btn">'+esc(T('Jelentkezés visszavonása','Zrušiť prihlášku'))+'</button>'
       + '</div></details>';
   }
@@ -3863,10 +3894,10 @@
       var hits = [];
       snap.forEach(function(d){
         var v = d.data() || {};
-        var code = String(v.code||'').replace(/\s+/g, '');
+        var code = shortCodeOf(String(v.code||'').replace(/\s+/g, ''));
         var name = String(v.name||'').trim();
         var nameKey = name.toLowerCase().replace(/\s+/g, '');
-        if((code && code === q) || (nameKey && nameKey === q.toLowerCase())) hits.push({ id: d.id, name: name });
+        if((code && code === shortCodeOf(q)) || (nameKey && nameKey === q.toLowerCase())) hits.push({ id: d.id, name: name });
       });
       if(!hits.length){
         done();
@@ -4015,7 +4046,7 @@
       var pre = loadLastReg();
       var prefillNote = (pre && !regPrefillOff && (pre.name || pre.code))
         ? '<div class="prefillnote" id="reg-prefill-note">'
-          + '<strong>'+esc(T('Legutóbb ezen a gépen: ','Naposledy na tomto počítači: '))+esc(pre.name || '')+(pre.code ? ' ('+esc(pre.code)+')' : '')+'</strong><br>'
+          + '<strong>'+esc(T('Legutóbb ezen a gépen: ','Naposledy na tomto počítači: '))+esc(pre.name || '')+(pre.code ? ' ('+esc(shortCodeOf(pre.code))+')' : '')+'</strong><br>'
           + esc(T('Ugyanaz a személy jelentkezik most is?','Prihlasuje sa teraz tá istá osoba?'))
           + ' <button type="button" class="btn sm" onclick="MUB.useLastReg()">'+esc(T('Igen, ugyanaz','Áno, tá istá'))+'</button>'
           + ' <button type="button" class="btn sm secondary" onclick="MUB.clearRegForm()">'+esc(T('Nem, más valaki','Nie, niekto iný'))+'</button>'
@@ -4032,9 +4063,9 @@
           }).join('')
         + '</select></div>'
         + '<p class="chosenline">'+esc(T('Jelentkezik: ','Prihlasujete sa na: '))+'<strong>'+esc(regChosenLabel)+'</strong></p>'
-        + '<div class="field"><label for="f-code">'+esc(T('Azonosító szám','Identifikačné číslo'))+'</label><input id="f-code" inputmode="numeric" autocomplete="off" placeholder="1234567890" oninput="MUB.lookupCode(this.value)"></div>'
-        + '<p class="meta hintline">'+esc(T('Írja be a kártyáján lévő azonosító számot — a nevét magától kitöltjük. Ha nem tudja a számot, kezdje el írni a nevét: a listából kiválasztva az azonosítót is kitöltjük.',
-                                                'Zadajte identifikačné číslo z vašej karty — meno doplníme automaticky. Ak číslo neviete, začnite písať meno: po výbere zo zoznamu doplníme aj identifikačné číslo.'))+'</p>'
+        + '<div class="field"><label for="f-code">'+esc(T('Azonosító (rövid kód)','Identifikačné číslo (krátky kód)'))+'</label><input id="f-code" inputmode="numeric" autocomplete="off" placeholder="43" oninput="MUB.lookupCode(this.value)"></div>'
+        + '<p class="meta hintline">'+esc(T('Írja be a rövid azonosítóját (a neve melletti sorszámot) — a nevét magától kitöltjük. A kártyán lévő hosszú szám is jó: abból is megkeressük a rövid kódot. Ha egyiket sem tudja, kezdje el írni a nevét: a listából kiválasztva az azonosítót is kitöltjük.',
+                                                'Zadajte svoj krátky identifikačný kód (poradové číslo pri mene) — meno doplníme automaticky. Dobré je aj dlhé číslo z karty: krátky kód z neho zistíme. Ak neviete ani jedno, začnite písať meno: po výbere zo zoznamu doplníme aj identifikáciu.'))+'</p>'
         + '<div class="field"><label for="f-name">'+esc(T('Név','Meno'))+'</label><input id="f-name" list="reg-name-suggest" required autocomplete="name" placeholder="'+esc(T('Vezetéknév és keresztnév','Priezvisko a meno'))+'" oninput="MUB.lookupName(this.value)"></div>'
         + '<p id="f-name-hint" class="meta" hidden></p>'
         + '<p class="chosenline">'+esc(T('Jelentkezés ide: ','Prihláška na: '))+'<strong>'+esc(regChosenLabel)+'</strong></p>'
@@ -4129,7 +4160,7 @@
     if(q.length < 3) return;
     loadAllPlayers(function(players){
       var m = findPlayerByText(players, q);
-      var id = m ? String(m.code || m.nfcCode || '') : '';
+      var id = m ? shortCodeOf(String(m.code || m.nfcCode || '')) : '';
       if(m && id){
         var cur = String(codeEl.value || '').trim();
         if(!cur || codeEl.getAttribute('data-auto') === '1'){
@@ -4161,6 +4192,13 @@
       var p = players.filter(function(x){
         return String(x.code) === q || (x.nfcCode && String(x.nfcCode) === q);
       })[0];
+      /* A hosszú kártyaszámból is a rövid kód lesz a mezőben. */
+      var shortQ = shortCodeOf(q);
+      if(shortQ !== q){
+        var cEl0 = document.getElementById('f-code');
+        if(cEl0 && String(cEl0.value || '').replace(/\s+/g, '') === q) cEl0.value = shortQ;
+        q = shortQ;
+      }
       var el = document.getElementById('f-name');
       var h = document.getElementById('f-name-hint');
       if(!el) return;
@@ -4212,7 +4250,7 @@
   function submitRegistration(ev){
     ev.preventDefault();
     var name = document.getElementById('f-name').value.trim();
-    var code = document.getElementById('f-code').value.trim();
+    var code = shortCodeOf(document.getElementById('f-code').value.trim());
     if(!name || !selectedTid) return;
     var btn = document.getElementById('submit-btn');
     btn.disabled = true; btn.textContent = T('Küldés…','Odosiela sa…');
@@ -4302,14 +4340,14 @@
             var live = regs.filter(function(r){
               if(String(r.tournamentId) !== String(m.tid)) return false;
               if(m.id && String(r.id) === String(m.id)) return true;
-              return !!(m.code && String(r.code||'').replace(/\s+/g,'') === String(m.code).replace(/\s+/g,''));
+              return !!(m.code && shortCodeOf(String(r.code||'').replace(/\s+/g,'')) === shortCodeOf(String(m.code).replace(/\s+/g,'')));
             })[0];
             var title = t ? T(t.location_hu, t.location_sk) : T('ismeretlen verseny','neznámy turnaj');
             var when = t ? fmtDate(t.date) : '';
             return '<div class="card myreg">'
               + '<div class="myreg-title">'+esc(title)+'</div>'
               + (when ? '<div class="meta num">'+esc(when)+(t && t.time_start ? ' · '+esc(t.time_start)+'–'+esc(t.time_end||'15:30') : '')+'</div>' : '')
-              + '<div class="meta">'+esc(T('Azonosító szám: ','Identifikačné číslo: '))+'<strong>'+esc(m.code || '—')+'</strong>'+(m.name ? ' · '+esc(m.name) : '')+'</div>'
+              + '<div class="meta">'+esc(T('Azonosító: ','Identifikačné číslo: '))+'<strong>'+esc(shortCodeOf(m.code) || '—')+'</strong>'+(m.name ? ' · '+esc(m.name) : '')+'</div>'
               + '<div>'+(live
                   ? '<span class="okmark">'+esc(T('Rajta van a jelentkezők listáján','Je v zozname prihlásených'))+'</span>'
                   : '<span class="meta">'+esc(T('Ez a jelentkezés már nincs a listán (a szervező törölhette).','Táto prihláška už nie je v zozname (organizátor ju mohol zmazať).'))+'</span>')+'</div>'
@@ -4324,7 +4362,9 @@
         html += '<div class="infobox" style="margin-top:1.3rem">'
           + '<span class="infolabel">'+esc(T('Jelentkezés hozzáadása azonosító számmal','Pridať prihlášku pomocou identifikačného čísla'))+'</span>'
           + '<p class="meta" style="margin:.2rem 0 .7rem">'+esc(T('Ha másik telefonon vagy számítógépen jelentkezett, itt előkeresheti az összes jelentkezését.','Ak ste sa prihlásili z iného telefónu alebo počítača, tu nájdete všetky svoje prihlášky.'))+'</p>'
-          + '<div class="field"><label for="my-code">'+esc(T('Azonosító szám','Identifikačné číslo'))+'</label><input id="my-code" inputmode="numeric" autocomplete="off" placeholder="1234567890"></div>'
+          + '<div class="field"><label for="my-code">'+esc(T('Azonosító (rövid kód)','Identifikačné číslo (krátky kód)'))+'</label><input id="my-code" inputmode="numeric" autocomplete="off" placeholder="43"></div>'
+          + '<p class="meta" style="margin:-.3rem 0 .6rem">'+esc(T('A rövid kód a név melletti sorszám. A kártyán lévő hosszú szám is jó.',
+                                                                  'Krátky kód je poradové číslo pri mene. Dobré je aj dlhé číslo z karty.'))+'</p>'
           + '<button type="button" class="btn sm" onclick="MUB.findMyRegs()" id="my-find">'+esc(T('Megkeresés','Nájsť'))+'</button>'
           + '<p class="meta" id="my-msg" style="margin:.7rem 0 0">'+esc(myRegMsg)+'</p>'
           + '</div>';
@@ -4335,14 +4375,15 @@
   }
   function findMyRegs(){
     var el = document.getElementById('my-code');
-    var q = String(el ? el.value : '').replace(/\s+/g, '');
+    var q = shortCodeOf(String(el ? el.value : '').replace(/\s+/g, ''));
     if(!q){ myRegMsg = T('Írja be az azonosító számát.','Zadajte svoje identifikačné číslo.'); renderMyRegistrations(document.getElementById('view')); return; }
     loadRegistrations(function(regs){
-      var hits = regs.filter(function(r){ return String(r.code||'').replace(/\s+/g,'') === q; });
+      var qs = shortCodeOf(q);
+      var hits = regs.filter(function(r){ return shortCodeOf(String(r.code||'').replace(/\s+/g,'')) === qs; });
       if(!hits.length){
         myRegMsg = T('Ezzel az azonosító számmal nem találok jelentkezést. Ellenőrizze a számot.','S týmto identifikačným číslom sa nenašla žiadna prihláška. Skontrolujte číslo.');
       } else {
-        hits.forEach(function(r){ addMyReg({ id:r.id, tid:r.tournamentId, name:r.name, code:r.code }); });
+        hits.forEach(function(r){ addMyReg({ id:r.id, tid:r.tournamentId, name:r.name, code:shortCodeOf(r.code) }); });
         myRegMsg = T('Megtaláltam: ','Našiel som: ') + hits.length + ' ' + T('jelentkezés.','prihlášok.');
       }
       renderMyRegistrations(document.getElementById('view'));
@@ -4388,7 +4429,7 @@
             + '<span class="badge">'+mine.length+' '+esc(T('jelentkező','prihlásených'))+'</span></summary>'
             + '<div class="table-wrap"><table class="list"><thead><tr><th>#</th><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Azonosító szám','Identifikačné číslo'))+'</th><th class="noprint">'+esc(T('Kijelentkezés','Odhlásenie'))+'</th></tr></thead><tbody>'
             + mine.map(function(r,i){
-                return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(niceName(r.name))+'</td><td class="num">'+esc(r.code||'')+'</td>'
+                return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(niceName(r.name))+'</td><td class="num">'+esc(shortCodeOf(r.code))+'</td>'
                   + '<td class="noprint"><button type="button" class="btn sm secondary withdrawbtn" title="'+esc(T('Kijelentkezés a versenyről','Odhlásenie z turnaja'))+'" onclick="MUB.askWithdrawReg(\''+jsq(r.id)+'\',\''+jsq(r.name)+'\')">'+esc(T('Kijelentkezés','Odhlásenie'))+'</button></td></tr>';
               }).join('')
             + '</tbody></table></div>'
@@ -6298,7 +6339,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     var rowH = Math.min(1.0, Math.max(0.55, Math.round(45 / Math.max(totalRows, 1) * 100) / 100));
     var rh = ' style="height:' + rowH + 'cm"';
     var rows = list.map(function(r, i){
-      return '<tr'+rh+'><td class="c">'+(i+1)+'</td><td>'+esc(niceName(r.name||''))+'</td><td class="c">'+esc(r.code||'')+'</td>'
+      return '<tr'+rh+'><td class="c">'+(i+1)+'</td><td>'+esc(niceName(r.name||''))+'</td><td class="c">'+esc(shortCodeOf(r.code))+'</td>'
         + '<td class="c">'+esc(fmtDateTime(regDate(r)))+'</td><td class="box"></td></tr>';
     }).join('');
     var empty = '';
@@ -6383,11 +6424,11 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
               /* ha nincs kód, de a név ismert: javasoljuk (szürke helykitöltő) */
               var sug = String(r.code || '').trim() ? '' : (function(){
                 var m = findPlayerByText(players, r.name);
-                return m ? String(m.code || m.nfcCode || '') : '';
+                return m ? shortCodeOf(String(m.code || m.nfcCode || '')) : '';
               })();
               return '<tr id="reg-row-'+i+'"'+(sug ? ' class="regsug"' : '')+'><td class="num">'+(i+1)+'</td>'
                 + '<td><input class="pin" id="reg-n-'+i+'" list="reg-names" value="'+esc(niceName(r.name||''))+'" oninput="MUB.regEdit('+i+',\'name\',this.value)"></td>'
-                + '<td><input class="pin" id="reg-c-'+i+'" list="reg-codes" inputmode="numeric" value="'+esc(r.code||'')+'"'+(sug ? ' placeholder="'+esc(sug)+'" title="'+esc(T('javaslat a név alapján','návrh podľa mena'))+'"' : '')+' oninput="MUB.regEdit('+i+',\'code\',this.value)">'
+                + '<td><input class="pin" id="reg-c-'+i+'" list="reg-codes" inputmode="numeric" value="'+esc(shortCodeOf(r.code))+'"'+(sug ? ' placeholder="'+esc(sug)+'" title="'+esc(T('javaslat a név alapján','návrh podľa mena'))+'"' : '')+' oninput="MUB.regEdit('+i+',\'code\',this.value)">'
                   + (sug ? '<div class="meta" style="font-size:.75rem">'+esc(T('javaslat: ','návrh: '))+esc(sug)+'</div>' : '')+'</td>'
                 + '<td class="num">'+esc(fmtDateTime(regDate(r)))+'</td>'
                 + '<td class="noprint"><span class="checkbox"></span></td>'
@@ -6413,8 +6454,14 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       if(String(r.code || '').trim()) return;
       if(findPlayerByText(players || [], r.name)) missing++;
     });
+    var longFix = 0;
+    (lastRegList || []).forEach(function(r){
+      var c = String(r.code || '').trim();
+      if(c && shortCodeOf(c) !== c) longFix++;
+    });
     return (n ? '<strong>'+n+' '+esc(T('nem mentett javítás','neuložených opráv'))+'</strong>' : esc(T('nincs nem mentett javítás','žiadne neuložené opravy')))
-      + (missing ? ' · ' + missing + ' ' + esc(T('jelentkezőnek pótolható a kódja a neve alapján','prihláseným možno doplniť kód podľa mena')) : '');
+      + (missing ? ' · ' + missing + ' ' + esc(T('jelentkezőnek pótolható a kódja a neve alapján','prihláseným možno doplniť kód podľa mena')) : '')
+      + (longFix ? ' · ' + longFix + ' ' + esc(T('jelentkezőnél a hosszú kártyaszám helyett a rövid kódot írjuk be','pri prihlásenom zapíšeme namiesto dlhého čísla karty krátky kód')) : '');
   }
   /* Admin: a jelentkező adatainak szerkesztése — a nevet és a kódot egyszerre,
      egy lépésben pótolja (a nyilvántartásból). */
@@ -6428,7 +6475,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         var m = findPlayerByText(players, r.name);
         var cEl = document.getElementById('reg-c-' + i);
         if(m){
-          var id = String(m.code || m.nfcCode || '');
+          var id = shortCodeOf(String(m.code || m.nfcCode || ''));
           var cur = cEl ? String(cEl.value || '').trim() : String(r.code || '');
           if(id && (!cur || cur === id)){
             if(cEl) cEl.value = id;
@@ -6438,7 +6485,13 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         markDirtyRow(i, players);
       });
     } else {
-      r.code = String(v == null ? '' : v).replace(/\s+/g, '');
+      var typed = String(v == null ? '' : v).replace(/\s+/g, '');
+      var shortTyped = shortCodeOf(typed);
+      r.code = shortTyped;
+      if(shortTyped !== typed){
+        var cElX = document.getElementById('reg-c-' + i);
+        if(cElX) cElX.value = shortTyped;      /* a hosszú kártyaszámból rövid kód lesz */
+      }
       regDirty[i] = 1;
       loadAllPlayers(function(players){
         var m = players.filter(function(p){ return String(p.code) === r.code || (p.nfcCode && String(p.nfcCode) === r.code); })[0];
@@ -6473,10 +6526,10 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         var rawCode = cEl ? String(cEl.value || '').trim().replace(/\s+/g, '') : '';
         /* biztonság: üres mezővel nem törlünk nevet és kódot — csak pótolunk */
         var name = rawName || String(r._origName || r.name || '');
-        var code = rawCode || String(r._origCode || r.code || '');
+        var code = shortCodeOf(rawCode || String(r._origCode || r.code || ''));
         var m = code ? players.filter(function(p){ return String(p.code) === code || (p.nfcCode && String(p.nfcCode) === code); })[0] : null;
         if(!name && m && m.name) name = niceName(m.name);              /* kódból név */
-        if(!code && name){ var hit = findPlayerByText(players, name); if(hit) code = String(hit.code || hit.nfcCode || ''); }  /* névből kód */
+        if(!code && name){ var hit = findPlayerByText(players, name); if(hit) code = shortCodeOf(String(hit.code || hit.nfcCode || '')); }  /* névből kód */
         if(name !== String(r._origName || '') || code !== String(r._origCode || '')) changed.push({ id: r.id, name: name, code: code, r: r });
       });
       if(!changed.length){ alert(T('Nincs mentenivaló javítás.','Nie sú žiadne opravy na uloženie.')); return; }
@@ -6502,7 +6555,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     if(!r) return;
     var nEl = document.getElementById('reg-n-' + i), cEl = document.getElementById('reg-c-' + i);
     var name = nEl ? String(nEl.value).trim() : (r.name || '');
-    var code = cEl ? String(cEl.value).trim() : (r.code || '');
+    var code = shortCodeOf(cEl ? String(cEl.value).trim() : (r.code || ''));
     /* Ha a nevet nem írták be, de a kód ismert, a nyilvántartásból vesszük a nevet. */
     loadAllPlayers(function(players){
       if(!name && code){
@@ -6529,7 +6582,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     });
   }
   function exportCsv(){
-    var rows = [[T('Név','Meno'), T('Kód','Kód'), T('Jelentkezés ideje','Čas prihlásenia')]].concat(lastRegList.map(function(r){ return [r.name||'', r.code||'', fmtDateTime(regDate(r))]; }));
+    var rows = [[T('Név','Meno'), T('Kód','Kód'), T('Jelentkezés ideje','Čas prihlásenia')]].concat(lastRegList.map(function(r){ return [r.name||'', shortCodeOf(r.code), fmtDateTime(regDate(r))]; }));
     var csv = rows.map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
     var blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
     var url = URL.createObjectURL(blob);
@@ -8472,6 +8525,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     uploadPlayerPhoto: uploadPlayerPhoto, removePlayerPhoto: removePlayerPhoto,
     setResSort: setResSort, setResMin: setResMin, setResSource: setResSource, setResVillage: setResVillage, resVillageOpen: resVillageOpen,
     setResQ: setResQ, setResQYear: setResQYear, setResQTour: setResQTour, setResQVill: setResQVill, setResQReset: setResQReset,
+    shortCodeOf: shortCodeOf, isLongId: isLongId,
     setAdminSub: setAdminSub, unifyPlayerName: unifyPlayerName, uploadCoverPhoto: uploadCoverPhoto, removeCoverPhoto: removeCoverPhoto,
     loadSheet: loadSheet,
   };
