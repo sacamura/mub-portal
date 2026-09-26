@@ -578,7 +578,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 65;
+  var BUILD = 67;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -2017,8 +2017,11 @@
       var bare = t.replace(/\.+$/, '');
       if(NAME_MARK.test(bare)) return bare.toLowerCase() + '.';
       if(/[†✝]/.test(t)) return t;
+      /* CSAK NAGY betűvel írt vagy csupa kisbetűvel írt név: mindkettőt szépre igazítjuk.
+         A vegyes írásmódot (pl. „van Dijk”) nem bántjuk. */
       var isCaps = (bare === bare.toUpperCase() && bare !== bare.toLowerCase());
-      if(!isCaps) return t;
+      var isLow = (bare === bare.toLowerCase() && bare !== bare.toUpperCase());
+      if(!isCaps && !isLow) return t;
       var low = bare.toLowerCase();
       /* a kötőjeles nevek mindkét tagja nagy kezdőbetűt kap */
       var nice = low.split('-').map(function(w){ return w ? (w.charAt(0).toUpperCase() + w.slice(1)) : w; }).join('-');
@@ -4354,7 +4357,11 @@
                 return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(niceName(r.name))+'</td><td class="num">'+esc(r.code||'')+'</td>'
                   + '<td class="noprint"><button type="button" class="btn sm secondary withdrawbtn" title="'+esc(T('Kijelentkezés a versenyről','Odhlásenie z turnaja'))+'" onclick="MUB.askWithdrawReg(\''+jsq(r.id)+'\',\''+jsq(r.name)+'\')">'+esc(T('Kijelentkezés','Odhlásenie'))+'</button></td></tr>';
               }).join('')
-            + '</tbody></table></div></details>';
+            + '</tbody></table></div>'
+            + '<div class="toolbar noprint" style="margin:.5rem 0 .1rem"><div>'
+            + '<button type="button" class="btn sm" onclick="MUB.printAttendancePublic(\''+jsq(t.id)+'\')">🖨 '+esc(T('Jelenléti ív nyomtatása','Vytlačiť prezenčnú listinu'))+'</button>'
+            + ' <span class="meta">'+esc(T('A nyomtatás bejelentkezés nélkül is működik.','Tlač funguje aj bez prihlásenia.'))+'</span></div></div>'
+            + '</details>';
         }).join('');
         html += withdrawConfirmHtml();
         box.innerHTML = html;
@@ -6244,9 +6251,9 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     return d.getFullYear()+'.'+pad2(d.getMonth()+1)+'.'+pad2(d.getDate())+'. '+pad2(d.getHours())+':'+pad2(d.getMinutes());
   }
   /* Nyomtatható jelenléti ív: ábécé sorrendben, azonosítóval és a jelentkezés idejével. */
-  function attendanceSheetHtml(){
-    var t = regPickTournament;
-    var list = (lastRegList || []).slice().sort(function(a,b){
+  function attendanceSheetHtml(tour, listArg){
+    var t = tour || regPickTournament;
+    var list = (listArg || lastRegList || []).slice().sort(function(a,b){
       return String(a.name||'').localeCompare(String(b.name||''), 'hu');
     });
     var title = t ? (T(t.location_hu, t.location_sk) + ' – ' + fmtDate(t.date)) : '';
@@ -6279,12 +6286,25 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
              'Do stĺpca „Prišiel" urobte značku. Posledné prázdne riadky sú pre tých, ktorí sa prihlásia na mieste.'))
       + '</p></div>';
   }
-  function printAttendance(){
+  /* A kész ív kirajzolása és kinyomtatása (közös az admin és a nyilvános útvonalon). */
+  function printSheet(sheetHtml){
     var box = document.getElementById('print-area');
     if(!box) return;
-    box.innerHTML = attendanceSheetHtml();
+    box.innerHTML = sheetHtml;
     if(document.body && document.body.classList) document.body.classList.add('printing');
     setTimeout(function(){ try{ window.print(); }catch(e){} }, 80);
+  }
+  function printAttendance(){ printSheet(attendanceSheetHtml()); }
+  /* Jelenléti ív nyomtatása a NYILVÁNOS jelentkezői listáról — admin belépés nélkül.
+     Csak a nyilvános adatokat használja: a verseny helyszínét, idejét és a jelentkezőket. */
+  function printAttendancePublic(tid){
+    loadTournaments(function(ts){
+      var t = (ts || []).filter(function(x){ return String(x.id) === String(tid); })[0] || null;
+      loadRegistrations(function(regs){
+        var list = (regs || []).filter(function(r){ return String(r.tournamentId) === String(tid); });
+        printSheet(attendanceSheetHtml(t, list));
+      });
+    });
   }
   function endPrinting(){
     if(document.body && document.body.classList) document.body.classList.remove('printing');
@@ -8382,7 +8402,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     updateImportTarget: updateImportTarget,
     parseAlbumBlocks: parseAlbumBlocks, blocksToText: blocksToText, htmlToBlocks: htmlToBlocks,
     selectTournament: selectTournament, lookupCode: lookupCode, resetRegForm: resetRegForm, cancelRegistration: cancelRegistration, clearRegForm: clearRegForm, useLastReg: useLastReg,
-    withdrawByCode: withdrawByCode, deleteRegPublic: deleteRegPublic, adminDeleteReg: adminDeleteReg, printAttendance: printAttendance,
+    withdrawByCode: withdrawByCode, deleteRegPublic: deleteRegPublic, adminDeleteReg: adminDeleteReg, printAttendance: printAttendance, printAttendancePublic: printAttendancePublic,
     saveRules: saveRules, resetRulesToDefault: resetRulesToDefault,
     askWithdrawReg: askWithdrawReg, cancelWithdrawReg: cancelWithdrawReg, confirmWithdrawReg: confirmWithdrawReg,
     findMyRegs: findMyRegs, forgetMyReg: forgetMyReg, installApp: installApp,
