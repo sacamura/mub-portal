@@ -578,7 +578,7 @@
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 63;
+  var BUILD = 64;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -7235,13 +7235,15 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     var html = '<h2 class="resh">'+esc(T('Eredmény felvétele','Zadanie výsledkov'))+'</h2>'
       + '<div class="tabs" style="margin-bottom:.8rem">'
       + '<button type="button" class="'+(!isAgg ? 'active' : '')+'" onclick="MUB.mrSetMode(\'tour\')">'+esc(T('Verseny eredménye','Výsledky turnaja'))+'</button>'
-      + '<button type="button" class="'+(isAgg ? 'active' : '')+'" onclick="MUB.mrSetMode(\'agg\')">'+esc(T('Szezon-összesítő','Súhrn sezóny'))+'</button>'
+      + '<button type="button" class="'+(isAgg ? 'active' : '')+'" onclick="MUB.mrSetMode(\'agg\')">'+esc(T('Szezon-összesítő (hivatalos végeredmény)','Súhrn sezóny (oficiálny výsledok)'))+'</button>'
       + '</div>'
       + '<p class="meta">'+(isAgg
-          ? esc(T('A szezon összesítő táblázata: soronként 1) helyezés, 2) név, 3) azonosító (ID), majd az összes nyeremény, az összes pont és a helyezési bónusszal együtt számolt MUBL pont (végül a részvétel). Az azonosító a név előtt is állhat. A hivatalos pont a MUBL-összeg. Az itteni nevek a mérvadóak.',
-                     'Súhrnná tabuľka sezóny: v riadku 1) umiestnenie, 2) meno, 3) ID, potom celková výhra, celkové body a MUBL body (nakoniec účasť). ID môže byť aj pred menom. Oficiálne body sú MUBL súčet.'))
+          ? esc(T('A szezon összesítő táblázata — EZ A HIVATALOS VÉGEREDMÉNY, ebből számol a ranglista és a statisztika. Soronként: 1) helyezés, 2) név, 3) azonosító (ID), majd az összes nyeremény, az összes pont (BODY) és a helyezési bónusszal együtt számolt hivatalos MUBL pont (végül a részvétel). Az azonosító a név előtt is állhat. A hivatalos pont a MUBL-összeg. A nevek itt a mérvadóak. A versenyenkénti feltöltés csak a részletekhez kell — a pontrendszer az évek során változott (volt 15/10/5 is), ezért a hivatalos pontot mindig innen veszi a portál.',
+                     'Súhrnná tabuľka sezóny — TOTO JE OFICIÁLNY VÝSLEDOK, z neho počíta rebríček a štatistika. V riadku: 1) umiestnenie, 2) meno, 3) ID, potom celková výhra, celkové body (BODY) a oficiálne MUBL body s bonusom (nakoniec účasť). ID môže byť aj pred menom. Oficiálne body sú MUBL súčet. Mená tu sú smerodajné. Nahranie turnajov slúži len na detaily — bodový systém sa po rokoch menil (bolo aj 15/10/5), preto oficiálne body berie portál vždy odtiaľto.'))
           : esc(T('A verseny eredménye: soronként 1) helyezés, 2) azonosító (ID), 3) név, majd az 5 körben nyert összeg és a kör pontja, végül az ÖSSZ pénz és az ÖSSZ pont. Az azonosító a név után is állhat. Ha nincs körönkénti bontás, elég a nyeremény és a pont.',
                      'Výsledky turnaja: v riadku 1) umiestnenie, 2) ID, 3) meno, potom 5 kôl (výhra a body) a spolu. ID môže byť aj za menom.')))+'</p>'
+      + '<p class="meta">'+esc(T('A neveket az azonosító (rövid kód vagy hosszú kártyaszám) alapján ismeri fel: ha az azonosító egyezik, a név kis eltérése (ékezet, szlovák/magyar alak, elgépelés) nem baj — zöld pipát kap. Ha valami nem egyezik, sárga jelzést ad, és ott dönthet. A név mező legördülő listát is kínál a nyilvántartásból, de szabadon is beírható.',
+                               'Mená rozpoznáva podľa ID (krátky kód alebo dlhé číslo karty): ak sa ID zhoduje, malý rozdiel v mene (diakritika, slovenská/maďarská podoba, preklep) nevadí — dostane zelenú fľajku. Ak sa niečo nezhoduje, dá žlté označenie a tam rozhodnete. Pole mena ponúka zoznam z evidencie, ale dá sa aj voľne písať.'))+'</p>'
       + '<p class="meta">'+esc(T('Írja be a verseny adatait, majd illessze be az eredményt soronként, a verseny végeredménye szerint: 1) helyezés, 2) azonosító szám (ID), 3) név, majd az 5 körben nyert összeg, végül a pont. (Ha a körönkénti bontás nincs meg, elég a nyeremény és a pont.) A neveket az azonosító és a hasonlóság alapján is felismeri, és rákérdez, ha bizonytalan.',
                               'Zadajte údaje turnaja a vložte hráčov v poradí (od 1. miesta po posledné). V riadku: meno a 5 vyhraných súm za kolá (€). Poradie určuje umiestnenie; body vypočíta portál.'))+'</p>'
       + '<div class="card" style="margin-bottom:1rem">'
@@ -7330,8 +7332,9 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     if(!mrRows.length){ box.innerHTML = ''; return; }
     if(mrMode === 'agg'){
       var noIdAgg = mrRows.filter(function(r){ return r.name && !r.code && !r.nfc; }).length;
-      var ah = '<h3 class="adminsub">'+esc(T('A szezon összesítője','Súhrn sezóny'))+' — ' + mrRows.length + ' ' + esc(T('játékos','hráčov'))
+      var ah = '<h3 class="adminsub">'+esc(T('A szezon hivatalos végeredménye','Oficiálny výsledok sezóny'))+' — ' + mrRows.length + ' ' + esc(T('játékos','hráčov'))
         + (noIdAgg ? ' · <span class="meta">'+esc(T('azonosító nélkül: ','bez ID: '))+noIdAgg+'</span>' : '') + '</h3>'
+        + mrNameDatalist()
         + '<div class="table-wrap"><table class="list"><thead><tr>'
         + '<th class="num">'+esc(T('Hely','Miesto'))+'</th><th class="num">ID</th><th>'+esc(T('Név','Meno'))+'</th>'
         + '<th class="num">'+esc(T('Össz pénz','Spolu €'))+'</th><th class="num">'+esc(T('Hivatalos pont','Oficiálne body'))+'</th>'
@@ -7340,17 +7343,12 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
             var off = (r.official != null) ? r.official : ((r.mubl != null && r.mubl >= (r.points || 0)) ? r.mubl : r.points);
             return '<tr><td class="num">'+(r.place != null ? r.place : (i+1))+'.</td>'
               + '<td class="num"><input class="pin" id="mr-c-'+i+'" value="'+esc(r.code||'')+'" inputmode="numeric" oninput="MUB.mrCode('+i+', this.value)">'+mrCodeMeta(r)+'</td>'
-              + '<td><input class="pin" id="mr-n-'+i+'" value="'+esc(r.name)+'" oninput="MUB.mrName('+i+', this.value)"></td>'
+              + '<td><input class="pin" id="mr-n-'+i+'" list="mr-name-list" value="'+esc(r.name)+'" oninput="MUB.mrName('+i+', this.value)" onchange="MUB.mrNameCommit('+i+', this.value)"></td>'
               + '<td class="num">'+esc(fmtEur(r.total))+'</td>'
               + '<td class="num"><strong>'+esc(String(off))+'</strong></td>'
               + '<td class="num"><span class="meta">'+esc(String(r.points == null ? '' : r.points))+'</span></td>'
               + '<td class="num">'+esc(r.played == null ? '' : String(r.played))+'</td>'
-              + '<td>'+(r.suggestion
-                  ? '⚠ <button type="button" class="linkbtn" onclick="MUB.mrAccept('+i+')">'+esc(T('Ez ugyanaz: ','Toto je to isté: '))+esc(r.suggestion.name)+'</button>'
-                    + ' <span class="meta">('+(r.suggestion.byCode ? esc(T('azonosító alapján','podľa ID')) : Math.round(r.suggestion.sim * 100) + '%')+')</span>'
-                    + ' <button type="button" class="linkbtn" onclick="MUB.mrKeep('+i+')">'+esc(T('Új játékos','Nový hráč'))+'</button>'
-                  : (r.known ? '<span class="meta">✓</span>' : '<span class="meta">?</span>'))
-              + '</td></tr>';
+              + '<td>'+mrStatusCell(r, i)+'</td></tr>';
           }).join('')
         + '</tbody></table></div>'
         + '<p class="meta">'+esc(T('A hivatalos pont a helyezési bónusszal együtt számolt összeg (BODY MUBL PONT), mert a táblázat helyezései e szerint készültek; a BODY pont csak tájékoztató. A részvételt a portál a versenyek sorai alapján számolja, ha a táblázatban nincs külön oszlop rá.',
@@ -7366,14 +7364,17 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       return Math.round(s * 10) / 10;
     });
     var size = mrRows.length;
-    var unknownCount = mrRows.filter(function(r){ return r.name && !r.known; }).length;
-    var knownCount = mrRows.filter(function(r){ return r.name && r.known; }).length;
+    var unknownCount = mrRows.filter(function(r){ return r.name && r.status === 'unknown'; }).length;
+    var okCount = mrRows.filter(function(r){ return r.name && (r.status === 'ok' || r.status === 'name'); }).length;
+    var checkCount = mrRows.filter(function(r){ return r.name && r.status === 'conflict'; }).length;
     var noIdCount = mrRows.filter(function(r){ return r.name && !r.code && !r.nfc; }).length;
     var html = '<h3 class="adminsub">'+esc(T('Előnézet','Náhľad'))+' — ' + size + ' ' + esc(T('játékos','hráčov'))
       + (mrMub ? ' · ' + esc(T('a helyezési bónusz hozzáadva (létszám − helyezés + 1)','bonus za umiestnenie pridaný')) : '')
-      + ' · <span style="color:#1c7c3a">'+esc(T('felismert: ','rozpoznaných: '))+knownCount+'</span>'
+      + ' · <span style="color:#1c7c3a">'+esc(T('rendben: ','v poriadku: '))+okCount+'</span>'
+      + (checkCount ? ' · <span style="color:#b3261e">'+esc(T('ellenőrizendő: ','na kontrolu: '))+checkCount+'</span>' : '')
       + (unknownCount ? ' · <span style="color:#b3261e">'+esc(T('ismeretlen: ','neznámych: '))+unknownCount+'</span>' : '')
       + (noIdCount ? ' · <span class="meta">'+esc(T('azonosító nélkül: ','bez ID: '))+noIdCount+'</span>' : '') + '</h3>'
+      + mrNameDatalist()
       + '<div class="table-wrap"><table class="list"><thead><tr>'
       + '<th class="num">'+esc(T('Hely','Miesto'))+'</th><th class="num">ID</th><th>'+esc(T('Név','Meno'))+'</th>'
       + [1,2,3,4,5].map(function(i){ return '<th class="num">'+i+'. '+esc(T('kör','kolo'))+'</th>'; }).join('')
@@ -7389,7 +7390,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       html += '<tr'+(r.name && !r.known && !r.suggestion ? ' class="unknownrow"' : '')+'><td class="num">'+(r.place != null ? r.place : (i + 1))+'.</td>'
         + '<td class="num"><input class="pin" id="mr-c-'+i+'" value="'+esc(r.code || '')+'" inputmode="numeric" title="'+esc(T('rövid kód (1–100)','krátky kód (1–100)'))+'" oninput="MUB.mrCode('+i+', this.value)">'
           + mrCodeMeta(r)+'</td>'
-        + '<td><input class="pin" id="mr-n-'+i+'" value="'+esc(r.name)+'" oninput="MUB.mrName('+i+', this.value)"></td>'
+        + '<td><input class="pin" id="mr-n-'+i+'" list="mr-name-list" value="'+esc(r.name)+'" oninput="MUB.mrName('+i+', this.value)" onchange="MUB.mrNameCommit('+i+', this.value)"></td>'
         + r.money.map(function(m, k){
             var rp = (r.roundPts && r.roundPts[k] != null) ? r.roundPts[k] : '';
             return '<td class="num"><input class="pin" id="mr-m-'+i+'-'+k+'" value="'+esc(m)+'" oninput="MUB.mrMoney('+i+','+k+', this.value)">'
@@ -7397,16 +7398,41 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
           }).join('')
         + '<td class="num">'+esc(fmtEur(sum))+'</td><td class="num"><strong>'+esc(String(pts))+'</strong>'
           + (bonus ? '<div class="meta" style="font-size:.78rem">'+esc(T('+','+'))+bonus+' '+esc(T('bónusz','bonus'))+'</div>' : '')+'</td>'
-        + '<td>'+(r.suggestion
-            ? '⚠ <button type="button" class="linkbtn" onclick="MUB.mrAccept('+i+')">'+esc(T('Ez ugyanaz: ','Toto je to isté: '))+esc(r.suggestion.name)+'</button>'
-              + ' <span class="meta">('+(r.suggestion.byCode ? esc(T('azonosító alapján','podľa ID')) : Math.round(r.suggestion.sim * 100) + '%')+')</span>'
-              + ' <button type="button" class="linkbtn" onclick="MUB.mrKeep('+i+')">'+esc(T('Új játékos','Nový hráč'))+'</button>'
-            : (r.known ? '<span class="known-ok">✓ '+esc(T('ismert','známe'))+'</span>' : '<span class="known-no">? '+esc(T('ismeretlen','neznáme'))+'</span>'))
-        + '</td></tr>';
+        + '<td>'+mrStatusCell(r, i)+'</td></tr>';
     });
     html += '</tbody></table></div>'
       + '<p class="meta">'+esc(T('A pontok a körökben nyert összegekből számolódnak. Ha valamelyik sorban megad pontot (6. szám), az a mérvadó.','Body sa počítajú z vyhraných súm. Ak zadáte body (6. číslo), platia tie.'))+'</p>';
     box.innerHTML = html;
+  }
+  /* A nyilvántartás nevei a név-mező kínálatához (szabadon is beírható). */
+  function mrNameDatalist(){
+    var names = (MR_KNOWN.names || []).map(function(n){ return niceName(n); }).filter(Boolean);
+    names = names.filter(function(n, i, a){ return a.indexOf(n) === i; }).sort(function(a, b){ return String(a).localeCompare(String(b), 'hu'); });
+    if(!names.length) return '';
+    return '<datalist id="mr-name-list">' + names.map(function(n){ return '<option value="'+esc(n)+'"></option>'; }).join('') + '</datalist>';
+  }
+  /* A felismerés jelzése soronként: rendben / ellenőrizendő / ismeretlen. */
+  function mrStatusCell(r, i){
+    if(!r.name) return '<span class="meta">—</span>';
+    if(r.status === 'ok'){
+      var other = (r.matchName && playerKey(r.matchName) !== playerKey(r.name)) ? ' <span class="meta">('+esc(r.matchName)+')</span>' : '';
+      return '<span class="known-ok">✓ '+esc(T('rendben','v poriadku'))+'</span>' + other;
+    }
+    if(r.status === 'name'){
+      return '<span class="known-ok">✓ '+esc(T('név alapján','podľa mena'))+'</span>'
+        + '<div class="meta" style="font-size:.78rem">'+esc(r.matchName || '')+(r.code ? ' · '+esc(T('azonosító','ID'))+': '+esc(r.code) : '')+'</div>';
+    }
+    if(r.status === 'conflict'){
+      return '⚠ <button type="button" class="linkbtn" onclick="MUB.mrAccept('+i+')">'+esc(T('Az azonosító ide tartozik: ','ID patrí semu: '))+esc(r.suggestion ? r.suggestion.name : '')+'</button>'
+        + '<div class="meta" style="font-size:.78rem">'+esc(T('ha mégsem, ','ak nie, '))
+        + '<button type="button" class="linkbtn" onclick="MUB.mrKeep('+i+')">'+esc(T('ez egy másik ember','je to iný človek'))+'</button></div>';
+    }
+    if(r.suggestion){
+      return '⚠ <button type="button" class="linkbtn" onclick="MUB.mrAccept('+i+')">'+esc(T('Ez ugyanaz: ','Toto je to isté: '))+esc(r.suggestion.name)+'</button>'
+        + ' <span class="meta">('+(r.suggestion.byCode ? esc(T('azonosító alapján','podľa ID')) : Math.round(r.suggestion.sim * 100) + '%')+')</span>'
+        + ' <button type="button" class="linkbtn" onclick="MUB.mrKeep('+i+')">'+esc(T('Új játékos','Nový hráč'))+'</button>';
+    }
+    return '<span class="known-no">? '+esc(T('ismeretlen','neznáme'))+'</span>';
   }
   /* A nyilvántartásból pótolt rövid kód: pontos névre, vagy biztos, egyedi hasonlóságra. */
   function mrAutoCode(name, dict){
@@ -7441,16 +7467,27 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
           var auto = mrAutoCode(r.name, dict);
           if(auto){ r.code = auto; r.codeFrom = 'roster'; }
         }
-        /* 3) ha az azonosító ismert, az a biztos kapcsolat */
-        var byCode = (r.code || r.nfc) ? MR_KNOWN.codes[String(r.code || r.nfc).replace(/\D/g, '')] : null;
-        if(byCode && playerKey(byCode) !== playerKey(r.name)){
-          r.known = true;
+        /* 3) AZONOSÍTÓ szerint: ez a biztos kapcsolat. Ha a név csak kicsit tér el
+              (más írásmód, ékezet, elgépelés, szlovák/magyar alak), az rendben van. */
+        var idKey = String(r.code || r.nfc || '').replace(/\D/g, '');
+        var byCode = idKey ? MR_KNOWN.codes[idKey] : null;
+        if(byCode){
+          var hint = samePersonHint(r.name, byCode);
+          if(playerKey(byCode) === playerKey(r.name) || hint >= 0.9){
+            r.known = true; r.status = 'ok'; r.suggestion = null; r.matchName = byCode;
+            if(!r.codeFrom) r.codeFrom = 'sheet';
+            return;
+          }
+          /* az azonosító máshoz tartozik → kérjen ellenőrzést */
+          r.known = true; r.status = 'conflict';
           r.suggestion = { name: byCode, sim: 1, byCode: true };
           return;
         }
+        /* 4) azonosító nélkül: a név alapján */
         var hit = dict[playerKey(r.name)];
-        r.known = !!hit || !!byCode;
-        r.suggestion = (hit || r.rejected) ? null : mrBestMatch(r.name, known);
+        if(hit){ r.known = true; r.status = 'name'; r.matchName = hit; r.suggestion = null; return; }
+        r.known = false; r.status = 'unknown'; r.matchName = '';
+        r.suggestion = r.rejected ? null : mrBestMatch(r.name, known);
       });
       renderMrPreview();
     });
@@ -7471,7 +7508,29 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     mrMsg = ''; renderAdminMr();
   }
   function mrClear(){ mrRows = []; mrMsg = ''; renderAdminMr(); }
-  function mrName(i, v){ if(mrRows[i]){ mrRows[i].name = String(v); mrRows[i].rejected = false; } }
+  function mrName(i, v){
+    if(!mrRows[i]) return;
+    mrRows[i].name = String(v);
+    mrRows[i].rejected = false;
+  }
+  /* A név megadása után (listából választva vagy kilépve a mezőből): ha ismert,
+     a kódját is betesszük — így a név és a kód egyszerre kerül be. */
+  function mrNameCommit(i, v){
+    var r = mrRows[i];
+    if(!r) return;
+    r.name = String(v == null ? '' : v);
+    loadAllPlayers(function(players){
+      var m = findPlayerByText(players, r.name);
+      var cEl = document.getElementById('mr-c-' + i);
+      if(m && (m.code || m.nfcCode)){
+        r.code = String(m.code || '');
+        r.nfc = m.code ? '' : String(m.nfcCode || '');
+        r.codeFrom = 'roster';
+        if(cEl) cEl.value = r.code || r.nfc;
+      }
+      mrRefreshChecks();
+    });
+  }
   /* A kézzel beírt azonosító: rövid kód, hosszú NFC-kód, vagy (997/998/999) helyettesítő. */
   function mrCode(i, v){
     var r = mrRows[i];
@@ -8089,7 +8148,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     deadToggle: deadToggle, setDeadQuery: setDeadQuery,
     saveReg: saveReg, regEdit: regEdit, saveAllRegs: saveAllRegs, lookupName: lookupName,
     mrField: mrField, mrToggleMub: mrToggleMub, mrPasteSet: mrPasteSet, mrParse: mrParse, mrAddRow: mrAddRow, mrClear: mrClear,
-    mrName: mrName, mrMoney: mrMoney, mrAccept: mrAccept, mrKeep: mrKeep, mrSave: mrSave, mrDeleteTour: mrDeleteTour,
+    mrName: mrName, mrNameCommit: mrNameCommit, mrMoney: mrMoney, mrAccept: mrAccept, mrKeep: mrKeep, mrSave: mrSave, mrDeleteTour: mrDeleteTour,
     mrSetMode: mrSetMode, mrCode: mrCode, mrDeleteAgg: mrDeleteAgg, mrFile: mrFile,
     mrSetIdPos: mrSetIdPos,
     mrSetYear: mrSetYear, mrEdit: mrEdit, mrCancelEdit: mrCancelEdit, mrReload: mrReload,
