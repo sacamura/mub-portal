@@ -708,7 +708,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 83;
+  var BUILD = 84;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -756,6 +756,44 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   function fmtEur(n){
     var v = Math.round(Number(n) || 0);
     return (v < 0 ? '−' : '') + Math.abs(v) + ' €';
+  }
+  /* A pénz PONTOS megjelenítése: 2 tizedesjegy (a feltöltött táblázatok így
+     tartalmazzák, ezért nem kerekítjük egészre). */
+  function fmtEur2(n){
+    if(n == null || n === '') return '—';
+    var v = Number(n);
+    if(isNaN(v)) return '—';
+    var s = (Math.round(Math.abs(v) * 100) / 100).toFixed(2).replace('.', ',');
+    return (v < 0 ? '−' : '') + s + ' €';
+  }
+  /* A feltöltött eredmény éve → emberi szezon-név (pl. 2027 → „2026-2027 (2027)”).
+     A szezon a kezdő évével van megjelölve, az eredmények viszont a záró év szerint
+     vannak feltöltve — ezért a két év és a köztük lévő egyezés is számít. */
+  function seasonLabelOfYear(year){
+    var y = Number(year) || 0;
+    var list = (CACHE && CACHE.seasons) || [];
+    for(var i = 0; i < list.length; i++){
+      var sy = seasonYear(list[i]);
+      if(sy && (sy === y || sy + 1 === y)){
+        var lab = seasonTitle(list[i]);
+        return (lab ? lab + ' · ' : '') + y;
+      }
+    }
+    return String(year == null ? '' : year);
+  }
+  /* Melyik feltöltött eredmény-dokumentum tartozik a szezonhoz? */
+  function resultsForSeason(all, s){
+    var list = all || [];
+    var y = seasonYear(s);
+    if(!y) return null;
+    var byYear = {};
+    list.forEach(function(r){ if(r && r.year != null) byYear[String(r.year)] = r; });
+    var next = byYear[String(y + 1)];
+    if(next && (next.rows || []).length) return next;         /* a szezon záró éve */
+    if(s && s.current) return null;                           /* a jelenleginél ne a régit */
+    var own = byYear[String(y)];
+    if(own && (own.rows || []).length) return own;
+    return next || own || null;
   }
   function byDateDesc(a,b){ return (b.date||'').localeCompare(a.date||''); }
   /* Helyes többes szám: 1 kép / 2 kép / 5 kép — szlovákul 1 fotka / 2 fotky / 5 fotiek */
@@ -1594,11 +1632,12 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   function renderHomeNewSeason(box, s){
     box.innerHTML = '<p class="meta">'+esc(T('Betöltés…','Načítava sa…'))+'</p>';
     loadResults(function(all){
-      var list = resultsOfYear(all, String(seasonYear(s)));
-      if(!list.length){
+      var season = resultsForSeason(all, s);
+      if(!season || !(season.rows || []).length){
         box.innerHTML = '<p class="meta">'+esc(T('Ehhez a szezonhoz még nincs beolvasott eredmény.','Pre túto sezónu ešte nie sú načítané výsledky.'))+'</p>';
         return;
       }
+      var list = [season];
       var stats = sortStats(buildStats(list)).slice(0, 12);
       var html = '<p class="meta">'+esc(T('A portálra feltöltött eredmények összesítése (a legjobb 12).','Súhrn výsledkov nahratých do portálu (najlepších 12).'))+'</p>'
         + '<div class="table-wrap"><table class="list"><thead><tr><th class="num">#</th><th>'+esc(T('Játékos','Hráč'))+'</th>'
@@ -3361,8 +3400,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
         + '<div class="meta">'+esc(T('Szezonok: ','Sezóny: '))+esc(p.yearsArr.join(', ') || '—')+'</div>'
         /* A pénz csak halvány kiegészítés: a lényeg a helyezés. */
         + ((p.grossMoney || p.feePaid)
-            ? '<div class="meta moneymini">'+esc(T('Pénz: ','Peniaze: '))+esc(fmtEur(p.grossMoney))+esc(T(' nyeremény',' výhra'))
-              + ' · ' + esc(fmtEur(p.netMoney)) + ' ' + esc(T('tiszta nyeremény','čistá výhra'))+'</div>'
+            ? '<div class="meta moneymini">'+esc(T('Pénz: ','Peniaze: '))+esc(fmtEur2(p.grossMoney))+esc(T(' nyeremény',' výhra'))
+              + ' · ' + esc(fmtEur2(p.netMoney)) + ' ' + esc(T('tiszta nyeremény','čistá výhra'))+'</div>'
             : '')
         /* Szezononkénti helyezés: hogyan végzett az egyes szezonokban. */
         + (function(){
@@ -3391,8 +3430,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
               + ys.map(function(y){
                   var sm = (p.seasonMoney || {})[y] || {};
                   return '<tr><td class="num">'+esc(y)+'</td>'
-                    + '<td class="num">'+(sm.gross == null ? '—' : esc(fmtEur(sm.gross)))+'</td>'
-                    + '<td class="num">'+(sm.net == null ? '—' : esc(fmtEur(sm.net)))+'</td></tr>';
+                    + '<td class="num">'+(sm.gross == null ? '—' : esc(fmtEur2(sm.gross)))+'</td>'
+                    + '<td class="num">'+(sm.net == null ? '—' : esc(fmtEur2(sm.net)))+'</td></tr>';
                 }).join('')
               + '</tbody></table></div></div></details>';
           })()
@@ -3561,11 +3600,11 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
               + esc(ref || niceName(r.n))+'</button></td>'
             + (withRounds ? [0,1,2,3,4].map(function(k){
                 var rr = (r.rounds || [])[k];
-                var m = (rr && rr.money != null) ? fmtEur(rr.money) : '';
+                var m = (rr && rr.money != null) ? fmtEur2(rr.money) : '';
                 var p = (rr && rr.points != null) ? rr.points : '';
                 return '<td class="num">'+esc(m)+'<div class="meta" style="font-size:.78rem">'+esc(p === '' ? '' : p + ' ' + T('pont','body'))+'</div></td>';
               }).join('') : '')
-            + '<td class="num">'+esc(fmtEur(r.money))+'</td><td class="num"><strong>'+esc(String(r.points == null ? '' : r.points))+'</strong></td></tr>';
+            + '<td class="num">'+esc(fmtEur2(r.money))+'</td><td class="num"><strong>'+esc(String(r.points == null ? '' : r.points))+'</strong></td></tr>';
         }).join('')
       + '</tbody></table></div>';
   }
@@ -3622,7 +3661,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       + (idTxt ? ' <span class="meta">'+esc(T('azonosító','ID'))+': '+esc(idTxt)+'</span>' : '')
       + ' <button type="button" class="linkbtn noprint" onclick="MUB.openPlayerCard(\''+jsq(p.raw)+'\')">'+esc(T('adatlap','karta'))+' →</button></h3>'
       + '<p class="meta">'+s.n+' '+esc(T('verseny','turnajov'))
-      + ' · '+esc(T('összes pénz','spolu €'))+': '+esc(fmtEur(s.money))
+      + ' · '+esc(T('összes pénz','spolu €'))+': '+esc(fmtEur2(s.money))
       + ' · '+esc(T('összes pont','spolu body'))+': '+esc(String(Math.round(s.pts * 10) / 10))
       + (s.avg != null ? ' · '+esc(T('átlag hely','priem. miesto'))+': '+esc(String(fmtHalf(Math.round(s.avg * 2) / 2))) : '')
       + (s.wins ? ' · '+esc(T('győzelem','víťazstiev'))+': '+s.wins : '')
@@ -3634,7 +3673,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       + p.tours.map(function(x){
           return '<tr><td class="num">'+esc(x.year)+'</td><td>'+esc(x.tour)+'</td>'
             + '<td class="num">'+esc(x.r.place == null ? '' : x.r.place + '.')+'</td>'
-            + '<td class="num">'+esc(fmtEur(x.r.money))+'</td><td class="num">'+esc(String(x.r.points == null ? '' : x.r.points))+'</td></tr>';
+            + '<td class="num">'+esc(fmtEur2(x.r.money))+'</td><td class="num">'+esc(String(x.r.points == null ? '' : x.r.points))+'</td></tr>';
         }).join('')
       + '</tbody></table></div>';
   }
@@ -3862,7 +3901,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
             + '<div class="field resyear"><label for="res-year">'+esc(T('Szezon','Sezóna'))+'</label>'
             + '<select id="res-year" onchange="MUB.setResSeason(this.value)">'
             + '<option value="all"'+(resSeason === 'all' ? ' selected' : '')+'>'+esc(T('összes szezon','všetky sezóny'))+'</option>'
-            + years.map(function(y){ return '<option value="'+esc(y)+'"'+(String(resSeason) === y ? ' selected' : '')+'>'+esc(y)+'</option>'; }).join('')
+            + years.map(function(y){ return '<option value="'+esc(y)+'"'+(String(resSeason) === y ? ' selected' : '')+'>'+esc(seasonLabelOfYear(y))+'</option>'; }).join('')
             + '</select></div>'
             + '<div class="field resmin"><label for="res-min">'+esc(T('Legalább ennyi verseny','Aspoň toľko turnajov'))+'</label>'
             + '<input id="res-min" type="number" min="0" step="1" value="'+(resMin || '')+'" inputmode="numeric" oninput="MUB.setResMin(this.value)"></div>'
@@ -3903,7 +3942,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
                     'Ak zistíte rozdiel, ozvite sa organizátorovi: výsledky spracovala umelá inteligencia z nahratých tabuliek, preto sa môže vyskytnúť chyba.'))
             + '</div>'
             + '<h2 class="resh">'+esc(T('Ranglista','Rebríček'))+'</h2>';
-          html += '<p class="meta">'+esc(hasAgg
+          html += '<p class="meta">'+esc(T('A pénz 2 tizedesjegyen látszik, pontosan úgy, ahogy a feltöltött táblázatban van.','Peniaze sú zobrazené na 2 desatinné miesta, presne ako v nahratej tabuľke.'))+'</p>'
+            + '<p class="meta">'+esc(hasAgg
             ? T('A sorrend a pontok szerint; azonos pontnál a több nyeremény dönt. A fejlécekre kattintva más szempont szerint is rendezhető.','Poradie podľa bodov; pri rovnakom počte bodov rozhodujú vyššie výhry. Kliknutím na hlavičku zoradíte inak.')
             : T('Pontok és helyezések a portálra beolvasott eredményekből.','Body a umiestnenia z výsledkov načítaných do portálu.'))+'</p>';
           var shown = sortStats(stats).filter(function(p){
@@ -3929,8 +3969,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
                       + '<td class="num">'+(p.rows.length ? p.seconds : '—')+'</td>'
                       + '<td class="num">'+(p.rows.length ? p.thirds : '—')+'</td>'
                       + '<td class="num">'+esc(fmtHalf(p.avgPlace))+'</td>'
-                      + '<td class="num moneycol">'+(p.grossMoney ? esc(fmtEur(p.grossMoney)) : '—')+'</td>'
-                      + '<td class="num moneycol">'+(p.grossMoney || p.feePaid ? esc(fmtEur(p.netMoney)) : '—')+'</td>' : '')
+                      + '<td class="num moneycol">'+(p.grossMoney ? esc(fmtEur2(p.grossMoney)) : '—')+'</td>'
+                      + '<td class="num moneycol">'+(p.grossMoney || p.feePaid ? esc(fmtEur2(p.netMoney)) : '—')+'</td>' : '')
                   + '<td class="num"><strong>'+p.points+'</strong></td></tr>';
               }).join('')
             + '</tbody></table></div>'
@@ -8253,7 +8293,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
             return '<tr><td class="num">'+(r.place != null ? r.place : (i+1))+'.</td>'
               + '<td class="num"><input class="pin" id="mr-c-'+i+'" value="'+esc(r.code||'')+'" inputmode="numeric" oninput="MUB.mrCode('+i+', this.value)">'+mrCodeMeta(r)+'</td>'
               + '<td><input class="pin" id="mr-n-'+i+'" list="mr-name-list" value="'+esc(r.name)+'" oninput="MUB.mrName('+i+', this.value)" onchange="MUB.mrNameCommit('+i+', this.value)"></td>'
-              + '<td class="num">'+esc(fmtEur(r.total))+'</td>'
+              + '<td class="num">'+esc(fmtEur2(r.total))+'</td>'
               + '<td class="num"><strong>'+esc(String(off))+'</strong></td>'
               + '<td class="num"><span class="meta">'+esc(String(r.points == null ? '' : r.points))+'</span></td>'
               + '<td class="num">'+esc(r.played == null ? '' : String(r.played))+'</td>'
@@ -8305,7 +8345,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
             return '<td class="num"><input class="pin" id="mr-m-'+i+'-'+k+'" value="'+esc(m)+'" oninput="MUB.mrMoney('+i+','+k+', this.value)">'
               + '<div class="meta" style="font-size:.8rem">'+esc(rp === '' ? '' : rp + ' pont')+'</div></td>';
           }).join('')
-        + '<td class="num">'+esc(fmtEur(sum))+'</td><td class="num"><strong>'+esc(String(pts))+'</strong>'
+        + '<td class="num">'+esc(fmtEur2(sum))+'</td><td class="num"><strong>'+esc(String(pts))+'</strong>'
           + (bonus ? '<div class="meta" style="font-size:.78rem">'+esc(T('+','+'))+bonus+' '+esc(T('bónusz','bonus'))+'</div>' : '')+'</td>'
         + '<td>'+mrStatusCell(r, i)+'</td></tr>';
     });
