@@ -286,6 +286,9 @@
     box-shadow:0 -2px 10px rgba(0,0,0,.18); font-size:1rem}
   .pwa-bar.offline{border-top-color:var(--danger)}
   body.has-pwabar{padding-bottom:4.6rem}
+  /* Kattintható versenynév az eredmények listájában */
+  .linkbtn.strong{font-weight:700; color:var(--accent-strong); text-align:left}
+  tr.rowlink:hover td{background:var(--accent-soft)}
   .sheetwrap{border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:1rem}
   .sheetwrap iframe{width:100%; height:480px; border:0; display:block}
   /* A Google-táblázat csak kattintásra töltődik be (a magától betöltő táblázat
@@ -705,7 +708,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 77;
+  var BUILD = 83;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1361,12 +1364,14 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
        Csak akkor látszik, ha az admin bekapcsolta. */
     /* A látogatók csak akkor látják, ha be van kapcsolva; a bejelentkezett
        adminoknak akkor is, ha a nyilvános oldalon ki van kapcsolva. */
-    if(FEAT.statistics || currentUser) items.push(['statisztika','Statisztika','Štatistika']);
+    items.push(['statisztika','Statisztika','Štatistika']);
     items = items.concat([
       ['galeria','Galéria','Galéria'],
       ['jelentkezes','Jelentkezés','Prihlásenie'],
       ['szabalyok','Szabályok','Pravidlá']
     ]);
+    /* Csak azok a menüpontok látszanak, amelyeket az admin bekapcsolva hagyott. */
+    items = items.filter(function(it){ return menuOn(it[0]); });
     var html = items.map(function(it){
       return '<a href="#'+it[0]+'" class="'+(navActive===it[0]?'active':'')+'">'+esc(T(it[1],it[2]))+'</a>';
     }).join('');
@@ -1422,6 +1427,9 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     var routeChanged = (route !== lastRenderedRoute);
     lastRenderedRoute = route;
     var el = document.getElementById('view');
+    /* Ha egy menüpontot elrejtettünk, a látogató a kezdőlapra kerül. */
+    var routeMenu = { jelentkezesaim: 'jelentkezes', jelentkezok: 'jelentkezes' }[route] || route;
+    if(!menuOn(routeMenu) && route !== 'home' && route !== 'admin') route = 'home';
     if(routeChanged && window.scrollTo) window.scrollTo(0, 0);
     if(route==='home') return renderHome(el);
     if(route==='naptar') return renderCalendar(el);
@@ -1581,14 +1589,62 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   }
   /* Eredmények – a versenyenkénti ÉS az összesített tábla is mindig látszik,
      a régebbi szezonokra gombbal lehet tovább lépni. */
+  /* A főoldali „Eredmények” blokk: a régi Google-táblázat VAGY az új (feltöltött)
+     adatok ranglistája — az admin „Megjelenítés” fülén választható. */
+  function renderHomeNewSeason(box, s){
+    box.innerHTML = '<p class="meta">'+esc(T('Betöltés…','Načítava sa…'))+'</p>';
+    loadResults(function(all){
+      var list = resultsOfYear(all, String(seasonYear(s)));
+      if(!list.length){
+        box.innerHTML = '<p class="meta">'+esc(T('Ehhez a szezonhoz még nincs beolvasott eredmény.','Pre túto sezónu ešte nie sú načítané výsledky.'))+'</p>';
+        return;
+      }
+      var stats = sortStats(buildStats(list)).slice(0, 12);
+      var html = '<p class="meta">'+esc(T('A portálra feltöltött eredmények összesítése (a legjobb 12).','Súhrn výsledkov nahratých do portálu (najlepších 12).'))+'</p>'
+        + '<div class="table-wrap"><table class="list"><thead><tr><th class="num">#</th><th>'+esc(T('Játékos','Hráč'))+'</th>'
+        + '<th class="num">'+esc(T('Verseny','Turnajov'))+'</th><th class="num">'+esc(T('Pont','Body'))+'</th></tr></thead><tbody>'
+        + stats.map(function(p){
+            return '<tr><td class="num">'+p.rank+'.</td>'
+              + '<td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard(\''+jsq(p.name)+'\')">'+esc(p.name)+'</button></td>'
+              + '<td class="num">'+(p.played != null ? p.played : (p.tournaments || 0))+'</td>'
+              + '<td class="num"><strong>'+p.points+'</strong></td></tr>';
+          }).join('')
+        + '</tbody></table></div>'
+        + '<div style="margin-top:.6rem"><a class="btn sm secondary" href="#statisztika">'+esc(T('Ranglista és játékos-adatlapok →','Rebríček a karty hráčov →'))+'</a></div>';
+      box.innerHTML = html;
+    });
+  }
   function renderHomeSeasons(){
     var box = document.getElementById('home-seasons');
     if(!box) return;
     var sorted = HOME_SEASONS.slice().sort(bySeasonDesc);
+    if(FEAT.homeResults === 'new' || FEAT.homeResults === 'both'){
+      if(!sorted.length){
+        box.innerHTML = '<p class="meta">'+esc(T('Még nincs feltöltött szezon eredmény.','Zatiaľ nie sú nahraté výsledky sezóny.'))+'</p>';
+        if(FEAT.homeResults === 'new') return;
+      } else {
+        if(homeSeasonIdx > sorted.length-1) homeSeasonIdx = 0;
+        var s0 = sorted[homeSeasonIdx];
+        var head = '<h3 class="seasonname">'+esc(T('Szezon','Sezóna'))+' '+esc(seasonTitle(s0))+(s0.current?'<span class="badge">'+esc(T('aktuális','aktuálna'))+'</span>':'')+'</h3>';
+        box.innerHTML = head + '<div id="home-new-season"></div>';
+        var inner = document.getElementById('home-new-season');
+        if(inner) renderHomeNewSeason(inner, s0);
+        if(FEAT.homeResults === 'new') return;
+        /* „mindkettő”: alatta a hivatalos Google-táblázatok is */
+        var more = document.createElement('div');
+        box.appendChild(more);
+        renderHomeSeasonsSheet(more, sorted);
+        return;
+      }
+    }
     if(!sorted.length){
       box.innerHTML = '<p class="meta">'+esc(T('Még nincs feltöltött szezon eredmény.','Zatiaľ nie sú nahraté výsledky sezóny.'))+'</p>';
       return;
     }
+    renderHomeSeasonsSheet(box, sorted);
+  }
+  function renderHomeSeasonsSheet(box, sorted){
+    if(!box) return;
     if(homeSeasonIdx > sorted.length-1) homeSeasonIdx = 0;
     var s = sorted[homeSeasonIdx];
     var html = '';
@@ -1629,18 +1685,19 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
           var next = upcoming[0], second = upcoming[1], third = upcoming[2];
           var newsSorted = news.slice().sort(byDateDesc);
           var newest = newsSorted[0], olderNews = newsSorted.slice(1);
+          /* A modulok sorrendje és ki/be kapcsolása az admin „Megjelenítés” fülén állítható. */
+          var sec = {};
+          sec.cover = coverHtml('coverimg');
+          sec.install = installCardHtml();
+          var nextHtml = '<h2>'+esc(T('Következő versenyek','Najbližšie turnaje'))+'</h2>';
           var html = '';
-          /* A szervező által feltöltött kezdő kép (díjátadó) legfelül. */
-          html += coverHtml('coverimg');
-          html += installCardHtml();
-          html += '<h2>'+esc(T('Következő versenyek','Najbližšie turnaje'))+'</h2>';
           if(next){
             var d = daysUntil(next.date);
             var when = '';
             if(d === 0) when = T('Ma van!','Dnes!');
             else if(d === 1) when = T('Holnap','Zajtra');
             else if(d > 1) when = d + ' ' + T('nap múlva','dní');
-            html += '<div class="nextup">'
+            nextHtml += '<div class="nextup">'
               + '<div class="nextup__label">'+esc(T('Következő verseny','Najbližší turnaj'))+'</div>'
               + '<div class="nextup__title">'+esc(T(next.location_hu,next.location_sk))+tagBadge(next.tag)+'</div>'
               + '<div class="nextup__date num">'+fmtDate(next.date)+' · '+esc(next.time_start||'8:30')+'–'+esc(next.time_end||'15:30')+'</div>'
@@ -1653,32 +1710,36 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
               + '</div>';
           }
           if(!next){
-            html += '<p class="meta">'+esc(T('Jelenleg nincs meghirdetett verseny.','Momentálne nie je vyhlásený žiadny turnaj.'))+'</p>';
+            nextHtml += '<p class="meta">'+esc(T('Jelenleg nincs meghirdetett verseny.','Momentálne nie je vyhlásený žiadny turnaj.'))+'</p>';
           }
           /* a második és a harmadik verseny egyre visszafogottabban */
-          if(second) html += eventCardLevel(second, 'ev2');
-          if(third) html += eventCardLevel(third, 'ev3');
-          html += '<div style="margin:.6rem 0 0"><a class="btn sm secondary" href="#naptar">'
+          if(second) nextHtml += eventCardLevel(second, 'ev2');
+          if(third) nextHtml += eventCardLevel(third, 'ev3');
+          nextHtml += '<div style="margin:.6rem 0 0"><a class="btn sm secondary" href="#naptar">'
             + esc(upcoming.length > 3 ? T('További versenyek a naptárban','Ďalšie turnaje v kalendári') : T('Teljes versenynaptár','Celý kalendár turnajov'))
             + ' →</a></div>';
+          sec.next = nextHtml;
 
           /* hírek – csak a legújabb látszik, a többi lenyitva */
-          html += '<h2 style="margin:1.8rem 0 .7rem">'+esc(T('Hírek','Novinky'))+'</h2>';
+          var newsHtml = '<h2 style="margin:1.8rem 0 .7rem">'+esc(T('Hírek','Novinky'))+'</h2>';
           if(!newest){
-            html += '<p class="meta">'+esc(T('Még nincs hír.','Zatiaľ žiadne správy.'))+'</p>';
+            newsHtml += '<p class="meta">'+esc(T('Még nincs hír.','Zatiaľ žiadne správy.'))+'</p>';
           } else {
-            html += newsCard(newest);
+            newsHtml += newsCard(newest);
             if(olderNews.length){
-              html += '<details style="margin-top:.6rem"><summary class="metasum">'+esc(T('Korábbi hírek','Staršie správy'))+' ('+olderNews.length+')</summary>'
+              newsHtml += '<details style="margin-top:.6rem"><summary class="metasum">'+esc(T('Korábbi hírek','Staršie správy'))+' ('+olderNews.length+')</summary>'
                 + '<div style="margin-top:.7rem">' + olderNews.map(newsCard).join('') + '</div></details>';
             }
           }
+          sec.news = newsHtml;
 
           /* eredmények */
-          html += '<h2 style="margin:1.8rem 0 .7rem">'+esc(T('Eredmények','Výsledky'))+'</h2><div id="home-seasons"></div>';
+          sec.results = '<h2 style="margin:1.8rem 0 .7rem">'+esc(T('Eredmények','Výsledky'))+'</h2><div id="home-seasons"></div>';
 
           /* korábbi versenyek legvégül */
-          html += '<h2 style="margin:1.8rem 0 .7rem">'+esc(T('Korábbi versenyek','Predchádzajúce turnaje'))+'</h2><div id="home-past"></div>';
+          sec.past = '<h2 style="margin:1.8rem 0 .7rem">'+esc(T('Korábbi versenyek','Predchádzajúce turnaje'))+'</h2><div id="home-past"></div>';
+
+          homePlan().forEach(function(m){ if(m.on) html += (sec[m.k] || ''); });
           body.innerHTML = html;
           HOME_TOURNAMENTS = ts;
           HOME_SEASONS = seasons;
@@ -2135,15 +2196,75 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   /* ---------- Funkció-kapcsolók (Firestore: settings/features) ----------
      A statisztika alapból KI van kapcsolva: a látogatók csak a régi
      (Google-táblázatos) eredményt látják. A teljes jogú admin kapcsolhatja be. */
-  var FEAT = { statistics: false };
+  var FEAT = { statistics: false, menu: {}, home: [], homeResults: 'sheet' };
+  /* A menüpontok, amelyeket külön ki/be lehet kapcsolni (a Kezdőlap mindig látszik). */
+  var MENU_KEYS = [
+    ['naptar', 'Versenynaptár', 'Kalendár'],
+    ['eredmenyek', 'Eredmények', 'Výsledky'],
+    ['statisztika', 'Statisztika', 'Štatistika'],
+    ['galeria', 'Galéria', 'Galéria'],
+    ['jelentkezes', 'Jelentkezés', 'Prihlásenie'],
+    ['szabalyok', 'Szabályok', 'Pravidlá']
+  ];
+  /* A főoldal moduljai – ezek sorrendje és ki/be kapcsolása állítható. */
+  var HOME_MODULES = [
+    ['cover', 'Kezdőkép', 'Úvodná fotka'],
+    ['install', 'Telepítés a telefonra', 'Inštalácia do telefónu'],
+    ['next', 'Következő versenyek', 'Najbližšie turnaje'],
+    ['news', 'Hírek', 'Novinky'],
+    ['results', 'Eredmények (szezon)', 'Výsledky (sezóna)'],
+    ['past', 'Korábbi versenyek', 'Predchádzajúce turnaje']
+  ];
+  function homePlan(){
+    var known = HOME_MODULES.map(function(m){ return m[0]; });
+    var saved = (FEAT.home || []).filter(function(x){ return x && x.k && known.indexOf(x.k) >= 0; });
+    var out2 = [], seen = {};
+    saved.forEach(function(x){ if(!seen[x.k]){ seen[x.k] = 1; out2.push({ k: x.k, on: x.on !== false }); } });
+    HOME_MODULES.forEach(function(m){ if(!seen[m[0]]) out2.push({ k: m[0], on: true }); });
+    return out2;
+  }
+  function homeOn(k){
+    var p = homePlan();
+    for(var i = 0; i < p.length; i++){ if(p[i].k === k) return p[i].on; }
+    return true;
+  }
+  /* Látszik-e egy menüpont a látogatóknak? (A bejelentkezett admin mindig látja.) */
+  function menuOn(k){
+    if(!k || k === 'home') return true;
+    if(currentUser) return true;
+    if(k === 'statisztika') return FEAT.statistics === true;
+    var m = FEAT.menu || {};
+    return m[k] !== false;                        /* alapból minden látszik */
+  }
   function loadFeatures(cb){
     if(CACHE.features){ FEAT = CACHE.features; return cb(FEAT); }
     db.collection('settings').doc('features').get().then(function(d){
       var v = (d && d.exists) ? (d.data() || {}) : {};
-      FEAT = { statistics: v.statistics === true };
+      FEAT = { statistics: v.statistics === true, menu: (v.menu && typeof v.menu === 'object') ? v.menu : {},
+               home: Array.isArray(v.home) ? v.home : [], homeResults: (v.homeResults === 'new' || v.homeResults === 'both') ? v.homeResults : 'sheet' };
       CACHE.features = FEAT;
       cb(FEAT);
     }).catch(function(){ cb(FEAT); });   /* ha nem olvasható, marad a biztonságos KI */
+  }
+  /* A megjelenítési beállítások mentése (menü, főoldali modulok, forrás). */
+  function saveFeatures(patch, msg){
+    if(!requireFull()) return;
+    db.collection('settings').doc('features').set(patch, { merge: true }).then(function(){
+      FEAT = Object.assign({}, FEAT, patch);
+      CACHE.features = FEAT;
+      renderNav();
+      if(currentRoute() === 'admin') renderAdminDisplay();
+      else render();
+      if(msg) alert(msg);
+    }).catch(function(err){
+      alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + ((err && err.message) || ''));
+    });
+  }
+  function setMenuVisible(k, on){
+    var m = Object.assign({}, FEAT.menu || {});
+    m[k] = !!on;
+    var patch = { menu: m };
+    saveFeatures(patch, T('Elmentve: ','Uložené: ') + T(on ? 'látszik' : 'elrejtve', on ? 'viditeľné' : 'skryté'));
   }
   /* ---------- Szabályok (Firestore: settings/rules) ----------
      Két rész: szervezési szabályok és kártyaszabályok, magyarul és szlovákul.
@@ -3435,7 +3556,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
           var pl = Number(r.place) || (i + 1);
           var ref = refNameOf(r.code);
           return '<tr><td class="num">'+pl+'.</td><td class="num">'+esc(r.code || '')+'</td>'
-            + '<td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard('+jsq(r.n)+')"'
+            + '<td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard(\''+jsq(r.n)+'\')"'
               + (ref && ref !== r.n ? ' title="'+esc(T('a táblázatban: ','v tabuľke: ')+r.n)+'"' : '')+'>'
               + esc(ref || niceName(r.n))+'</button></td>'
             + (withRounds ? [0,1,2,3,4].map(function(k){
@@ -3499,7 +3620,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     var idTxt = (p.ids && p.ids.length) ? p.ids.join(', ') : (p.code || '');
     return '<h3 class="adminsub">'+esc(p.name)
       + (idTxt ? ' <span class="meta">'+esc(T('azonosító','ID'))+': '+esc(idTxt)+'</span>' : '')
-      + ' <button type="button" class="linkbtn noprint" onclick="MUB.openPlayerCard('+jsq(p.raw)+')">'+esc(T('adatlap','karta'))+' →</button></h3>'
+      + ' <button type="button" class="linkbtn noprint" onclick="MUB.openPlayerCard(\''+jsq(p.raw)+'\')">'+esc(T('adatlap','karta'))+' →</button></h3>'
       + '<p class="meta">'+s.n+' '+esc(T('verseny','turnajov'))
       + ' · '+esc(T('összes pénz','spolu €'))+': '+esc(fmtEur(s.money))
       + ' · '+esc(T('összes pont','spolu body'))+': '+esc(String(Math.round(s.pts * 10) / 10))
@@ -3577,14 +3698,14 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       + '</p>'
       + '<div class="table-wrap"><table class="list"><thead><tr>'
       + '<th>'+esc(T('Szezon','Sezóna'))+'</th><th>'+esc(T('Dátum','Dátum'))+'</th><th>'+esc(T('Verseny','Turnaj'))+'</th>'
-      + '<th class="num">'+esc(T('Játékos','Hráčov'))+'</th><th>'+esc(T('Dobogó','Pódium'))+'</th><th class="noprint"></th></tr></thead><tbody>'
+      + '<th class="num">'+esc(T('Játékos','Hráčov'))+'</th><th>'+esc(T('Dobogó','Pódium'))+'</th></tr></thead><tbody>'
       + tours.map(function(o){
           var pod = o.rows.filter(function(r){ return (Number(r.place) || 999) <= 3; }).slice(0, 3).map(function(r){
             return (Number(r.place) || '') + '. ' + (refNameOf(r.code) || niceName(r.n));
           }).join(' · ');
-          return '<tr><td class="num">'+esc(o.year)+'</td><td class="num">'+esc(o.date ? fmtDateHu(o.date) : '—')+'</td><td>'+esc(o.name)+'</td>'
-            + '<td class="num">'+o.size+'</td><td>'+esc(pod || '—')+'</td>'
-            + '<td class="noprint"><button type="button" class="btn sm secondary" onclick="MUB.setResQTour('+jsq(o.name)+')">'+esc(T('Eredmény','Výsledky'))+'</button></td></tr>';
+          return '<tr><td class="num">'+esc(o.year)+'</td><td class="num">'+esc(o.date ? fmtDateHu(o.date) : '—')+'</td>'
+            + '<td><button type="button" class="linkbtn strong" title="'+esc(T('Eredménytáblázat','Tabuľka výsledkov'))+'" onclick="MUB.setResQTour(\''+jsq(o.name)+'\')">'+esc(o.name)+' →</button></td>'
+            + '<td class="num">'+o.size+'</td><td>'+esc(pod || '—')+'</td></tr>';
         }).join('')
       + '</tbody></table></div>'
       + '<h3 class="adminsub" style="margin-top:1.2rem">'+esc(T('A község legeredményesebb játékosai','Najúspešnejší hráči obce'))+'</h3>'
@@ -3593,7 +3714,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       + '<th class="num">'+esc(T('Dobogó','Pódium'))+'</th><th class="num">'+esc(T('Legjobb hely','Najlepšie miesto'))+'</th>'
       + '<th class="noprint">'+esc(T('Hol nyert','Kde vyhral'))+'</th></tr></thead><tbody>'
       + plist.slice(0, 25).map(function(p){
-          return '<tr><td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard('+jsq(p.raw)+')">'+esc(p.name)+'</button></td>'
+          return '<tr><td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard(\''+jsq(p.raw)+'\')">'+esc(p.name)+'</button></td>'
             + '<td class="num">'+p.n+'</td><td class="num">'+(p.wins || '')+'</td><td class="num">'+(p.podiums || '')+'</td>'
             + '<td class="num">'+(p.best < 999 ? p.best + '.' : '')+'</td>'
             + '<td class="noprint meta">'+esc(p.winsAt.join(' · '))+'</td></tr>';
@@ -3634,7 +3755,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       if(persons.length > 8){
         box.innerHTML = '<p class="meta">'+esc(T('Több találat van, válasszon nevet:','Veľa zhôd, vyberte meno:'))+'</p><p class="namelist">'
           + persons.slice(0, 80).map(function(p){
-              return '<button type="button" class="linkbtn" onclick="MUB.setResQ('+jsq(p.raw)+')">'+esc(p.name)+'</button>';
+              return '<button type="button" class="linkbtn" onclick="MUB.setResQ(\''+jsq(p.raw)+'\')">'+esc(p.name)+'</button>';
             }).join('')
           + '</p>';
         return;
@@ -3650,14 +3771,15 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       + '<div class="table-wrap"><table class="list"><thead><tr>'
       + '<th>'+esc(T('Szezon','Sezóna'))+'</th><th>'+esc(T('Dátum','Dátum'))+'</th><th>'+esc(T('Verseny','Turnaj'))+'</th>'
       + '<th>'+esc(T('Község','Obec'))+'</th>'
-      + '<th class="num">'+esc(T('Játékos','Hráčov'))+'</th><th>'+esc(T('Győztes','Víťaz'))+'</th><th class="noprint"></th></tr></thead><tbody>'
+      + '<th class="num">'+esc(T('Játékos','Hráčov'))+'</th><th>'+esc(T('Győztes','Víťaz'))+'</th></tr></thead><tbody>'
       + list.slice(0, 400).map(function(o){
           var ov = resVillOf(o);
-          return '<tr><td class="num">'+esc(o.year)+'</td><td class="num">'+esc(o.date ? fmtDateHu(o.date) : '—')+'</td><td>'+esc(o.name)+'</td>'
-            + '<td>'+(ov ? '<button type="button" class="linkbtn" onclick="MUB.setResQVill('+jsq(ov.hu)+')">'+esc(villageLabel(ov))+'</button>' : '—')+'</td>'
+          /* A verseny nevére kattintva nyílik az eredménytáblázat — így keskeny a sor. */
+          return '<tr class="rowlink"><td class="num">'+esc(o.year)+'</td><td class="num">'+esc(o.date ? fmtDateHu(o.date) : '—')+'</td>'
+            + '<td><button type="button" class="linkbtn strong" title="'+esc(T('Eredménytáblázat','Tabuľka výsledkov'))+'" onclick="MUB.setResQTour(\''+jsq(o.name)+'\')">'+esc(o.name)+' →</button></td>'
+            + '<td>'+(ov ? '<button type="button" class="linkbtn" onclick="MUB.setResQVill(\''+jsq(ov.hu)+'\')">'+esc(villageLabel(ov))+'</button>' : '—')+'</td>'
             + '<td class="num">'+o.size+'</td>'
-            + '<td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard('+jsq(o.winner)+')">'+esc(refNameOf(o.winnerCode) || niceName(o.winner))+'</button></td>'
-            + '<td class="noprint"><button type="button" class="btn sm secondary" onclick="MUB.setResQTour('+jsq(o.name)+')">'+esc(T('Eredmény','Výsledky'))+'</button></td></tr>';
+            + '<td><button type="button" class="linkbtn" onclick="MUB.openPlayerCard(\''+jsq(o.winner)+'\')">'+esc(refNameOf(o.winnerCode) || niceName(o.winner))+'</button></td></tr>';
         }).join('')
       + '</tbody></table></div>';
   }
@@ -3730,7 +3852,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
           html += '<div class="banner noprint" role="status"><strong>'+esc(villageLabel(vill))+'</strong> — '
             + vN + ' ' + esc(T('verseny','turnajov')) + ' · ' + Object.keys(vPlayers).length + ' ' + esc(T('játékos','hráčov')) + ' · '
             + esc(T('a ranglista csak az itteni versenyeket számolja.','rebríček počíta len tunajšie turnaje.'))
-            + ' <a href="#eredmenyek" onclick="MUB.resVillageOpen('+jsq(vill.hu)+')">'+esc(T('Részletes község-lista (dátum, győztes, létszám) →','Podrobný zoznam obce (dátum, víťaz, počet) →'))+'</a>'
+            + ' <a href="#eredmenyek" onclick="MUB.resVillageOpen(\''+jsq(vill.hu)+'\')">'+esc(T('Részletes község-lista (dátum, győztes, létszám) →','Podrobný zoznam obce (dátum, víťaz, počet) →'))+'</a>'
             + ' <button type="button" class="btn sm secondary" onclick="MUB.setResVillage(\'\')">'+esc(T('Szűrő törlése','Zrušiť filter'))+'</button></div>';
         }
         /* 1) ranglista */
@@ -3775,7 +3897,12 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
           }
           var hasPer = stats.some(function(p){ return p.rows && p.rows.length; });
           var hasAgg = stats.some(function(p){ return p.hasAgg; });
-          html += '<h2 class="resh">'+esc(T('Ranglista','Rebríček'))+'</h2>';
+          html += '<div class="banner" role="status" style="border-color:var(--danger)"><strong>'
+            + esc(T('Kérem, a statisztikát mindenki ellenőrizze!','Prosím, každý si štatistiku skontrolujte!'))+'</strong><br>'
+            + esc(T('Ha eltérést tapasztal, szóljon a szervezőnek: az eredményeket mesterséges intelligencia dolgozta fel a feltöltött táblázatokból, ezért előfordulhat hiba.',
+                    'Ak zistíte rozdiel, ozvite sa organizátorovi: výsledky spracovala umelá inteligencia z nahratých tabuliek, preto sa môže vyskytnúť chyba.'))
+            + '</div>'
+            + '<h2 class="resh">'+esc(T('Ranglista','Rebríček'))+'</h2>';
           html += '<p class="meta">'+esc(hasAgg
             ? T('A sorrend a pontok szerint; azonos pontnál a több nyeremény dönt. A fejlécekre kattintva más szempont szerint is rendezhető.','Poradie podľa bodov; pri rovnakom počte bodov rozhodujú vyššie výhry. Kliknutím na hlavičku zoradíte inak.')
             : T('Pontok és helyezések a portálra beolvasott eredményekből.','Body a umiestnenia z výsledkov načítaných do portálu.'))+'</p>';
@@ -5048,7 +5175,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     }
     /* Egyszerűbb felület: az eredményekkel kapcsolatos minden egy fül alatt van
        (felvétel, szezonok, név-egyesítés, táblázat-beolvasás). */
-    var tabs = [['versenyek',T('Versenyek','Turnaje')],['eredmenyek',T('Eredmények','Výsledky')],['hirek',T('Hírek','Novinky')],['galeria',T('Galéria','Galéria')],['jelentkezok',T('Jelentkezők','Prihlásení')],['jatekosok',T('Játékosok','Hráči')],['szabalyok',T('Szabályok','Pravidlá')],['letoltesek',T('Letöltések','Na stiahnutie')],['mentes',T('Mentés','Záloha')],['adminok',T('Adminok','Administrátori')],['naplo',T('Napló','Záznam')]];
+    var tabs = [['versenyek',T('Versenyek','Turnaje')],['eredmenyek',T('Eredmények','Výsledky')],['hirek',T('Hírek','Novinky')],['galeria',T('Galéria','Galéria')],['jelentkezok',T('Jelentkezők','Prihlásení')],['jatekosok',T('Játékosok','Hráči')],['szabalyok',T('Szabályok','Pravidlá')],['letoltesek',T('Letöltések','Na stiahnutie')],['mentes',T('Mentés','Záloha')],['adminok',T('Adminok','Administrátori')],['naplo',T('Napló','Záznam')],['megjelenites',T('Megjelenítés','Zobrazenie')]];
     tabs = tabs.filter(function(t){ return tabAllowed(t[0]); });
     if(!tabAllowed(adminTab)) adminTab = 'versenyek';
     if(adminTab === 'eredmenyek' && !tabAllowed(adminSub)) adminSub = (allowedSubs()[0] || ['felvetel'])[0];
@@ -5076,6 +5203,78 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     else if(adminTab==='mentes') renderAdminBackup();
     else if(adminTab==='adminok') renderAdminUsers();
     else if(adminTab==='naplo') renderAdminLog();
+    else if(adminTab==='megjelenites') renderAdminDisplay();
+  }
+  /* --- admin: megjelenítés (menüpontok, főoldali modulok, eredmény-forrás) --- */
+  function renderAdminDisplay(){
+    if(!requireFull()){ setAdminTab('versenyek'); return; }
+    var body = document.getElementById('admin-body');
+    if(!body) return;
+    var plan = homePlan();
+    body.innerHTML = '<div class="card" style="margin-bottom:1.2rem">'
+      + '<h3 style="margin-bottom:.3rem">'+esc(T('Statisztika mindenkinek','Štatistika pre všetkých'))+'</h3>'
+      + '<p class="meta" style="margin:0 0 .7rem">'+esc(T('Ha be van kapcsolva, a látogatók látják a Statisztika menüpontot: a ranglistát, a játékos-adatlapokat és a hozzá tartozó figyelmeztetést (kérik, hogy mindenki ellenőrizze).',
+                                                              'Ak je zapnuté, návštevníci vidia menu Štatistika: rebríček, karty hráčov a upozornenie (prosba o kontrolu).'))+'</p>'
+      + '<label class="switchline"><input type="checkbox" id="feat-stats" '+(FEAT.statistics?'checked':'')+' onchange="MUB.setStatistics(this.checked)"> '
+      + esc(T('Statisztika megjelenítése a látogatóknak','Zobrazenie štatistík návštevníkom'))+'</label>'
+      + '<p class="meta" style="margin:.4rem 0 0">'+esc(FEAT.statistics
+          ? T('Most BE van kapcsolva.','Teraz je ZAPNUTÉ.')
+          : T('Most KI van kapcsolva: a látogatók nem látják a Statisztikát.','Teraz je VYPNUTÉ: návštevníci nevidia Štatistiku.'))+'</p>'
+      + '</div>'
+      + '<div class="card" style="margin-bottom:1.2rem">'
+      + '<h3 style="margin-bottom:.3rem">'+esc(T('Menüpontok','Položky menu'))+'</h3>'
+      + '<p class="meta" style="margin:0 0 .7rem">'+esc(T('A pipa kivételével a menüpont eltűnik a látogatók elől (Ön bejelentkezve továbbra is látja). A Kezdőlap és az Admin mindig látszik.',
+                                                         'Po odškrtnutí sa položka menu skryje návštevníkom (vy prihlásený ju stále vidíte). Domov a Admin sú vždy viditeľné.'))+'</p>'
+      + MENU_KEYS.map(function(m){
+          var on = (m[0] === 'statisztika') ? (FEAT.statistics === true) : ((FEAT.menu || {})[m[0]] !== false);
+          var isStats = (m[0] === 'statisztika');
+          return '<label class="switchline" style="display:block; margin:.25rem 0"><input type="checkbox" '+(on?'checked':'')
+            + (isStats ? ' disabled' : ' onchange="MUB.setMenuVisible(\''+m[0]+'\', this.checked)"')+'> '
+            + esc(T(m[1], m[2])) + (isStats ? ' <span class="meta">('+esc(T('a fenti kapcsolóval','horným prepínačom'))+')</span>' : '') + '</label>';
+        }).join('')
+      + '</div>'
+      + '<div class="card" style="margin-bottom:1.2rem">'
+      + '<h3 style="margin-bottom:.3rem">'+esc(T('Főoldali modulok sorrendje','Poradie modulov na domovskej stránke'))+'</h3>'
+      + '<p class="meta" style="margin:0 0 .7rem">'+esc(T('A nyilakkal mozgathatja a sorrendet, a pipával ki-be kapcsolhatja az egyes modulokat. Mentés után a főoldal azonnal így jelenik meg.',
+                                                         'Šípkami meníte poradie, zaškrtnutím zapnete/vypnete modul. Po uložení sa domovská stránka hneď zobrazí takto.'))+'</p>'
+      + '<div class="table-wrap"><table class="list"><thead><tr><th>'+esc(T('Modul','Modul'))+'</th><th class="num">'+esc(T('Sorrend','Poradie'))+'</th><th>'+esc(T('Látszik','Viditeľné'))+'</th></tr></thead><tbody>'
+      + plan.map(function(m, i){
+          var label = (HOME_MODULES.filter(function(x){ return x[0] === m.k; })[0] || []);
+          return '<tr><td>'+esc(T(label[1] || m.k, label[2] || m.k))+'</td>'
+            + '<td class="num" style="white-space:nowrap">'
+            + '<button type="button" class="btn sm secondary" onclick="MUB.moveHomeModule('+i+',-1)"'+(i===0?' disabled':'')+' title="'+esc(T('Feljebb','Nahor'))+'">↑</button> '
+            + '<button type="button" class="btn sm secondary" onclick="MUB.moveHomeModule('+i+',1)"'+(i===plan.length-1?' disabled':'')+' title="'+esc(T('Lejjebb','Nadol'))+'">↓</button></td>'
+            + '<td><input type="checkbox" '+(m.on?'checked':'')+' onchange="MUB.toggleHomeModule('+i+', this.checked)"></td></tr>';
+        }).join('')
+      + '</tbody></table></div></div>'
+      + '<div class="card" style="margin-bottom:1.2rem">'
+      + '<h3 style="margin-bottom:.3rem">'+esc(T('Főoldali eredmény-blokk','Blok výsledkov na domovskej stránke'))+'</h3>'
+      + '<p class="meta" style="margin:0 0 .7rem">'+esc(T('Válassza ki, mi jelenjen meg a főoldalon a szezonnál: a hivatalos Google-táblázat, vagy a portálra feltöltött adatokból számolt ranglista (a legjobb 12).',
+                                                         'Vyberte, čo sa zobrazí na domovskej stránke pri sezóne: oficiálna Google tabuľka alebo rebríček z údajov nahratých do portálu (najlepších 12).'))+'</p>'
+      + '<div class="field" style="max-width:26rem"><label for="home-results">'+esc(T('Forrás','Zdroj'))+'</label>'
+      + '<select id="home-results" onchange="MUB.setHomeResults(this.value)">'
+      + [['sheet', T('Hivatalos Google-táblázat','Oficiálna Google tabuľka')],
+         ['new', T('Új feltöltött adatok (ranglista)','Nové nahraté údaje (rebríček)')],
+         ['both', T('Mindkettő','Oboje')]].map(function(o){
+            return '<option value="'+esc(o[0])+'"'+(FEAT.homeResults===o[0]?' selected':'')+'>'+esc(o[1])+'</option>';
+         }).join('')
+      + '</select></div></div>';
+  }
+  function moveHomeModule(i, d){
+    var p = homePlan();
+    var j = i + d;
+    if(j < 0 || j >= p.length) return;
+    var t = p[i]; p[i] = p[j]; p[j] = t;
+    saveFeatures({ home: p }, T('Sorrend elmentve.','Poradie uložené.'));
+  }
+  function toggleHomeModule(i, on){
+    var p = homePlan();
+    if(!p[i]) return;
+    p[i].on = !!on;
+    saveFeatures({ home: p }, T('Elmentve.','Uložené.'));
+  }
+  function setHomeResults(v){
+    saveFeatures({ homeResults: (v === 'new' || v === 'both') ? v : 'sheet' }, T('Elmentve.','Uložené.'));
   }
   /* Az összevont „Eredmények” fül: alpont-választó + az alpont tartalma. */
   function setAdminSub(s){ adminSub = s; renderAdminEredmenyek(); }
@@ -5346,14 +5545,9 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       var perUrl = cur ? String(cur.perTournamentUrl || '') : '';
       var aggUrl = cur ? String(cur.aggregateUrl || '') : '';
       var html = '<div class="card" style="margin-bottom:1.2rem">'
-        + '<h3 style="margin-bottom:.6rem">'+esc(T('Statisztika','Štatistiky'))+'</h3>'
-        + '<div class="infobox" style="margin-bottom:1.2rem">'
-        + '<label class="switchline"><input type="checkbox" id="feat-stats" '+(FEAT.statistics?'checked':'')+' onchange="MUB.setStatistics(this.checked)"> '
-        + esc(T('Statisztika megjelenítése a látogatóknak','Zobrazenie štatistík návštevníkom'))+'</label>'
-        + '<p class="meta" style="margin:.4rem 0 0">'+esc(FEAT.statistics
-            ? T('Most BE van kapcsolva: a látogatók látják a ranglistát és a játékos-adatlapokat.','Teraz je ZAPNUTÉ: návštevníci vidia rebríček a karty hráčov.')
-            : T('Most KI van kapcsolva: a látogatók csak a régi (Google-táblázatos) eredményt látják. A beolvasott adatok megmaradnak, amikor újra bekapcsolja.','Teraz je VYPNUTÉ: návštevníci vidia len staré (Google tabuľkové) výsledky. Načítané údaje zostanú zachované.'))+'</p>'
-        + '</div>'
+        + '<h3 style="margin-bottom:.6rem">'+esc(T('Statisztika és megjelenítés','Štatistiky a zobrazenie'))+'</h3>'
+        + '<p class="meta" style="margin:0 0 1rem">'+esc(T('A Statisztika menüpont és a főoldal moduljainak ki- és bekapcsolása, valamint a sorrend a „Megjelenítés” fülön állítható.',
+                                                          'Menu Štatistika a zapínanie/vypínanie a poradie modulov na domovskej stránke sa nastavuje na karte „Zobrazenie”.'))+'</p>'
         + '<h3 style="margin-bottom:.6rem">'+esc(T('Eredmények beolvasása','Načítanie výsledkov'))+'</h3>'
         + '<p class="meta" style="margin:0 0 .9rem">'+esc(T('A szezon táblázatában általában két munkalap van: a versenyenkénti eredmények és az összesített ranglista. Nyissa meg a Google-táblázatban a kívánt munkalapot, másolja ki a címsorból a linket (a végén ott a #gid=… szám), és illessze be ide. A táblázatot nem kell megváltoztatni.','V tabuľke sezóny sú zvyčajne dva hárky: výsledky podľa turnajov a súhrnný rebríček. Otvorte požadovaný hárok v Google tabuľke, skopírujte odkaz z panela s adresou (na konci je #gid=…) a vložte ho sem. Tabuľku netreba meniť.'))+'</p>'
         + '<div class="field"><label for="imp-year">'+esc(T('Melyik szezon eredménye ez?','Výsledky ktorej sezóny to sú?'))+'</label>'
@@ -6199,9 +6393,11 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     galleryTournaments = sorted || [];
     if(!el) return;
     if(galleryMode==='tournament'){
-      el.innerHTML = '<div class="field"><label for="g-tid">'+esc(T('Verseny kiválasztása','Vyberte turnaj'))+'</label><select id="g-tid" onchange="MUB.pickGalleryTournament(this.value)">'
-        + sorted.map(function(t){ return '<option value="'+t.id+'" '+(t.id===galleryPickTid?'selected':'')+'>'+esc(t.location_hu)+' ('+t.date+')</option>'; }).join('')
-        + '</select></div>';
+      el.innerHTML = '<div class="field"><label for="g-tid">'+esc(T('Melyik versenyhez kerüljenek a képek? (a lezajlott versenyek is a listában vannak)','Ku ktorému turnaju majú fotky pribudnúť? (aj odohrané turnaje sú v zozname)'))+'</label><select id="g-tid" onchange="MUB.pickGalleryTournament(this.value)">'
+        + sorted.map(function(t){ return '<option value="'+t.id+'" '+(t.id===galleryPickTid?'selected':'')+'>'+esc(T(t.location_hu, t.location_sk))+' · '+esc(t.date||'')+'</option>'; }).join('')
+        + '</select></div>'
+        + '<p class="meta" style="margin:.4rem 0 0">'+esc(T('Így a képek annak az eseménynek az albumába kerülnek (pl. a legutóbbi verseny), és a galériában is az esemény neve alatt látszanak.',
+                                                           'Fotky sa tak zaradia do albumu toho podujatia (napr. posledného turnaja) a v galérii sa zobrazia pod názvom podujatia.'))+'</p>';
     } else {
       el.innerHTML = (customTitles.length
           ? '<div class="field"><label for="g-album-pick">'+esc(T('Melyik albumot szerkeszti?','Ktorý album upravujete?'))+'</label>'
@@ -7901,6 +8097,45 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     });
     return (best && bestS >= 0.74) ? { name: best, sim: Math.round(bestS * 100) / 100 } : null;
   }
+  /* A naptárban már szereplő versenyek: kiválasztva a nevet, a dátumot és a
+     szezont is kitölti — így egy lezajlott verseny eredményét is fel lehet tölteni. */
+  var MR_TOURS = null;
+  function mrToursHtml(){
+    if(MR_TOURS === null){
+      MR_TOURS = [];                     /* előbb üres: ne rajzoljunk újra önmagunkból */
+      loadTournaments(function(ts){
+        MR_TOURS = (ts || []).slice().sort(byDateDesc);
+        if(mrMode !== 'agg' && MR_TOURS.length){
+          /* a következő pillanatban rajzolunk újra (így nem zavarjuk a mostani rajzolást) */
+          setTimeout(function(){
+            if(currentRoute() === 'admin' && typeof adminTab !== 'undefined' && adminTab === 'eredmenyek' && adminSub === 'felvetel') renderAdminMr();
+          }, 0);
+        }
+      });
+      return '';
+    }
+    if(!MR_TOURS.length) return '';
+    return '<div class="card" style="margin-bottom:1rem">'
+      + '<div class="field"><label for="mr-pick">'+esc(T('Verseny kiválasztása a naptárból (a lezajlott versenyek is itt vannak)','Vybrať turnaj z kalendára (aj odohrané turnaje)'))+'</label>'
+      + '<select id="mr-pick" onchange="MUB.mrPickTournament(this.value)">'
+      + '<option value="">'+esc(T('— válasszon, és a helyszín, a dátum és a szezon kitöltődik —','— vyberte a doplní sa miesto, dátum a sezóna —'))+'</option>'
+      + MR_TOURS.map(function(t){
+          return '<option value="'+esc(t.id)+'">'+esc(T(t.location_hu, t.location_sk))+' · '+esc(t.date || '')+'</option>';
+        }).join('')
+      + '</select></div>'
+      + '<p class="meta" style="margin:.5rem 0 0">'+esc(T('A kiválasztott verseny helyszínét, dátumát és szezonját a portál kitölti — már csak az eredményt kell beilleszteni.',
+                                                          'Portál doplní miesto, dátum a sezónu vybraného turnaja — stačí už len vložiť výsledok.'))+'</p>'
+      + '</div>';
+  }
+  function mrPickTournament(id){
+    var t = (MR_TOURS || []).filter(function(x){ return String(x.id) === String(id); })[0];
+    if(!t) return;
+    mrVenue = String(t.location_hu || '');
+    mrVenueSk = String(t.location_sk || '');
+    mrDate = String(t.date || '');
+    if(t.date) mrYear = String(t.date).slice(0, 4);
+    renderAdminMr();
+  }
   function renderAdminMr(){
     var box = document.getElementById('admin-body');
     if(!box) return;
@@ -7919,6 +8154,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
                                'Mená rozpoznáva podľa ID (krátky kód alebo dlhé číslo karty): ak sa ID zhoduje, malý rozdiel v mene (diakritika, slovenská/maďarská podoba, preklep) nevadí — dostane zelenú fľajku. Ak sa niečo nezhoduje, dá žlté označenie a tam rozhodnete. Pole mena ponúka zoznam z evidencie, ale dá sa aj voľne písať.'))+'</p>'
       + '<p class="meta">'+esc(T('Írja be a verseny adatait, majd illessze be az eredményt soronként, a verseny végeredménye szerint: 1) helyezés, 2) azonosító szám (ID), 3) név, majd az 5 körben nyert összeg, végül a pont. (Ha a körönkénti bontás nincs meg, elég a nyeremény és a pont.) A neveket az azonosító és a hasonlóság alapján is felismeri, és rákérdez, ha bizonytalan.',
                               'Zadajte údaje turnaja a vložte hráčov v poradí (od 1. miesta po posledné). V riadku: meno a 5 vyhraných súm za kolá (€). Poradie určuje umiestnenie; body vypočíta portál.'))+'</p>'
+      + (isAgg ? '' : mrToursHtml())
       + '<div class="card" style="margin-bottom:1rem">'
       + '<div class="row3">'
       + '<div class="field"><label for="mr-year">'+esc(T('Szezon (év)','Sezóna (rok)'))+'</label><input id="mr-year" inputmode="numeric" value="'+esc(mrYear)+'" oninput="MUB.mrField(\'year\', this.value)"></div>'
@@ -8827,7 +9063,14 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '<div class="toolbar" style="margin:0; align-items:center"><div>'
       + (canInstall ? '<button type="button" class="btn" onclick="MUB.installApp()">📱 '+esc(T('Telepítés most','Nainštalovať teraz'))+'</button> ' : '')
       + '<button type="button" class="btn sm secondary" onclick="MUB.hideInstallCard()">'+esc(T('Most nem','Teraz nie'))+'</button>'
-      + '</div><div class="meta" style="max-width:26rem">'+esc(installSteps())+'</div></div></div>';
+      + '</div><div class="meta" style="max-width:26rem">'+esc(installSteps())+'</div></div>'
+      + '<details style="margin-top:.6rem"><summary class="metasum">'+esc(T('A telefon azt írja: nem biztonságos alkalmazás? Így lehet mégis telepíteni','Telefón píše: nebezpečná aplikácia? Takto ju aj tak nainštalujete'))+'</summary>'
+      + '<ol class="meta" style="margin:.5rem 0 0; padding-left:1.2rem; line-height:1.6">'
+      + '<li>'+esc(T('Koppintson a felugró ablakban a „További részletek” (Details) vagy a „Tovább” gombra.','Klepnite v okne na „Ďalšie podrobnosti” (Details) alebo „Ďalej”.'))+'</li>'
+      + '<li>'+esc(T('Utána jelenik meg a „Telepítés mégis” (Install anyway) / „Telepítés mindenképp” gomb — arra koppintson.','Potom sa zobrazí tlačidlo „Napriek tomu nainštalovať” (Install anyway) — klepnite naň.'))+'</li>'
+      + '<li>'+esc(T('Ha a telefon továbbra sem engedi: Beállítások → Alkalmazások → Speciális hozzáférés → Ismeretlen alkalmazások telepítése → a böngészőnél (Chrome) engedélyezze.','Ak to telefón stále nedovolí: Nastavenia → Aplikácie → Špeciálny prístup → Inštalácia neznámych aplikácií → povoľte pre prehliadač (Chrome).'))+'</li>'
+      + '<li>'+esc(T('Ez csak egyszer kell. Utána a MUB Portál ikon a telefon képernyőjén lesz, mint bármelyik alkalmazás.','Treba to len raz. Potom bude ikona MUB Portál na obrazovke telefónu ako každá iná aplikácia.'))+'</li>'
+      + '</ol></details></div>';
   }
   /* Alsó sáv: új változat vagy nincs internet. */
   function pwaBar(text, btnText, onClick, offline){
@@ -8916,7 +9159,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     shortCodeOf: shortCodeOf, isLongId: isLongId, regOpenNow: regOpenNow, skClock: skClock,
     setAdminSub: setAdminSub, unifyPlayerName: unifyPlayerName, uploadCoverPhoto: uploadCoverPhoto, removeCoverPhoto: removeCoverPhoto,
     alog: alog, setLogKind: setLogKind, setLogWho: setLogWho, reloadLogs: reloadLogs, logCsv: logCsv, cleanLogs: cleanLogs,
-    hideInstallCard: hideInstallCard, reloadPage: reloadPage,
+    hideInstallCard: hideInstallCard, reloadPage: reloadPage, setMenuVisible: setMenuVisible,
+    moveHomeModule: moveHomeModule, toggleHomeModule: toggleHomeModule, setHomeResults: setHomeResults, mrPickTournament: mrPickTournament,
     loadSheet: loadSheet,
   };
 
