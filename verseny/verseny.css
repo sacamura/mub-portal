@@ -537,3 +537,31 @@
   .vet-most{font-size:clamp(1rem,1.8vw,1.8rem);font-weight:800;background:#fff6d8;
     border:2px solid #e8cf8a;border-radius:10px;padding:3px 12px}
   tr.most-sor td{background:#fffbe8;font-weight:900}
+
+  /* ---- külön ablak (kivetítő): lebegő, automatikusan eltűnő vezérlősáv ---- */
+  body.popup-mod .vetites{padding-top:8px}
+  body.popup-mod .ora-vissza,
+  body.popup-mod .vetites-valto,
+  body.popup-mod .ora-vezerlok{
+    position:fixed;bottom:14px;z-index:80;
+    background:rgba(18,26,34,.93);color:#fff;border-radius:12px;
+    padding:8px 14px;box-shadow:0 8px 26px rgba(0,0,0,.4);
+    display:flex;align-items:center;gap:10px;
+    opacity:0;pointer-events:none;transition:opacity .35s ease}
+  body.popup-mod.vezerlok-latni .ora-vissza,
+  body.popup-mod.vezerlok-latni .vetites-valto,
+  body.popup-mod.vezerlok-latni .ora-vezerlok{opacity:1;pointer-events:auto}
+  body.popup-mod .vetites-valto,
+  body.popup-mod .ora-vezerlok{left:50%;transform:translateX(-50%)}
+  body.popup-mod .ora-vissza{left:14px}
+  body.popup-mod .ora-vissza,
+  body.popup-mod .vetites-valto .nav-gomb,
+  body.popup-mod .ora-vezerlok .masod-gomb,
+  body.popup-mod .ora-vezerlok .fo-gomb{
+    background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.28)}
+  body.popup-mod .vetites-valto .nav-gomb.aktiv,
+  body.popup-mod .ora-vezerlok .fo-gomb{background:#1f7a44;border-color:#1f7a44;color:#fff}
+  body.popup-mod .ora-vezerlok label{color:#fff}
+  body.popup-mod .ora-vezerlok .mini-input{background:#fff;color:#111}
+  body.popup-mod .ora-vissza:hover,
+  body.popup-mod .vetites-valto .nav-gomb:hover{background:rgba(255,255,255,.24)}
