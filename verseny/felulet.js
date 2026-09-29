@@ -137,7 +137,7 @@
     /* QR-kód csak akkor kerül a cédulára, ha be van kapcsolva. A címet nem kell
        beírni: ha üres, a program a saját (mub.sk) címét használja. */
     if (!S.allapot.beall.qrBe) return '';
-    var cim = String(S.allapot.beall.webcim || S.allapot.beall.webcimAlap || '').trim();
+    var cim = String(S.allapot.beall.webcim || S.allapot.beall.webcimAlap || V.ALAP.webcimAlap || '').trim();
     if (!cim) return '';
     if (cim.indexOf('#') >= 0) cim = cim.slice(0, cim.indexOf('#'));
     var kodok = [], vendegNevek = [];
