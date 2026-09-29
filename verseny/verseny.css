@@ -1,0 +1,455 @@
+:root{
+    --zold:#1b7f3b; --piros:#c62828; --sarga:#f9a825; --kek:#1a4f8a;
+    --hatter:#f4f6f8; --kartya:#ffffff; --vonal:#d5dbe2; --szoveg:#16202b; --halvany:#6b7684;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--hatter);color:var(--szoveg);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px}
+  #teljes{max-width:1400px;margin:0 auto;padding:10px 14px 60px}
+  #teljes.kivetes{max-width:none;padding:0}
+
+  /* ---- fejléc ---- */
+  .fej{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding:6px 2px 10px}
+  .cim{font-size:1.6rem;font-weight:800;line-height:1.15}
+  .alcim{color:var(--halvany);font-size:.95rem;margin-top:3px}
+  .korjelzo{background:#e8f0fb;border:1px solid #bcd3ee;color:var(--kek);border-radius:10px;
+    padding:8px 14px;font-weight:700;white-space:nowrap}
+  .nav{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;border-bottom:2px solid var(--vonal);padding-bottom:10px}
+  .nav-gomb{background:#fff;border:1px solid var(--vonal);border-radius:9px;padding:9px 15px;
+    font-size:1rem;font-weight:600;cursor:pointer;color:var(--szoveg)}
+  .nav-gomb:hover{background:#eef2f6}
+  .nav-gomb.aktiv{background:var(--kek);color:#fff;border-color:var(--kek)}
+
+  /* ---- kártyablokkok ---- */
+  .kartya-blokk{background:var(--kartya);border:1px solid var(--vonal);border-radius:12px;
+    padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 2px rgba(20,30,40,.05)}
+  .kartya-blokk h2{margin:0 0 10px;font-size:1.25rem}
+  .kartya-blokk h3{margin:14px 0 8px;font-size:1.05rem;color:#33414f}
+  .sugo{color:var(--halvany);font-size:.92rem;margin:0 0 12px;line-height:1.5}
+  .sugo b{color:var(--szoveg)}
+  .figyelem{color:#8a5a00;background:#fff6e0;border:1px solid #f0d9a0;border-radius:8px;padding:9px 12px;font-weight:600}
+  .ok-jel{color:var(--zold);font-weight:700}
+  .hiba-jel{color:var(--piros);font-weight:700}
+  .semleges-jel{color:var(--halvany);font-weight:600}
+
+  .uzenet{padding:10px 14px;border-radius:9px;margin-bottom:12px;font-weight:600;border:1px solid}
+  .uzenet.ok{background:#e7f6ec;border-color:#a9dcbb;color:#14572c}
+  .uzenet.hiba{background:#fdeaea;border-color:#f0b4b4;color:#8d1f1f}
+  .uzenet.info{background:#e8f0fb;border-color:#bcd3ee;color:var(--kek)}
+
+  /* ---- űrlapok ---- */
+  .nevezes-sor{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  input,select{font-family:inherit;font-size:1rem;padding:10px 12px;border:1px solid var(--vonal);
+    border-radius:9px;background:#fff;color:var(--szoveg)}
+  input:focus,select:focus{outline:3px solid #bcd3ee;outline-offset:1px}
+  .nagy-input{font-size:1.5rem;font-weight:700;padding:14px 16px;width:280px;letter-spacing:.03em}
+  .kozepes-input{width:280px}
+  .mini-input{width:90px}
+  input.mini{padding:5px 7px;font-size:.9rem;width:110px}
+  input.kod-input{width:64px;text-align:center;font-weight:700}
+  .fo-gomb{background:var(--zold);color:#fff;border:none;border-radius:10px;padding:13px 22px;
+    font-size:1.05rem;font-weight:700;cursor:pointer}
+  .fo-gomb:hover{filter:brightness(1.07)}
+  .fo-gomb:disabled{background:#c3cbd4;cursor:not-allowed}
+  .masod-gomb{background:#fff;border:1px solid var(--vonal);border-radius:10px;padding:11px 16px;
+    font-size:.98rem;font-weight:600;cursor:pointer}
+  .masod-gomb:hover{background:#eef2f6}
+  .masod-gomb.kicsi{padding:6px 10px;font-size:.86rem;margin:2px}
+  .ikon-gomb{background:none;border:1px solid var(--vonal);border-radius:7px;cursor:pointer;
+    font-size:1rem;padding:4px 9px;line-height:1}
+  .ikon-gomb.kiemelt{background:#fff3cd;border-color:var(--sarga)}
+  .ikon-gomb.veszely{color:var(--piros)}
+  .urlap{display:flex;flex-wrap:wrap;gap:14px}
+  .urlap label{display:flex;flex-direction:column;gap:5px;font-size:.88rem;color:var(--halvany);font-weight:600}
+  label.kapcsolo{display:flex;align-items:center;gap:7px;font-weight:600;color:var(--szoveg);cursor:pointer}
+  label.kapcsolo input{width:20px;height:20px;padding:0}
+  .nevezes-sor label{display:flex;align-items:center;gap:7px;font-weight:600;color:var(--halvany)}
+  .nevezes-sor label select,.nevezes-sor label input{color:var(--szoveg)}
+
+  .statisztika-sor{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-top:14px;
+    padding-top:12px;border-top:1px dashed var(--vonal);color:var(--halvany)}
+  .statisztika-sor b{color:var(--szoveg);font-size:1.1rem}
+
+  /* ---- táblázatok ---- */
+  table.tabla{width:100%;border-collapse:collapse}
+  table.tabla th{text-align:left;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--halvany);border-bottom:2px solid var(--vonal);padding:7px 8px}
+  table.tabla td{padding:7px 8px;border-bottom:1px solid #eef1f4;vertical-align:middle}
+  table.tabla td.szam,table.tabla th.szam{text-align:right;font-variant-numeric:tabular-nums}
+  td.szam.nagy{font-size:1.25rem;font-weight:800}
+  .kesz-sor{background:#f2fbf5}
+  .kiemelt-sor{background:#fffdf3}
+  .cimke{background:#e8f0fb;color:var(--kek);border-radius:5px;padding:1px 6px;font-size:.72rem;
+    font-weight:700;text-transform:uppercase;vertical-align:middle}
+  .cimke.vendeg{background:#fdeaea;color:var(--piros)}
+  .dontetlen{color:var(--halvany);font-size:.8rem;margin-left:8px;font-style:italic}
+  .halvany{color:var(--halvany)}
+
+  /* ---- asztalválasztó (a "lekérdező ablak") ---- */
+  .asztal-gombok{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+  .asztal-gomb{min-width:56px;padding:12px 8px;border:2px solid var(--vonal);border-radius:10px;
+    background:#fff;font-size:1.15rem;font-weight:800;cursor:pointer;color:var(--szoveg);position:relative}
+  .asztal-gomb:hover{background:#eef2f6}
+  .asztal-gomb.kesz{background:#e7f6ec;border-color:#a9dcbb;color:#14572c}
+  .asztal-gomb.aktiv{border-color:var(--kek);background:var(--kek);color:#fff}
+  .asztal-gomb .pip{position:absolute;top:-7px;right:-5px;background:var(--zold);color:#fff;
+    border-radius:50%;font-size:.7rem;width:17px;height:17px;line-height:17px;text-align:center}
+
+  .beiras-blokk{border:2px solid var(--kek)}
+  table.beiras td{font-size:1.15rem}
+  .nev-cell{font-weight:700}
+  .elozo{display:block;font-weight:400;font-size:.78rem;color:var(--halvany)}
+  .penz-input{font-size:1.5rem;font-weight:800;width:150px;text-align:right;padding:10px}
+  .pont-cell{text-align:center;font-size:1.5rem;width:130px}
+  .pont-cell b{color:var(--kek)}
+  .pont-input{width:70px;text-align:center;font-size:1.1rem}
+  .beiras-lab{margin:14px 0 4px;font-size:1.1rem}
+  .beiras-gombok{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+
+  .kor-gombok{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .kor-gomb{padding:9px 15px;border:1px solid var(--vonal);background:#fff;border-radius:9px;
+    font-weight:700;cursor:pointer}
+  .kor-gomb.kesz{background:#e7f6ec;border-color:#a9dcbb}
+  .kor-gomb.aktiv{background:var(--kek);color:#fff;border-color:var(--kek)}
+
+  /* ---- döntetlen sorrend ---- */
+  .tiebreak{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
+  .tiebreak-elem{background:#eef2f6;border:1px solid var(--vonal);border-radius:9px;padding:6px 10px;font-weight:600}
+  .tiebreak-hozzaad{margin-top:6px}
+
+  /* ---- kivetítés ---- */
+  .vetites{padding:18px 26px}
+  .vetites h1{font-size:2.6rem;margin:0 0 18px}
+  .vetites-valto{display:flex;gap:8px;padding:14px 26px 0}
+  .vet-racs{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+  .vet-kartya{border:3px solid #16202b;border-radius:14px;padding:12px 16px;background:#fff}
+  .vet-aszta{font-size:2.4rem;font-weight:900;line-height:1;margin-bottom:6px}
+  .vet-kartya ul{margin:0;padding-left:22px}
+  .vet-kartya li{font-size:1.5rem;line-height:1.5}
+  .vet-tabla td{font-size:1.4rem;padding:5px 10px}
+  .vet-nev{font-weight:700}
+
+  /* ---- nyomtatás: A4 fektetve, laponként 8 cédula ---- */
+  #nyomtat-terulet{display:none}
+  .cedulak{display:grid;grid-template-columns:repeat(var(--cedula-oszlop,2),1fr);gap:3.5mm}
+  .cedula{border:1.6px solid #000;border-radius:3mm;padding:2mm 2.6mm;background:#fff;
+    break-inside:avoid;page-break-inside:avoid;height:var(--cedula-magassag,45mm);box-sizing:border-box;
+    display:flex;flex-direction:column}
+  table.c-tabla td{height:7.4mm}
+  .cedula-negy table.c-tabla td{height:6.3mm;font-size:10pt}
+  .cedula-negy .c-nev{font-size:11pt}
+  .c-fej{display:flex;justify-content:space-between;font-size:10pt;font-weight:700;line-height:1.15}
+  .c-aszta{font-size:14pt;font-weight:900;line-height:1.1;margin:0.6mm 0 1.4mm;border-bottom:1.4px solid #000;
+    padding-bottom:0.6mm}
+  table.c-tabla{width:100%;border-collapse:collapse;font-size:11pt;flex:1 1 auto}
+  table.c-tabla th{border-bottom:1.2px solid #000;text-align:left;font-size:8pt;
+    text-transform:uppercase;padding:0 1mm 0.6mm;font-weight:700}
+  table.c-tabla td{padding:0.5mm 1mm;height:13mm;vertical-align:middle}
+  table.c-tabla tr+tr td{border-top:1px solid #bbb}
+  .c-nev{font-weight:700;font-size:12pt}
+  .c-szam{width:9mm;color:#444;font-size:10pt}
+  /* a beírható négyzetek: ide írják a pontot és az összeget */
+  .c-ir{width:16mm;border:1.4px solid #000!important;border-radius:1.5mm;background:#fff}
+  table.c-tabla thead th:nth-child(3),table.c-tabla thead th:nth-child(4){text-align:center}
+  .c-qr-sor{text-align:right;margin-top:0.8mm}
+  .c-qr-sor .qr{width:14mm;height:14mm}
+
+  @media print{
+    @page{size:A4 landscape;margin:8mm}
+    html,body{background:#fff}
+    #teljes{display:none!important}
+    #nyomtat-terulet{display:block!important}
+    #nyomtat-terulet .cedulak{padding:0}
+  }
+  @media (max-width:900px){
+    .nagy-input,.kozepes-input{width:100%}
+  }
+
+  /* ---- nyelvváltó ---- */
+  .fej-jobb{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+  .nyelv-valto{display:flex;border:1px solid var(--vonal);border-radius:9px;overflow:hidden;background:#fff}
+  .nyelv-gomb{background:#fff;border:none;padding:6px 11px;font-weight:700;font-size:.85rem;cursor:pointer;color:var(--halvany)}
+  .nyelv-gomb:hover{background:#eef2f6}
+  .nyelv-gomb.aktiv{background:var(--kek);color:#fff}
+  .sk-sor{display:block;font-size:.9em;color:var(--halvany);font-style:italic;margin-top:3px}
+
+  /* ---- következő lépés ---- */
+  .lepes-sav{display:flex;flex-wrap:wrap;align-items:center;gap:14px;background:#e8f0fb;
+    border:1px solid #bcd3ee;border-left:6px solid var(--kek);border-radius:10px;padding:11px 16px;margin-bottom:14px}
+  .lepes-felirat{color:var(--kek);font-weight:700;text-transform:uppercase;font-size:.78rem;letter-spacing:.05em}
+  .lepes-cim{font-size:1.15rem}
+  .lepes-sugo{color:var(--halvany);font-size:.92rem;flex:1 1 240px}
+  .fo-gomb.kicsi{padding:9px 16px;font-size:.95rem}
+
+  /* ---- súgó ---- */
+  .sugo-racs{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+  .sugo-lepes{background:#f8fafc;border:1px solid var(--vonal);border-radius:10px;padding:12px 14px}
+  .sugo-lepes h3{margin:0 0 6px;font-size:1rem;color:var(--kek)}
+  .sugo-lepes p{margin:0;color:var(--szoveg);font-size:.95rem;line-height:1.5}
+
+  /* ---- átadás a weblapnak ---- */
+  .weblap-szoveg{width:100%;font-family:ui-monospace,Consolas,monospace;font-size:.85rem;
+    line-height:1.45;white-space:pre;overflow:auto;background:#f8fafc}
+
+  .cimke.kilepett{background:#f0f0f0;color:#666}
+
+  /* ---- QR-kód ---- */
+  .qr{display:block;image-rendering:pixelated}
+  .bekuld-qr{display:flex;gap:14px;align-items:center;margin-top:12px;padding-top:12px;border-top:1px dashed var(--vonal)}
+  .bekuld-qr-szoveg{color:var(--halvany);font-size:.9rem;line-height:1.5}
+  .c-qr{float:right;margin-left:8px}
+  .c-qr .qr{width:64px;height:64px}
+
+  /* ---- a játékos beküldő oldala (telefonon) ---- */
+  .bekuldo{max-width:640px;margin:0 auto;padding:18px 14px 40px}
+  .bekuldo h1{font-size:1.7rem;margin:0 0 8px}
+  .bekuldo p{color:var(--halvany);line-height:1.5}
+  .bekuld-tabla td{font-size:1.2rem}
+  .bekuld-nev{font-weight:700}
+  .bekuld-tabla .penz-input{width:130px}
+  .bekuld-lab{font-size:1.1rem;font-weight:700;margin:14px 0}
+  .nagy-gomb{width:100%;padding:18px;font-size:1.3rem}
+  .bekuld-lablec{font-size:.85rem;color:var(--halvany);margin-top:12px}
+  .bekuldo-kesz{text-align:center}
+  .nagy-pipa{font-size:5rem;color:var(--zold);line-height:1}
+  .bekuld-osszeg{margin:18px 0;text-align:left}
+  .bekuld-sor{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eef1f4}
+  label.szeles{flex:1 1 320px}
+  label.szeles input{width:100%}
+
+  /* ---- későn érkező ---- */
+  .keso-blokk{border:2px solid var(--sarga);background:#fffdf3}
+  .keso-blokk h3{margin-top:0;color:#8a5a00}
+
+  /* ---- kivetítés: pontok a nevek mellett ---- */
+  .vet-kartya li{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .vet-nev{flex:1 1 auto;font-weight:700}
+  .vet-pont{font-weight:900;color:var(--kek)}
+  .vet-penz{color:var(--halvany);font-size:.85em}
+
+  /* ---- vissza gomb ---- */
+  .vissza-gomb{background:#eef2f6;border-color:#c3cbd4}
+
+  /* ---- nagy számláló a nevezésnél ---- */
+  .szamlalo{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin:4px 0 16px}
+  .szam-doboz{background:#e8f0fb;border:1px solid #bcd3ee;border-radius:14px;padding:10px 26px;text-align:center;min-width:150px}
+  .szam-doboz b{display:block;font-size:2.6rem;line-height:1.05;color:var(--kek);font-variant-numeric:tabular-nums}
+  .szam-doboz span{font-size:.85rem;color:var(--halvany);font-weight:600}
+  .szam-reszlet{font-size:1.05rem;font-weight:700;color:var(--szoveg)}
+  .szam-reszlet br+*{font-weight:400;color:var(--halvany)}
+
+  /* ---- visszaszámláló óra (kivetítőre is) ---- */
+  .ora{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;
+    padding:20px;box-sizing:border-box;background:#0f1720;color:#fff;position:relative;text-align:center}
+  .ora-vissza{position:absolute;top:14px;left:16px}
+  .ora-fej{display:flex;gap:24px;align-items:baseline;flex-wrap:wrap;justify-content:center;margin-bottom:4px}
+  .ora-kor{font-size:clamp(1.3rem,3vw,2.8rem);font-weight:800;color:#7fb0e0}
+  .ora-cim{font-size:clamp(.85rem,1.6vw,1.5rem);color:#93a4b5;text-transform:uppercase;letter-spacing:.12em}
+  .ora-szam{font-size:clamp(5rem,24vw,24rem);line-height:.95;font-weight:900;
+    font-variant-numeric:tabular-nums;letter-spacing:.02em;margin:2px 0}
+  .ora-vege{font-size:clamp(1.1rem,2.8vw,2.8rem);font-weight:700;color:#7fb0e0}
+  .ora-lejart .ora-szam{color:#ff5252;animation:pulzal 1s infinite}
+  .ora-lejart .ora-vege{color:#ffb3b3}
+  @keyframes pulzal{0%,100%{opacity:1}50%{opacity:.3}}
+  .ora-vezerlok{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center;margin-top:28px}
+  .ora-vezerlok label{color:#c8d3de;display:flex;align-items:center;gap:8px}
+  .ora-vezerlok input{background:#1b2734;border-color:#33465a;color:#fff}
+  .nagy-gomb-2{padding:14px 34px;font-size:1.15rem}
+  .ora .sugo{color:#8d9aa8;max-width:900px;margin-top:14px}
+
+  /* ---- névkereső a nevezésnél ---- */
+  .kereso-sor{margin-top:12px}
+  .kereso-lista{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .kereso-elem{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid var(--vonal);
+    border-radius:10px;padding:9px 14px;cursor:pointer;font-size:1rem;color:var(--szoveg)}
+  .kereso-elem:hover{background:#eef2f6}
+  .kereso-elem b{color:var(--kek);min-width:2.4em;text-align:right;font-size:1.05rem}
+  .kereso-elem span{color:var(--halvany);font-size:.85rem}
+  .kereso-elem i{font-style:normal;font-weight:700;color:var(--zold)}
+  .kereso-elem.mar{opacity:.55;cursor:default}
+  .kereso-elem.mar i{color:var(--halvany)}
+
+  /* ---- kivetítés: képernyőhöz igazodó, egyforma blokkok ---- */
+  /* a felső gombsor 56 px, a többi a blokkoké */
+  .vetites-valto{flex:0 0 auto;height:56px;box-sizing:border-box;padding:12px 26px 0}
+  .vetites{display:flex;flex-direction:column;height:calc(100vh - 56px);padding:6px 16px 12px;
+    box-sizing:border-box;overflow:hidden}
+  .vetites h1{font-size:clamp(1rem,1.9vw,1.9rem);margin:0 0 8px;flex:0 0 auto;line-height:1.15}
+  .vet-racs{display:grid;grid-template-columns:repeat(var(--oszlopok,5),minmax(0,1fr));
+    grid-auto-rows:minmax(0,1fr);gap:8px;flex:1 1 auto;min-height:0}
+  .vet-kartya{min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:center;
+    border:3px solid #16202b;border-radius:12px;padding:4px 9px;background:#fff}
+  .vet-aszta{font-size:clamp(.75rem,1.3vw,1.3rem);font-weight:900;line-height:1.1;margin-bottom:1px}
+  .vet-kartya ul{margin:0;padding-left:15px;overflow:hidden}
+  .vet-kartya li{font-size:clamp(.6rem,.95vw,1.05rem);line-height:1.28;display:flex;
+    justify-content:space-between;align-items:baseline;gap:6px}
+  .vet-kartya .vet-nev{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .vet-pont{font-size:.95em;white-space:nowrap;flex:0 0 auto}
+  .vet-penz{display:none}
+  .vet-rangsor{overflow:auto}
+
+  /* ---- két nyelvváltó (kezelő / kivetítés) ---- */
+  .nyelv-valto{flex-direction:column;gap:5px;border:none;background:transparent;align-items:flex-end}
+  .nyelv-sor{display:flex;align-items:center;gap:7px}
+  .nyelv-sor>span{font-size:.68rem;color:var(--halvany);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+  .nyelv-sor .nyelv-gomb{border:1px solid var(--vonal);border-right:none;border-radius:0;padding:5px 9px}
+  .nyelv-sor .nyelv-gomb:first-of-type{border-radius:8px 0 0 8px}
+  .nyelv-sor .nyelv-gomb:last-of-type{border-radius:0 8px 8px 0;border-right:1px solid var(--vonal)}
+
+  /* ---- regisztráltak kivetítve ---- */
+  .vet-db{font-size:.48em;font-weight:600;color:var(--halvany);margin-left:14px}
+  .vet-rangsor .vet-tabla td{font-size:clamp(.85rem,1.5vw,1.6rem);padding:4px 10px}
+  .vet-rangsor .vet-tabla{max-width:1500px;margin:0 auto}
+
+  /* ---- vissza gomb a fejléc nélküli nézeteken is ---- */
+  .nyomtat-vissza{margin:0 0 10px;display:inline-block}
+  .kartya-blokk>.vissza-gomb:not(.nyomtat-vissza){float:right;margin-left:10px}
+
+  /* ---- beépített megerősítés (nem böngésző-ablak) ---- */
+  .megerosites{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;
+    background:#fff6e0;border:1px solid #f0d9a0;border-radius:9px;padding:5px 10px}
+  .megerosites-kerdes{font-weight:700;color:#8a5a00}
+  /* ---- nevezési lista ---- */
+  table.nevezett-tabla td{padding:5px 6px}
+  .nev-input{width:100%;min-width:150px;padding:6px 8px;font-size:1rem;font-weight:600}
+  table.nevezett-tabla td:last-child{white-space:nowrap}
+  table.nevezett-tabla .ikon-gomb,table.nevezett-tabla .masod-gomb{margin-left:4px}
+
+  /* a pénz is látszódjon a kivetítésen (a korábbi elrejtés felülírása) */
+  .vet-kartya .vet-penz{display:inline-block;color:var(--halvany);font-size:.9em;
+    min-width:4.4em;text-align:right;font-weight:600}
+
+  /* a sor ne törjön két sorba: a név rövidül, a pont és a pénz mindig látszik */
+  .vet-kartya li{flex-wrap:nowrap}
+  .vet-kartya .vet-nev{min-width:0;flex:1 1 auto}
+  .vet-kartya .vet-pont,.vet-kartya .vet-penz{flex:0 0 auto}
+
+  /* ---- kivetítés: szabványos kártyaméret, helyezés az asztalon belül ---- */
+  .vet-racs{max-width:calc(var(--oszlopok,5) * 430px);margin:0 auto;width:100%;
+    grid-auto-rows:clamp(96px,12.5vh,175px);align-content:start;justify-content:center}
+  .vet-kartya{padding:6px 12px}
+  .vet-kartya li{font-size:clamp(.85rem,1.15vw,1.3rem);line-height:1.45;gap:8px;
+    border-radius:7px;padding:0 5px}
+  .vet-sorszam{font-weight:900;color:var(--kek);min-width:1.5em;flex:0 0 auto}
+  .vet-pont{font-weight:900;color:var(--kek)}
+  .vet-penz{display:inline-block;color:var(--halvany);font-size:.9em;min-width:4.4em;
+    text-align:right;font-weight:600;flex:0 0 auto}
+  .vet-hely-1{background:#fff7d6}
+  .vet-hely-2{background:#f2f5f8}
+  .vet-hely-3{background:#fbf0e4}
+  .vet-hely-4{background:#f4f7f2}
+  .vet-hely-1 .vet-sorszam{color:#b8860b}
+  .vet-hely-2 .vet-sorszam{color:#6b7a88}
+  .vet-hely-3 .vet-sorszam{color:#a2601f}
+
+  /* ---- óra világos (inverz) színnel ---- */
+  .ora-vilagos{background:#f2f5f8;color:#16202b}
+  .ora-vilagos .ora-kor{color:#1a5fa8}
+  .ora-vilagos .ora-cim{color:#68788a}
+  .ora-vilagos .ora-vege{color:#1a5fa8}
+  .ora-vilagos.ora-lejart .ora-szam,.ora-vilagos .ora-lejart .ora-szam{color:#c62828}
+  .ora-vilagos .ora-vezerlok label{color:#3b4a5a}
+  .ora-vilagos .ora-vezerlok input{background:#fff;border-color:#c3d0dc;color:#16202b}
+  .ora-vilagos .sugo{color:#68788a}
+
+  /* ---- kivetítés: rovatfeliratok felül, teljes névvel ---- */
+  .vet-kartya .vet-tabla{width:100%}
+  .vet-fejlec-li{font-size:.72em;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--halvany);font-weight:700;border-bottom:1px solid var(--vonal);
+    border-radius:0;padding-bottom:1px;margin-bottom:2px}
+  .vet-fejlec-li .vet-pont,.vet-fejlec-li .vet-penz{color:var(--halvany);font-size:1em;font-weight:700}
+  .vet-kartya .vet-pont{min-width:2.4em;text-align:right}
+  .vet-kartya .vet-penz{min-width:3.4em;text-align:right}
+  .vet-kartya .vet-sorszam{min-width:1.5em}
+  .vet-kartya li{gap:6px}
+  .vet-kartya .vet-nev{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vet-kartya .vet-nev-kicsi{font-size:.84em;letter-spacing:-.01em}
+  /* a név nem rövidül le: ha hosszú, két sorba törik */
+  .vet-kartya .vet-nev{white-space:normal;overflow:visible;text-overflow:clip;
+    line-height:1.12;flex:1 1 auto;min-width:0}
+  .vet-kartya li{line-height:1.18}
+  .vet-racs{grid-auto-rows:clamp(104px,13.5vh,190px)}
+
+  /* végső: a kivetítés sorai – a név nem törik és nem rövidül le feleslegesen */
+  .vet-kartya .vet-nev{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    flex:1 1 auto;min-width:0;font-size:clamp(.8rem,1.05vw,1.22rem)}
+  .vet-kartya .vet-nev-kicsi{font-size:clamp(.7rem,.92vw,1.05rem);letter-spacing:-.01em}
+  .vet-kartya li{gap:5px;font-size:clamp(.8rem,1.05vw,1.22rem)}
+  .vet-kartya .vet-pont{min-width:2.2em}
+  .vet-kartya .vet-penz{min-width:3.2em}
+  .vet-fejlec-li .vet-pont,.vet-fejlec-li .vet-penz{min-width:2.2em}
+  .vet-fejlec-li .vet-penz{min-width:3.2em}
+
+  /* végső szélességek: a számok keskenyek, a névé a hely */
+  .vet-kartya{padding:5px 9px}
+  .vet-kartya li{gap:4px}
+  .vet-kartya .vet-sorszam{min-width:1.25em;font-size:.92em}
+  .vet-kartya .vet-pont{min-width:1.6em;font-size:.95em}
+  .vet-kartya .vet-penz{min-width:2.9em;font-size:.9em}
+  .vet-fejlec-li{font-size:.68em;letter-spacing:.02em}
+  .vet-fejlec-li .vet-pont,.vet-fejlec-li .vet-penz{min-width:1.6em}
+  .vet-fejlec-li .vet-penz{min-width:2.9em}
+
+  /* ---- kivetítés: a sorok magassága a sorok számához igazodik ---- */
+  .vet-racs{grid-auto-rows:min(190px, calc((100vh - 120px) / var(--sorok, 6)));
+    max-width:calc(var(--oszlopok,5) * 430px)}
+  .vet-fejlec-li .rovid,.vet-tabla th.rovid{font-size:.62em}
+  /* ---- halvány gombok a nevezési listában ---- */
+  .halvany-gomb{background:#f2f5f8;border:1px solid var(--vonal);color:#7b8794;
+    font-size:.76rem;padding:3px 8px;border-radius:7px;cursor:pointer;margin-left:4px}
+  .halvany-gomb:hover{background:#e8eef5;color:var(--szoveg)}
+  .torles-gomb{background:none;border:none;color:#c05a5a;font-size:.76rem;
+    padding:3px 6px;cursor:pointer;text-decoration:underline;margin-left:2px}
+  .torles-gomb:hover{color:#8f2f2f}
+
+  /* ---- színtéma: magyar és vegyes nyelven zöldes, szlovákul marad a kék ---- */
+  body.tema-zold{
+    --kek:#1f7a44;
+    --hatter:#f2f7f2;
+    --vonal:#d3e0d6;
+  }
+  body.tema-zold .korjelzo{background:#e6f4ea;border-color:#bcdcc6;color:#1f7a44}
+  body.tema-zold .lepes-sav{background:#e6f4ea;border-color:#bcdcc6}
+  body.tema-zold .fo-gomb{background:#1f7a44}
+  body.tema-zold .fo-gomb:hover{background:#186336}
+  body.tema-zold .nav-gomb.aktiv{background:#1f7a44;border-color:#1f7a44}
+  body.tema-zold .kor-gomb.aktiv{background:#1f7a44;border-color:#1f7a44}
+  body.tema-zold .asztal-gomb.aktiv{background:#1f7a44;border-color:#1f7a44}
+  body.tema-zold .szam-doboz{background:#e6f4ea;border-color:#bcdcc6}
+  body.tema-zold .szam-doboz b{color:#1f7a44}
+  body.tema-zold .vet-sorszam,body.tema-zold .vet-pont{color:#1f7a44}
+  body.tema-zold .vet-hely-1 .vet-sorszam{color:#8a6d1b}
+  body.tema-zold .elozo,body.tema-zold .cimke{background:#e6f4ea;color:#1f7a44}
+  body.tema-zold .kereso-elem b{color:#1f7a44}
+
+  /* ---- kivetítés: minden sor és betű a rendelkezésre álló magassághoz igazodik ---- */
+  .vetites{padding:6px 16px 12px;height:calc(100vh - 52px)}
+  .vetites h1{font-size:clamp(.95rem,1.7vw,1.7rem);margin:0 0 6px}
+  .vet-racs{--sormagassag:calc((100vh - 104px) / var(--sorok, 6));
+    grid-auto-rows:min(190px, var(--sormagassag))}
+  .vet-kartya{padding:4px 9px}
+  .vet-kartya li{line-height:1.16;
+    font-size:clamp(.64rem, min(1.05vw, calc(var(--sormagassag) / 8.4)), 1.2rem)}
+  .vet-fejlec-li{font-size:clamp(.52rem, min(.72vw, calc(var(--sormagassag) / 11.5)), .95rem)}
+  .vet-kartya .vet-aszta{font-size:clamp(.76rem, min(1.35vw, calc(var(--sormagassag) / 5)), 1.35rem);
+    margin-bottom:1px}
+
+  /* ---- gépelés közbeni kód-visszajelzés ---- */
+  .kod-visszajelzes{min-height:1.5rem;font-weight:700;font-size:1.05rem;margin:2px 0 2px}
+  .kv-jo{color:var(--zold)}
+  .kv-hiba{color:#b06a00}
+  .kezdo-kartya{border:2px solid var(--zold);background:#f6fbf6}
+  .kezdo-kartya h2{color:var(--zold)}
+  .urlap label{display:flex;flex-direction:column;gap:4px;font-weight:600;color:var(--halvany);font-size:.9rem}
+  .elso-hely{margin-left:8px;font-size:.82rem;color:var(--halvany);font-weight:600}
+  .rangsor td.ossz,.vet-tabla td.ossz{font-weight:900}
+  .rangsor th.ossz-fej{background:#eef3f8}
+  .c-col-id{width:9mm}
+  .c-col-ir{width:18mm}
+  .folytatas{font-size:1rem}
+
+  /* ---- weblapi jelentkezők ---- */
+  .weblap-kartya{border:2px solid #bcd3ee;background:#f7fbff}
+  .weblap-lista{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .weblap-elem{background:#fff;border:1px solid var(--vonal);border-radius:8px;padding:3px 9px;font-size:.92rem;color:var(--halvany)}
+  .weblap-elem.megvan{background:#e8f5ec;border-color:#bcdcc6;color:var(--zold);font-weight:700}
