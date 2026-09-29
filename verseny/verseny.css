@@ -461,3 +461,15 @@
   .hely-tipp:hover{background:#eef6ef;border-color:var(--zold);color:var(--zold)}
   .kezdo-valasz{display:flex;gap:28px;flex-wrap:wrap;margin-top:10px}
   .kezdo-kerdes{font-weight:700;margin-bottom:5px}
+
+  /* ---- weblapi jelentkezők: pipálható, kattintható lista ---- */
+  .weblap-lista{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .weblap-elem{display:inline-flex;align-items:center;gap:7px;background:#fff;
+    border:1px solid var(--vonal);border-radius:9px;padding:5px 11px;font-size:.98rem;
+    color:var(--szoveg);cursor:pointer}
+  .weblap-elem:hover{background:#eef6ef;border-color:var(--zold)}
+  .weblap-elem .weblap-jel{font-size:1.05em;color:var(--halvany);line-height:1}
+  .weblap-elem .weblap-kod{font-weight:800;color:var(--kek);min-width:2em;text-align:right}
+  .weblap-elem.megvan{background:#e8f5ec;border-color:#bcdcc6;color:var(--zold);font-weight:700;cursor:default}
+  .weblap-elem.megvan .weblap-jel{color:var(--zold)}
+  .weblap-elem.megvan .weblap-kod{color:var(--zold)}
