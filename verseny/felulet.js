@@ -594,6 +594,39 @@
     }).join('');
   }
 
+  /* A tartós kiemelt-listán van-e ez a játékos? */
+  function kiemeltListan(id) {
+    return (S.kiemeltLista || []).indexOf(Number(id)) >= 0;
+  }
+  function kiemeltMent() {
+    V.Motor.kiemeltekMent(S.kiemeltLista || []);
+  }
+
+  /* A beállítás lap kiemelt-lista szakasza. */
+  function kiemeltListaKartya() {
+    var lista = S.kiemeltLista || [];
+    var jk = S.allapot.jatekosok || [];
+    return '<h3>' + esc(sz('klist_cim')) + '</h3>' +
+      '<p class="sugo">' + szh('klist_sugo') + '</p>' +
+      '<input id="kiemelt-kereso" data-t="kiemelt-kereso" class="kozepes-input" placeholder="' + esc(sz('kereso_hely')) + '" autocomplete="off">' +
+      '<div id="kiemelt-talalatok" class="kereso-lista"></div>' +
+      (lista.length
+        ? '<div class="weblap-lista">' + lista.map(function (id) {
+            var t = torzsKeres(String(id));
+            var bent = jk.some(function (j) { return Number(j.id) === Number(id); });
+            return '<span class="weblap-elem' + (bent ? ' megvan' : '') + '">' +
+              '<span class="weblap-kod">' + id + '</span>' +
+              '<span>' + esc(t ? t.nev : ('#' + id)) + '</span>' +
+              '<button class="torles-gomb" data-t="kiemelt-torol" data-id="' + id + '" title="' + esc(sz('gomb_torles')) + '">×</button>' +
+              '</span>';
+          }).join('') + '</div>'
+        : '<p class="sugo">' + esc(sz('klist_ures')) + '</p>') +
+      '<div class="nevezes-sor">' +
+        '<button class="masod-gomb kicsi" data-t="kiemelt-ment">' + esc(sz('klist_mostani')) + '</button>' +
+        '<span class="sugo">' + esc(sz('klist_mostani_sugo')) + '</span>' +
+      '</div>';
+  }
+
   function keresoListaHtml(lista) {
     return (lista || []).map(function (x) {
       var mar = M.keres(S.allapot.jatekosok, String(x.id));
@@ -610,7 +643,7 @@
     if (M.keres(S.allapot.jatekosok, String(id))) return false;
     S.allapot.jatekosok.push({
       id: id, nev: nevErtek, kartyakod: kartyakod || '',
-      kiemelt: false, vendeg: false
+      kiemelt: kiemeltListan(id), vendeg: false
     });
     S.ujJatekos = S.allapot.korok.length ? id : null;
     S.kesoAsztal = null;
@@ -1352,6 +1385,11 @@
         '<p class="sugo">' + szh('beall_sugo') + '</p>' +
         '<p class="sugo">' + esc(sz('negyfos_vegen_mindig')) + '</p>' +
         '<p class="sugo">' + szh('penz_mezo_sugo') + '</p>' +
+        (!b.kezdesKesz
+          ? ''
+          : '<p class="sugo">' + esc(sz('kezdes_vissza_sugo')) + ' ' +
+            '<button class="masod-gomb kicsi" data-t="kezdes-mutat">' + esc(sz('kezdes_vissza')) + '</button></p>') +
+        kiemeltListaKartya() +
         '<h3>' + esc(sz('mod_cim')) + '</h3>' +
         '<p class="sugo">' + szh('mod_sugo') + '</p>' +
         '<div class="nevezes-sor">' +
@@ -1872,6 +1910,45 @@
       return;
     }
     if (t === 'import-elvet') { S.fuggobenImport = null; render(); return; }
+    if (t === 'kezdes-mutat') {
+      S.allapot.beall.kezdesKesz = false;
+      mentes();
+      S.nezet = 'nevezes';
+      render();
+      ok(sz('kezdes_ujra'));
+      return;
+    }
+    if (t === 'kiemelt-hozzaad') {
+      var kId2 = parseInt(cel.getAttribute('data-id'), 10);
+      if (isFinite(kId2) && !kiemeltListan(kId2)) {
+        S.kiemeltLista = (S.kiemeltLista || []).concat([kId2]);
+        kiemeltMent();
+        /* a mostani versenyben is megjelöljük */
+        var jj = jatekos(kId2);
+        if (jj) jj.kiemelt = true;
+        mentes(); render();
+        var t3 = torzsKeres(String(kId2));
+        ok(sz('klist_hozzaadva', { nev: t3 ? t3.nev : kId2 }));
+      }
+      return;
+    }
+    if (t === 'kiemelt-torol') {
+      var kId3 = parseInt(cel.getAttribute('data-id'), 10);
+      S.kiemeltLista = (S.kiemeltLista || []).filter(function (x) { return Number(x) !== kId3; });
+      kiemeltMent();
+      render();
+      ok(sz('klist_torolve'));
+      return;
+    }
+    if (t === 'kiemelt-ment') {
+      var ujDb = 0;
+      (S.allapot.jatekosok || []).forEach(function (j) {
+        if (j.kiemelt && !kiemeltListan(j.id)) { S.kiemeltLista = (S.kiemeltLista || []).concat([j.id]); ujDb++; }
+      });
+      kiemeltMent(); render();
+      ok(sz('klist_mentve', { n: ujDb, ossz: (S.kiemeltLista || []).length }));
+      return;
+    }
     if (t === 'weblap-felvesz') {
       var idx = parseInt(cel.getAttribute('data-idx'), 10);
       var r = (S.allapot.beall.weblapJelentkezok || [])[idx];
@@ -2025,6 +2102,17 @@
       if (mez === 'helyHu' || mez === 'helySk') helyJavaslat(cel.value);
       return;
     }
+    if (t === 'kiemelt-kereso') {
+      var celK2 = document.getElementById('kiemelt-talalatok');
+      if (celK2) {
+        var tal2 = M.nevKeres(torzsLista(), cel.value, 8).filter(function (x) { return !kiemeltListan(x.id); });
+        celK2.innerHTML = tal2.map(function (x) {
+          return '<button class="kereso-elem" data-t="kiemelt-hozzaad" data-id="' + x.id + '">' +
+            '<b>' + x.id + '</b> ' + esc(x.nev) + '<i>+ ' + esc(sz('hozzaad')) + '</i></button>';
+        }).join('');
+      }
+      return;
+    }
     /* gépelés közben megmutatjuk, kié a beírt kód */
     if (t === 'kodbemenet') {
       var celK = document.getElementById('kod-visszajelzes');
@@ -2087,6 +2175,7 @@
     S.allapot = Tarolo.betolt() || V.ujAllapot();
     /* A weblapról indított verseny átvétele (a weblap a böngésző tárolójába írja). */
     S.fuggobenImport = null;
+    S.kiemeltLista = V.Motor.kiemeltekBetolt();
     try {
       var nyers = global.localStorage.getItem(V.WEBLAP_KULCS);
       if (nyers) {
@@ -2196,6 +2285,7 @@
   V._jatekosHozzaad = function () { jatekosHozzaad(); };
   V._ujSeed = function () { return V.Motor.ujSeed(); };
   V._helyJavaslat = function (szoveg) { helyJavaslat(szoveg); return (document.getElementById('hely-tippek') || {}).innerHTML || ''; };
+  V._kiemeltLista = function () { return S.kiemeltLista || []; };
   V._beilleszt = function (szoveg) {
     var lista = M.nevlista(szoveg);
     var uj = 0, mar = 0, vend = 0;
