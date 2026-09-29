@@ -473,3 +473,9 @@
   .weblap-elem.megvan{background:#e8f5ec;border-color:#bcdcc6;color:var(--zold);font-weight:700;cursor:default}
   .weblap-elem.megvan .weblap-jel{color:var(--zold)}
   .weblap-elem.megvan .weblap-kod{color:var(--zold)}
+
+  /* ---- névsor beillesztése (Excelből) ---- */
+  .beilleszt-doboz{background:#f7f9fb;border:1px solid var(--vonal);border-radius:10px;
+    padding:10px 12px;margin-top:10px}
+  .beilleszt-mezo{width:100%;font-family:inherit;font-size:1rem;padding:8px 10px;
+    border:1px solid var(--vonal);border-radius:8px;box-sizing:border-box;resize:vertical}
