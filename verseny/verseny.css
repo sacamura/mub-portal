@@ -132,21 +132,26 @@
   /* ---- nyomtatás: A4 fektetve, laponként 8 cédula ---- */
   #nyomtat-terulet{display:none}
   .cedulak{display:grid;grid-template-columns:repeat(var(--cedula-oszlop,2),1fr);gap:3.5mm}
-  .cedula{border:1.6px solid #000;border-radius:3mm;padding:2mm 2.6mm;background:#fff;
+  .cedula{border:1.6px solid #000;border-radius:3mm;padding:1.6mm 2.4mm;background:#fff;
     break-inside:avoid;page-break-inside:avoid;height:var(--cedula-magassag,45mm);box-sizing:border-box;
-    display:flex;flex-direction:column}
-  table.c-tabla td{height:7.4mm}
-  .cedula-negy table.c-tabla td{height:6.3mm;font-size:10pt}
+    display:flex;flex-direction:column;overflow:hidden}
+  .c-fej,.c-aszta,.c-qr-sor{flex:0 0 auto}
+  /* A táblázat NEM nőhet: a sorok fix magasságúak, így a tartalom biztosan
+     befér a cédula keretébe (három játékosnál 9 mm, négyes asztalnál 7 mm). */
+  table.c-tabla{flex:0 0 auto;width:100%;table-layout:fixed}
+  table.c-tabla td{height:9mm;padding:0 1mm;vertical-align:middle}
+  .cedula-negy table.c-tabla td{height:7mm}
   .cedula-negy .c-nev{font-size:11pt}
-  .c-fej{display:flex;justify-content:space-between;font-size:10pt;font-weight:700;line-height:1.15}
-  .c-aszta{font-size:14pt;font-weight:900;line-height:1.1;margin:0.6mm 0 1.4mm;border-bottom:1.4px solid #000;
-    padding-bottom:0.6mm}
-  table.c-tabla{width:100%;border-collapse:collapse;font-size:11pt;flex:1 1 auto}
-  table.c-tabla th{border-bottom:1.2px solid #000;text-align:left;font-size:8pt;
-    text-transform:uppercase;padding:0 1mm 0.6mm;font-weight:700}
-  table.c-tabla td{padding:0.5mm 1mm;height:13mm;vertical-align:middle}
+  .cedula-negy .c-szam{font-size:9.5pt}
+  .c-fej{display:flex;justify-content:space-between;font-size:8.5pt;font-weight:700;line-height:1.05}
+  .c-aszta{font-size:12pt;font-weight:900;line-height:1.02;margin:0.2mm 0 0.7mm;border-bottom:1.2px solid #000;
+    padding-bottom:0.3mm}
+  table.c-tabla{width:100%;border-collapse:collapse;font-size:11pt;flex:0 0 auto}
+  table.c-tabla th{border-bottom:1.2px solid #000;text-align:left;font-size:7.5pt;
+    text-transform:uppercase;padding:0 1mm 0.4mm;font-weight:700}
+  table.c-tabla td{padding:0 1mm;height:9mm;vertical-align:middle}
   table.c-tabla tr+tr td{border-top:1px solid #bbb}
-  .c-nev{font-weight:700;font-size:12pt}
+  .c-nev{font-weight:700;font-size:11.5pt}
   .c-szam{width:9mm;color:#444;font-size:10pt}
   /* a beírható négyzetek: ide írják a pontot és az összeget */
   .c-ir{width:16mm;border:1.4px solid #000!important;border-radius:1.5mm;background:#fff}
