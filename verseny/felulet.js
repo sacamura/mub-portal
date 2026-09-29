@@ -134,7 +134,10 @@
   /* A játékosnak szóló beküldő link. A kódokat visszük, a nevet csak a
      törzslistán nem szereplő (vendég) játékosoknál. */
   function bekuldoLink(korSzam, asztalSzam, szekek) {
-    var cim = String(S.allapot.beall.webcim || '').trim();
+    /* QR-kód csak akkor kerül a cédulára, ha be van kapcsolva. A címet nem kell
+       beírni: ha üres, a program a saját (mub.sk) címét használja. */
+    if (!S.allapot.beall.qrBe) return '';
+    var cim = String(S.allapot.beall.webcim || S.allapot.beall.webcimAlap || '').trim();
     if (!cim) return '';
     if (cim.indexOf('#') >= 0) cim = cim.slice(0, cim.indexOf('#'));
     var kodok = [], vendegNevek = [];
@@ -1175,6 +1178,7 @@
       '<p class="sugo">' + szh('nyom_sugo') + '</p>' +
       '<div class="nevezes-sor">' +
         '<label>' + esc(sz('nyom_kor')) + ' <select id="nyomtat-kor">' + szelek + '</select></label>' +
+        '<label class="kapcsolo"><input type="checkbox" data-t="beall" data-mezo="qrBe"' + (a.beall.qrBe ? ' checked' : '') + '> ' + esc(sz('qr_be')) + '</label>' +
         '<label>' + esc(sz('nyom_db')) + ' <select data-t="beall" data-mezo="papirDB">' +
           [2, 4, 6, 8].map(function (n) { return '<option value="' + n + '"' + (db === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') +
         '</select></label>' +
@@ -2332,7 +2336,7 @@
         S.allapot.beall.nev = M.helySzoveg(S.allapot, 'hu');
       }
       mentes();
-      if (mezo === 'kiemeltVedelem' || mezo === 'negyFosHely') render();
+      if (mezo === 'kiemeltVedelem' || mezo === 'negyFosHely' || mezo === 'qrBe') render();
       return;
     }
   }
