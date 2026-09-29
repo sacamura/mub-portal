@@ -34,8 +34,8 @@
     tiebreak: 'pont,penz,otos,legjobbKor,kod',
     pontAuto: true,           // a pontot a pénz sorrendjéből számolja
     kiemeltVedelem: true,     // az 1. körben a kiemeltek külön asztalra kerülnek
-    nyelv: 'mind',            // a kezelő felület nyelve (hu | sk | mind)
-    nyelvKivetites: 'mind',   // a kivetített/nyomtatott felületek nyelve
+    nyelv: 'hu',              // a kezelő felület nyelve (alapból magyar)
+    nyelvKivetites: 'mind',   // a kivetített/nyomtatott felületek nyelve (alapból magyar + szlovák)
     negyFosHely: 'vegen',     // a 4 fős asztal(ok) helye: vegen | elol | szetszorva
     webcim: '',               // a weblapon futó program címe (a beküldő QR-hoz)
     oraPerc: 50,              // a visszaszámláló hossza percben
