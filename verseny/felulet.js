@@ -17,6 +17,7 @@
   var KIVETITETT = { vetites: 1, rangsor: 1, nyomtat: 1, ora: 1, bekuld: 1 };
 
   function sz(kulcs, ertekek) { return N.sz(kulcs, ertekek); }
+  function helySzoveg() { return M.helySzoveg(S.allapot, N.mod); }
   function szh(kulcs, ertekek) { return N.szhHtml(kulcs, ertekek); }
   function esc(s) {
     return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -331,9 +332,9 @@
     return '' +
       '<header class="fej">' +
         '<div class="fej-bal">' +
-          '<div class="cim">' + esc(a.beall.nev || sz('verseny_cim_hely')) + '</div>' +
+          '<div class="cim">' + esc(a.beall.nev || helySzoveg() || sz('verseny_cim_hely')) + '</div>' +
           '<div class="alcim">' +
-            (a.beall.hely ? esc(a.beall.hely) + ' · ' : '') +
+            (helySzoveg() ? esc(helySzoveg()) + ' · ' : '') +
             (a.beall.datum ? esc(a.beall.datum) + ' · ' : '') +
             sz('jatekos_db', { n: aktivDb() }) +
             (eloszlas ? ' · ' + eloszlas : '') +
@@ -412,13 +413,23 @@
         '<h2>' + esc(sz('kezdes_cim')) + '</h2>' +
         '<p class="sugo">' + szh('kezdes_sugo') + '</p>' +
         '<div class="urlap">' +
-          mezo('nev', 'mezo_nev', '', 'nagy-input') +
-          mezo('hely', 'mezo_hely', '', 'kozepes-input') +
+          mezo('helyHu', 'mezo_hely_hu', '', 'nagy-input') +
+          mezo('helySk', 'mezo_hely_sk', '', 'nagy-input') +
           mezo('datum', 'mezo_datum', 'date') +
           mezo('korok', 'mezo_korok') +
-          mezo('asztalLetszam', 'mezo_asztal') +
-          mezo('jatekok', 'mezo_jatekok') +
-          mezo('befizetes', 'mezo_befizetes') +
+        '</div>' +
+        helyTippek() +
+        '<div class="urlap kezdo-valasz">' +
+          '<div><div class="kezdo-kerdes">' + esc(sz('kezdo_szabaly')) + '</div>' +
+            '<div class="nevezes-sor">' +
+              '<button class="' + (b0.jatekmod === 'helycsere' ? 'masod-gomb' : 'fo-gomb') + '" data-t="jatekmod" data-mod="svajci">' + esc(sz('mod_svajci')) + '</button>' +
+              '<button class="' + (b0.jatekmod === 'helycsere' ? 'fo-gomb' : 'masod-gomb') + '" data-t="jatekmod" data-mod="helycsere">' + esc(sz('mod_helycsere')) + '</button>' +
+            '</div></div>' +
+          '<div><div class="kezdo-kerdes">' + esc(sz('kezdo_kiemelt')) + '</div>' +
+            '<div class="nevezes-sor">' +
+              '<button class="' + (b0.kiemeltVedelem ? 'fo-gomb' : 'masod-gomb') + '" data-t="kezdo-vedelem" data-ertek="1">' + esc(sz('kezdo_kiemelt_kulon')) + '</button>' +
+              '<button class="' + (b0.kiemeltVedelem ? 'masod-gomb' : 'fo-gomb') + '" data-t="kezdo-vedelem" data-ertek="0">' + esc(sz('kezdo_kiemelt_egyutt')) + '</button>' +
+            '</div></div>' +
         '</div>' +
         '<div class="nevezes-sor">' +
           '<button class="fo-gomb" data-t="kezdes-kesz">' + esc(sz('kezdes_gomb')) + '</button>' +
@@ -524,6 +535,16 @@
       '<button class="masod-gomb kicsi" data-t="' + nemT + '">' + esc(sz('megse')) + '</button></span>';
   }
   function varE(mit) { return !!(S.megerosites && S.megerosites.t === mit); }
+
+  /* A szokásos helyszínek: egy kattintással beírja mindkét nyelvet. */
+  function helyTippek() {
+    return '<div class="hely-tippek">' +
+      (M.HELYEK || []).map(function (p) {
+        return '<button class="hely-tipp" data-t="hely-tipp" data-hu="' + esc(p[0]) + '" data-sk="' + esc(p[1] || '') + '">' +
+          esc(p[0]) + (p[1] ? ' / ' + esc(p[1]) : '') + '</button>';
+      }).join('') +
+      '</div>';
+  }
 
   function keresoListaHtml(lista) {
     return (lista || []).map(function (x) {
@@ -1100,7 +1121,7 @@
       var link = bekuldoLink(kor.kor, asztal.asztal, asztal.szekek);
       var negySzek = (asztal.szekek || []).filter(function (x) { return x !== null; }).length > 3;
       return '<div class="cedula' + (negySzek ? ' cedula-negy' : '') + '">' +
-        '<div class="c-fej"><span class="c-hely">' + esc(a.beall.hely || '') + '</span><span class="c-datum">' + esc(a.beall.datum || '') + '</span></div>' +
+        '<div class="c-fej"><span class="c-hely">' + esc(helySzoveg()) + '</span><span class="c-datum">' + esc(a.beall.datum || '') + '</span></div>' +
         '<div class="c-aszta">' + esc(sz('cedula_aszta', { n: asztal.asztal, kor: kor.kor })) + '</div>' +
         '<table class="c-tabla">' +
         '<colgroup><col class="c-col-id"><col><col class="c-col-ir"><col class="c-col-ir"></colgroup>' +
@@ -1270,18 +1291,19 @@
       '<div class="kartya-blokk">' +
         '<h2>' + esc(sz('beall_cim')) + '</h2>' +
         '<div class="urlap">' +
-          '<label>' + esc(sz('mezo_nev')) + ' <input data-t="beall" data-mezo="nev" value="' + esc(b.nev) + '"></label>' +
-          '<label>' + esc(sz('mezo_hely')) + ' <input data-t="beall" data-mezo="hely" value="' + esc(b.hely) + '"></label>' +
+          '<label>' + esc(sz('mezo_hely_hu')) + ' <input data-t="beall" data-mezo="helyHu" value="' + esc(b.helyHu || b.hely || '') + '"></label>' +
+          '<label>' + esc(sz('mezo_hely_sk')) + ' <input data-t="beall" data-mezo="helySk" value="' + esc(b.helySk || '') + '"></label>' +
           '<label>' + esc(sz('mezo_datum')) + ' <input type="date" data-t="beall" data-mezo="datum" value="' + esc(b.datum) + '"></label>' +
           '<label>' + esc(sz('mezo_korok')) + ' <input class="mini-input" data-t="beall" data-mezo="korok" value="' + esc(b.korok) + '"></label>' +
           '<label>' + esc(sz('mezo_asztal')) + ' <input class="mini-input" data-t="beall" data-mezo="asztalLetszam" value="' + esc(b.asztalLetszam) + '"></label>' +
-          '<label>' + esc(sz('mezo_jatekok')) + ' <input class="mini-input" data-t="beall" data-mezo="jatekokKoronkent" value="' + esc(b.jatekokKoronkent) + '"></label>' +
-          '<label>' + esc(sz('mezo_befizetes')) + ' <input class="mini-input" data-t="beall" data-mezo="penzJatekonkent" value="' + esc(b.penzJatekonkent) + '"></label>' +
+          '<label title="' + esc(sz('mezo_jatekok_tipp')) + '">' + esc(sz('mezo_jatekok')) + ' <input class="mini-input" data-t="beall" data-mezo="jatekokKoronkent" value="' + esc(b.jatekokKoronkent) + '"></label>' +
+          '<label title="' + esc(sz('mezo_befizetes_tipp')) + '">' + esc(sz('mezo_befizetes')) + ' <input class="mini-input" data-t="beall" data-mezo="penzJatekonkent" value="' + esc(b.penzJatekonkent) + '"></label>' +
             '<label class="szeles">' + esc(sz('mezo_webcim')) + ' <input data-t="beall" data-mezo="webcim" value="' + esc(b.webcim || '') + '" placeholder="https://…/verseny/verseny.html"></label>' +
           '<label class="kapcsolo"><input type="checkbox" data-t="beall" data-mezo="kiemeltVedelem"' + (b.kiemeltVedelem ? ' checked' : '') + '> ' + esc(sz('kiemelt_vedelem')) + '</label>' +
         '</div>' +
         '<p class="sugo">' + szh('beall_sugo') + '</p>' +
         '<p class="sugo">' + esc(sz('negyfos_vegen_mindig')) + '</p>' +
+        '<p class="sugo">' + szh('penz_mezo_sugo') + '</p>' +
         '<h3>' + esc(sz('mod_cim')) + '</h3>' +
         '<p class="sugo">' + szh('mod_sugo') + '</p>' +
         '<div class="nevezes-sor">' +
@@ -1648,6 +1670,7 @@
       S.allapot.korok = [];
       S.allapot.aktualisKor = 0;
       S.allapot.beall.nev = ''; S.allapot.beall.datum = ''; S.allapot.beall.hely = '';
+      S.allapot.beall.helyHu = ''; S.allapot.beall.helySk = '';
       mentes(); render();
       ok(sz('uj_verseny_kesz'));
       return;
@@ -1801,6 +1824,19 @@
       return;
     }
     if (t === 'import-elvet') { S.fuggobenImport = null; render(); return; }
+    if (t === 'hely-tipp') {
+      var b3 = S.allapot.beall;
+      b3.helyHu = cel.getAttribute('data-hu') || '';
+      b3.helySk = cel.getAttribute('data-sk') || b3.helyHu;
+      b3.nev = b3.helyHu;
+      mentes(); render();
+      return;
+    }
+    if (t === 'kezdo-vedelem') {
+      S.allapot.beall.kiemeltVedelem = cel.getAttribute('data-ertek') === '1';
+      mentes(); render();
+      return;
+    }
     if (t === 'jatekmod') {
       S.allapot.beall.jatekmod = cel.getAttribute('data-mod') === 'helycsere' ? 'helycsere' : 'svajci';
       mentes(); render();
@@ -1935,6 +1971,10 @@
     if (t === 'beall') {
       var mezo = cel.getAttribute('data-mezo');
       S.allapot.beall[mezo] = (cel.type === 'checkbox') ? !!cel.checked : cel.value;
+      /* A verseny neve a helyszín – mindig kövesse. */
+      if (mezo === 'helyHu' || mezo === 'helySk' || mezo === 'hely') {
+        S.allapot.beall.nev = M.helySzoveg(S.allapot, 'hu');
+      }
       mentes();
       if (mezo === 'kiemeltVedelem' || mezo === 'negyFosHely') render();
       return;
