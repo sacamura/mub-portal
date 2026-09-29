@@ -484,3 +484,8 @@
     padding:10px 12px;margin-top:10px}
   .beilleszt-mezo{width:100%;font-family:inherit;font-size:1rem;padding:8px 10px;
     border:1px solid var(--vonal);border-radius:8px;box-sizing:border-box;resize:vertical}
+
+  /* ---- teszt: teljes törlés (eldúgva, halvány) ---- */
+  .teszt-blokk{background:#fbfbfc;border-style:dashed;border-color:#dde3ea}
+  .teszt-blokk h3{color:#8a94a0;font-size:.95rem}
+  .teszt-blokk .sugo{font-size:.88rem}
