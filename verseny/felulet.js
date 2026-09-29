@@ -1069,7 +1069,7 @@
     var a = S.allapot;
     var kor = aktualisKor();
     var popup = !!global.opener;
-    var gombok = popup ? '' : ('<div class="vetites-valto">' +
+    var gombok = ('<div class="vetites-valto">' +
       '<button class="nav-gomb vissza-gomb" data-t="vissza">← ' + esc(sz('vissza')) + '</button>' +
       '<button class="nav-gomb' + (S.vetites === 'asztalok' ? ' aktiv' : '') + '" data-t="vetites" data-mod="asztalok">' + esc(sz('vet_asztalok')) + '</button>' +
       '<button class="nav-gomb' + (S.vetites === 'rangsor' ? ' aktiv' : '') + '" data-t="vetites" data-mod="rangsor">' + esc(sz('vet_rangsor')) + '</button>' +
@@ -1382,7 +1382,7 @@
         ? '<button class="fo-gomb nagy-gomb-2" data-t="ora-folytat">' + esc(sz('ora_folytat')) + '</button>'
         : '<button class="fo-gomb nagy-gomb-2" data-t="ora-indit">' + esc(sz('ora_indit')) + '</button>');
     return '<div class="ora' + (lejart ? ' ora-lejart' : '') + (a.beall.oraVilagos ? ' ora-vilagos' : '') + '">' +
-      (popup ? '' : '<button class="masod-gomb kicsi ora-vissza" data-t="vissza">← ' + esc(sz('vissza')) + '</button>') +
+      '<button class="masod-gomb kicsi ora-vissza" data-t="vissza">← ' + esc(sz('vissza')) + '</button>' +
       '<div class="ora-fej">' +
         '<span class="ora-kor">' + esc(kor ? sz('ora_kor', { kor: kor.kor, osszes: a.beall.korok }) : sz('nincs_sorsolas')) + '</span>' +
         '<span class="ora-cim">' + esc(sz('ora_cim')) + '</span>' +
@@ -1391,15 +1391,14 @@
       '<div class="ora-vege" id="ora-vege">' +
         (lejart ? esc(sz('ora_lejart')) : (vege ? esc(sz('ora_vege', { ido: M.oraIdoSzoveg(vege) })) : esc(sz('ora_nincs')))) +
       '</div>' +
-      (popup ? '' :
-        '<div class="ora-vezerlok">' +
+      '<div class="ora-vezerlok">' +
           '<label>' + esc(sz('ora_perc')) + ' <input id="ora-perc" class="mini-input" value="' + esc(o.perc || a.beall.oraPerc || 50) + '"></label>' +
           gomb +
           '<button class="masod-gomb" data-t="ora-nullaz">' + esc(sz('ora_nullaz')) + '</button>' +
           '<button class="masod-gomb" data-t="ora-szin">' + esc(a.beall.oraVilagos ? sz('ora_sotet') : sz('ora_vilagos')) + '</button>' +
           '<button class="masod-gomb" data-t="ora-ablak">' + esc(sz('ora_ablak')) + '</button>' +
         '</div>' +
-        '<p class="sugo">' + esc(sz('ora_sugo')) + '</p>') +
+        '<p class="sugo">' + esc(sz('ora_sugo')) + '</p>' +
       '</div>';
   }
 
@@ -1684,6 +1683,11 @@
 
   function vissza() {
     var elozo = S.elozoNezetek.pop();
+    /* Külön ablakban (kivetítőn) nincs hova visszalépni: bezárjuk az ablakot,
+       hogy a Vissza gomb mindig csináljon valamit. */
+    if (!elozo && global.opener && global.close) {
+      try { global.close(); return; } catch (e) { }
+    }
     S.nezet = elozo || 'nevezes';
     hashIr(S.nezet);
     render();
@@ -2429,6 +2433,29 @@
     /* A weblapról indított verseny átvétele (a weblap a böngésző tárolójába írja). */
     S.fuggobenImport = null;
     S.kiemeltLista = V.Motor.kiemeltekBetolt();
+    /* Külön ablak (kivetítő): a vezérlők lebegő sávban vannak, ami egérre vagy
+       érintésre előjön, majd pár másodperc után eltűnik – így a kivetítés tiszta
+       marad, de a vissza gomb és az óra vezérlői bármikor kézre esnek. */
+    if (global.opener && document.body) {
+      var test = document.body;
+      if (String(test.className || '').indexOf('popup-mod') < 0) {
+        test.className = (test.className ? test.className + ' ' : '') + 'popup-mod';
+      }
+      var rejtoIdo = null;
+      var mutat = function () {
+        test.className = String(test.className || '').split('vezerlok-latni').join('') + ' vezerlok-latni';
+        if (rejtoIdo) global.clearTimeout(rejtoIdo);
+        rejtoIdo = global.setTimeout(function () {
+          test.className = String(test.className || '').split('vezerlok-latni').join('');
+        }, 3500);
+      };
+      if (document.addEventListener) {
+        document.addEventListener('mousemove', mutat);
+        document.addEventListener('mousedown', mutat);
+        document.addEventListener('touchstart', mutat);
+        mutat();
+      }
+    }
     try {
       var nyers = global.localStorage.getItem(V.WEBLAP_KULCS);
       if (nyers) {
