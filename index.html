@@ -1338,7 +1338,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   }
 
   /* ---------- router ---------- */
-  var ROUTES = ['home','naptar','galeria','jelentkezes','jelentkezesaim','jelentkezok','eredmenyek','statisztika','szabalyok','admin'];
+  var ROUTES = ['home','naptar','galeria','jelentkezes','jelentkezesaim','jelentkezok','eredmenyek','statisztika','verseny','szabalyok','admin'];
   function currentRoute(){
     var h = (location.hash||'#home').replace('#','');
     var base = h.split('/')[0];
@@ -1413,6 +1413,11 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     var html = items.map(function(it){
       return '<a href="#'+it[0]+'" class="'+(navActive===it[0]?'active':'')+'">'+esc(T(it[1],it[2]))+'</a>';
     }).join('');
+    /* A verseny-indító csak bejelentkezett tagnak látszik. */
+    if(currentUser){
+      html += '<a href="#verseny" class="'+(route==='verseny'?'active':'')+'">'
+        + esc(T('Verseny indítása','Spustenie súťaže')) + '</a>';
+    }
     html += '<a href="#admin" class="'+(route==='admin'?'active':'')+'">Admin</a>';
     html += '<div class="toolgroup" role="group" aria-label="'+esc(T('Betűméret','Veľkosť písma'))+'">'
       + '<button type="button" class="toolbtn" title="'+esc(T('Kisebb betű','Menšie písmo'))+'" aria-label="'+esc(T('Kisebb betű','Menšie písmo'))+'" onclick="MUB.textSize(-1)">A−</button>'
@@ -1467,7 +1472,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     var el = document.getElementById('view');
     /* Ha egy menüpontot elrejtettünk, a látogató a kezdőlapra kerül. */
     var routeMenu = { jelentkezesaim: 'jelentkezes', jelentkezok: 'jelentkezes' }[route] || route;
-    if(!menuOn(routeMenu) && route !== 'home' && route !== 'admin') route = 'home';
+    if(!menuOn(routeMenu) && route !== 'home' && route !== 'admin' && route !== 'verseny') route = 'home';
     if(routeChanged && window.scrollTo) window.scrollTo(0, 0);
     if(route==='home') return renderHome(el);
     if(route==='naptar') return renderCalendar(el);
@@ -1478,7 +1483,88 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     if(route==='eredmenyek') return renderResults(el);
     if(route==='statisztika') return renderStats(el);
     if(route==='szabalyok') return renderRules(el);
+    if(route==='verseny') return renderVerseny(el);
     if(route==='admin') return renderAdmin(el);
+  }
+
+  /* ---------- VERSENY INDÍTÁSA (csak bejelentkezett tagnak) ---------- */
+  function versenyUrl(){
+    /* A versenyprogram a weblap mellett, a verseny alkönyvtárban van. */
+    var alap = location.href.split('#')[0];
+    return alap.replace(/[^/]*$/, '') + 'verseny/verseny.html';
+  }
+  /* A weblapon lévő verseny indítása a versenyprogrammal.
+     Az adatokat (név, hely, dátum, jelentkezők) a böngésző tárolóján át adjuk át. */
+  function versenyIndit(tid){
+    loadTournaments(function(ts){
+      loadRegistrations(function(regs){
+        var t = (ts || []).filter(function(x){ return String(x.id) === String(tid); })[0];
+        if(!t){ alert(T('Ez a verseny nem található.','Tento turnaj sa nenašiel.')); return; }
+        var hely = T(t.location_hu, t.location_sk) || '';
+        var jel = (regs || []).filter(function(r){ return String(r.tournamentId) === String(tid); })
+          .map(function(r){ return { nev: String(r.name || '').trim(), kod: String(r.code || '').trim() }; })
+          .filter(function(r){ return r.nev; });
+        try{
+          localStorage.setItem('mub-verseny-import', JSON.stringify({
+            nev: hely, hely: hely, datum: String(t.date || ''),
+            azonosito: String(tid), jelentkezok: jel
+          }));
+        }catch(e){}
+        window.open(versenyUrl(), '_blank');
+      });
+    });
+  }
+  function versenyLista(el){
+    loadTournaments(function(ts){
+      loadRegistrations(function(regs){
+        var ma = todayISO();
+        var jovo = (ts || []).filter(function(t){ return String(t.date || '') >= ma; })
+          .sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+        var mult = (ts || []).filter(function(t){ return String(t.date || '') < ma; })
+          .sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); }).slice(0, 6);
+        function sor(t){
+          var db = (regs || []).filter(function(r){ return String(r.tournamentId) === String(t.id); }).length;
+          return '<div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;padding:.6rem 0;border-bottom:1px solid #e6ebf1">'
+            + '<div style="flex:1;min-width:14rem"><strong>' + esc(T(t.location_hu, t.location_sk) || '') + '</strong>'
+            + '<div style="color:#667;font-size:.92rem">' + esc(fmtDate(t.date)) + ' · ' + db + ' ' + esc(T('jelentkező','prihlásených')) + '</div></div>'
+            + '<button class="btn sm" type="button" onclick="MUB.versenyIndit(\'' + esc(String(t.id)) + '\')">'
+            + esc(T('Indítás ezzel a programmal','Spustiť týmto programom')) + '</button>'
+            + '</div>';
+        }
+        var box = document.getElementById('verseny-listak');
+        if(!box) return;
+        box.innerHTML = (jovo.length
+            ? '<h2 style="font-size:1.1rem;margin:.2rem 0 .4rem">' + esc(T('Következő versenyek','Najbližšie turnaje')) + '</h2>' + jovo.map(sor).join('')
+            : '<p>' + esc(T('Nincs közelgő verseny a naptárban.','V kalendári nie je žiadny najbližší turnaj.')) + '</p>')
+          + (mult.length
+            ? '<h2 style="font-size:1.1rem;margin:1rem 0 .4rem">' + esc(T('Korábbi versenyek','Staršie turnaje')) + '</h2>' + mult.map(sor).join('')
+            : '');
+      });
+    });
+  }
+  function renderVerseny(el){
+    if(!currentUser){
+      el.innerHTML = '<h1 class="page-title">'+esc(T('Verseny indítása','Spustenie súťaže'))+'</h1>'
+        + '<div class="card" style="padding:1.2rem 1.4rem">'
+        + '<p style="margin-top:0">'+esc(T('Ez a rész csak bejelentkezett tagoknak érhető el. Jelentkezz be az Admin oldalon, és utána nyisd meg újra ezt a menüpontot.','Táto časť je dostupná len prihláseným členom. Prihlás sa na stránke Admin a potom otvor túto položku znova.'))+'</p>'
+        + '<p><a class="btn" href="#admin">'+esc(T('Ugrás az Admin oldalra','Prejsť na stránku Admin'))+'</a></p>'
+        + '</div>';
+      return;
+    }
+    el.innerHTML = '<h1 class="page-title">'+esc(T('Verseny indítása','Spustenie súťaže'))+'</h1>'
+      + '<div class="card" style="padding:1.2rem 1.4rem">'
+      + '<p style="margin-top:0">'+esc(T('A versenyprogram a mariás verseny teljes lebonyolítására való: nevezés, sorsolás, eredménybeírás, rangsor, kivetítés, óra és a kis papírok nyomtatása. Internet nélkül is működik – a játékosok mobil beküldése az egyetlen rész, amihez net kell.','Program slúži na celé vedenie mariášovej súťaže: prihlasovanie, žrebovanie, zapisovanie výsledkov, poradie, premietanie, hodiny a tlač lístkov. Funguje aj bez internetu – internet treba len na mobilné odosielanie výsledkov hráčmi.'))+'</p>'
+      + '<p style="font-size:1.05rem"><a class="btn" style="font-size:1.1rem;padding:.8rem 1.4rem" target="_blank" rel="noopener" href="'+esc(versenyUrl())+'">'
+      + esc(T('Verseny indítása (új lapon)','Spustiť súťaž (nová karta)'))+'</a></p>'
+      + '<ul style="margin:.6rem 0 0 1.1rem;line-height:1.6">'
+      + '<li>'+esc(T('A verseny adatai abban a böngészőben maradnak meg, amelyiken indítod – ezért mindig ugyanazon a gépen és böngészőben dolgozz.','Údaje o súťaži zostanú v tom prehliadači, na ktorom ju spustíš – preto pracuj vždy na tom istom počítači a v tom istom prehliadači.'))+'</li>'
+      + '<li>'+esc(T('A program magától ment minden lépésnél, így ha véletlenül bezárod, ugyanott folytatódik.','Program ukladá po každom kroku, takže ak ju omylom zatvoríš, pokračuje tam, kde si skončil.'))+'</li>'
+      + '<li>'+esc(T('A verseny végén mentsd ki az adatokat (Beállítás → Mentés fájlba), és onnan tudod feltölteni a weblapra az eredményt.','Na konci súťaže ulož údaje (Nastavenia → Uložiť do súboru) a odtiaľ nahráš výsledok na web.'))+'</li>'
+      + '</ul>'
+      + '<div id="verseny-listak" style="margin-top:1.1rem">'
+      + esc(T('Versenyek betöltése…','Načítavajú sa turnaje…')) + '</div>'
+      + '</div>';
+    versenyLista(el);
   }
 
   /* ---------- HOME ---------- */
@@ -7765,22 +7851,34 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   function mrPasteSet(v){ mrPaste = String(v == null ? '' : v); }
   /* A körök pontjai: 5 az 1. helyért, 3 a 2.-ért, 1 a 3.-ért; holtversenynél
      a holtversenyben érintett helyek pontjainak átlaga (4-4, 2-2). */
+  /* Egy helyezés pontja: az első 5, az utolsó 1, a középsők 3.
+     Háromfős asztal: 5 / 3 / 1. Négyfős asztal: 5 / 3 / 3 / 1. */
+  function roundPlacePoint(place, count){
+    if(count <= 1) return 5;
+    if(count === 2) return place === 0 ? 5 : 1;
+    if(place === 0) return 5;
+    if(place === count - 1) return 1;
+    return 3;
+  }
+  /* A kör pontjai a pénz szerinti helyezésből, holtversenynél a helyek
+     pontjainak átlagával (első kettő holtversenye 4-4-1, a másodiké-harmadiké
+     5-2-2). A nulla és a negatív pénz is helyezésnek számít. */
   function roundPointsOf(values){
     var idx = [];
-    values.forEach(function(v, i){ if(Number(v) > 0) idx.push({ v: Number(v), i: i }); });
-    idx.sort(function(a, b){ return b.v - a.v; });
-    var pts = {}, base = [5, 3, 1];
+    values.forEach(function(v, i){ idx.push({ v: Number(v) || 0, i: i }); });
+    idx.sort(function(a, b){ return (b.v - a.v) || (a.i - b.i); });
+    var pts = {}, n = idx.length;
     var i = 0;
-    while(i < idx.length){
+    while(i < n){
       var j = i;
-      while(j + 1 < idx.length && Math.abs(idx[j + 1].v - idx[i].v) < 0.005) j++;
-      var sum = 0, cnt = 0;
-      for(var k = i; k <= j; k++){ sum += (base[k] || 0); cnt++; }
-      var p = cnt ? Math.round(sum / cnt * 10) / 10 : 0;
+      while(j + 1 < n && Math.abs(idx[j + 1].v - idx[i].v) < 0.005) j++;
+      var sum = 0;
+      for(var k = i; k <= j; k++) sum += roundPlacePoint(k, n);
+      var p = Math.round(sum / (j - i + 1) * 10) / 10;
       for(k = i; k <= j; k++) pts[idx[k].i] = p;
       i = j + 1;
     }
-    values.forEach(function(v, i){ if(!(i in pts)) pts[i] = 0; });
+    values.forEach(function(v, i2){ if(!(i2 in pts)) pts[i2] = 0; });
     return pts;
   }
   /* ===== Azonosító (ID) felismerése =====
@@ -8306,6 +8404,9 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       return;
     }
     var names = mrRows.map(function(r){ return r.money; });
+    /* Ha a beillesztett szövegben nincsenek benne a körönkénti pontok, a program
+       a pénzből tudja csak becsülni – több asztalnál ez nem pontos, ezért szólunk. */
+    var voltKorPont = mrRows.some(function(r){ return r.roundPts && r.roundPts.some(function(x){ return x != null; }); });
     var roundPts = [];
     for(var k = 0; k < 5; k++) roundPts.push(roundPointsOf(names.map(function(m){ return m[k]; })));
     var total = mrRows.map(function(r, i){
@@ -8323,6 +8424,10 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + (checkCount ? ' · <span style="color:#b3261e">'+esc(T('ellenőrizendő: ','na kontrolu: '))+checkCount+'</span>' : '')
       + (unknownCount ? ' · <span style="color:#b3261e">'+esc(T('ismeretlen: ','neznámych: '))+unknownCount+'</span>' : '')
       + (noIdCount ? ' · <span class="meta">'+esc(T('azonosító nélkül: ','bez ID: '))+noIdCount+'</span>' : '') + '</h3>'
+      + (!voltKorPont ? '<p class="meta" style="color:#b3261e"><strong>'
+          + esc(T('A szövegben nincsenek benne a körönkénti pontok, ezért a program a pénzből becsüli őket. Több asztalnál ez nem pontos – illeszd be a pontokat is (a versenyprogram „Átadás a weblapnak” szövege tartalmazza őket).',
+                  'V texte nie sú body po kolách, program ich preto odhaduje z peňazí. Pri viacerých stoloch to nie je presné – vlož aj body (text z programu „Odovzdanie na web” ich obsahuje).'))
+          + '</strong></p>' : '')
       + mrNameDatalist()
       + '<div class="table-wrap"><table class="list"><thead><tr>'
       + '<th class="num">'+esc(T('Hely','Miesto'))+'</th><th class="num">ID</th><th>'+esc(T('Név','Meno'))+'</th>'
@@ -8594,6 +8699,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     if(!tName){ mrMsg = T('Adja meg a verseny helyszínét.','Zadajte miesto turnaja.'); renderAdminMr(); return; }
     if(list.length < 3){ mrMsg = T('Legalább 3 játékos kell.','Potrební sú aspoň 3 hráči.'); renderAdminMr(); return; }
     var names = list.map(function(r){ return r.money; });
+    var voltKorPont = list.some(function(r){ return r.roundPts && r.roundPts.some(function(x){ return x != null; }); });
     var calcPts = [];
     for(var k = 0; k < 5; k++) calcPts.push(roundPointsOf(names.map(function(m){ return m[k]; })));
     var size = list.length;
@@ -8659,7 +8765,9 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       }, { merge: true });
     }).then(function(){
       invalidate('results');
-      mrMsg = T('Elmentve: ','Uložené: ') + tName + ' (' + size + ' ' + T('játékos','hráčov') + ')';
+      mrMsg = T('Elmentve: ','Uložené: ') + tName + ' (' + size + ' ' + T('játékos','hráčov') + ')'
+        + (voltKorPont ? '' : T(' ⚠ A szövegben nem voltak benne a körönkénti pontok, ezért a program a pénzből becsülte őket – több asztalnál ez nem pontos, ellenőrizd a sorokat!',
+                                ' ⚠ V texte neboli body po kolách, program ich odhadol z peňazí – pri viacerých stoloch to nie je presné, skontroluj riadky!'));
       mrRows = []; mrPaste = ''; mrEditTid = '';
       renderAdminMr();
     }).catch(function(err){
@@ -9155,6 +9263,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
 
   window.MUB = {
     toggleLang: toggleLang, setLang: setLang, toggleTheme: toggleTheme, textSize: textSize,
+    versenyIndit: versenyIndit,
     setCalFilter: setCalFilter, toggleHomeTournaments: toggleHomeTournaments, shiftHomeSeason: shiftHomeSeason,
     addInfoRow: addInfoRow, addInfoPreset: addInfoPreset, removeInfoRow: removeInfoRow, setInfoRow: setInfoRow,
     updateImportTarget: updateImportTarget,
