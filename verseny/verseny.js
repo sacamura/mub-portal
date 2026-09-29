@@ -498,6 +498,19 @@
       return ki;
     },
 
+    /* A tartós kiemelt-lista: versenyeken át megmarad. */
+    kiemeltekBetolt: function () {
+      try {
+        var t = global.localStorage.getItem(KIEMELT_KULCS);
+        var a = JSON.parse(t);
+        return Array.isArray(a) ? a.map(Number).filter(function (x) { return isFinite(x); }) : [];
+      } catch (e) { return []; }
+    },
+    kiemeltekMent: function (lista) {
+      try { global.localStorage.setItem(KIEMELT_KULCS, JSON.stringify(lista || [])); return true; }
+      catch (e) { return false; }
+    },
+
     /* A helyszín (egyben a verseny neve) a mindenkori nyelven. */
     helySzoveg: function (allapot, mod) {
       var b = (allapot && allapot.beall) || {};
@@ -830,6 +843,7 @@
   /* ======================= 4. Tároló ==================================== */
 
   var WEBLAP_KULCS = 'mub-verseny-import';   /* ide írja a weblap az indítandó versenyt */
+  var KIEMELT_KULCS = 'mub-verseny-kiemeltek'; /* a tartós kiemelt-lista (versenyeken át) */
   var KULCS = 'mub-verseny';
   var MENTES_KULCS = 'mub-verseny-mentes-';
   var MENTESEK_MAX = 8;
@@ -932,6 +946,7 @@
     Motor: Motor,
     Tarolo: Tarolo,
     ALAP: ALAP,
+    KIEMELT_KULCS: KIEMELT_KULCS,
     WEBLAP_KULCS: WEBLAP_KULCS,
     TIEBREAK_KULCSOK: TIEBREAK_KULCSOK,
     TIEBREAK_NEVEK: TIEBREAK_NEVEK,
