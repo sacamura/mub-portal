@@ -3,7 +3,7 @@
    Mindig a hálózatról tölti a friss oldalt; csak akkor adja a mentett változatot,
    ha nincs internet. A Firebase és a külső (CDN) kéréseket nem érinti.
    Ha új változat érkezik, szól a nyitott lapnak, hogy frissíthető. */
-var CACHE = 'mub-portal-v2';
+var CACHE = 'mub-portal-v3';
 var SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', function(e){
@@ -49,6 +49,18 @@ self.addEventListener('fetch', function(e){
           return hit || caches.match('./');
         });
       })
+    );
+    return;
+  }
+
+  /* A versenyprogram: mindig a hálózatról (friss legyen), csak hálózat nélkül a mentett. */
+  if(url.pathname.indexOf('/verseny/') >= 0){
+    e.respondWith(
+      fetch(req).then(function(res){
+        var copy = res.clone();
+        caches.open(CACHE).then(function(c){ c.put(req, copy); });
+        return res;
+      }).catch(function(){ return caches.match(req); })
     );
     return;
   }
