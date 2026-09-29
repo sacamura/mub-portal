@@ -42,6 +42,7 @@
     uzenetTipus: 'info',
     vetites: 'asztalok',
     elozoNezetek: [],      /* a Vissza gombhoz */
+    beillesztNyitva: false, /* a nevezés lapon nyitva van-e a beillesztő doboz */
 
     megerosites: null,     /* beépített megerősítés (nem böngésző-ablak) */
     ujJatekos: null,       /* későn érkező, akit el kell helyezni */
@@ -199,6 +200,22 @@
             '</button>';
         }).join('') +
       '</div></div>';
+  }
+
+  /* Egy játékos felvétele kód vagy név alapján (a weblapi listához és a beillesztéshez).
+     Visszaad: 'uj' (felvéve), 'mar' (már benevezve), 'vendeg' (nem volt a törzslistán). */
+  function felveszNevbol(nev, kod) {
+    var t = kod ? torzsKeres(String(kod)) : null;
+    if (!t) { var e = M.nevEgyezes(torzsLista(), nev); if (e.length === 1) t = e[0]; }
+    if (t) {
+      if (M.keres(S.allapot.jatekosok, String(t.id))) return 'mar';
+      jatekosFelvesz(t.id, t.nev, t.kartyakod);
+      return 'uj';
+    }
+    var uj = M.ujVendegKod(S.allapot.jatekosok);
+    S.allapot.jatekosok.push({ id: uj, nev: nev, kartyakod: '', kiemelt: false, vendeg: true });
+    S.ujJatekos = S.allapot.korok.length ? uj : null;
+    return 'vendeg';
   }
 
   /* Ha az illető a weblapon is jelentkezett, jelezzük. */
@@ -465,7 +482,18 @@
           (varE('ujverseny')
           ? megerositesSav(sz('uj_verseny_biztos'), 'ujverseny-igen', 'megerosites-nem')
           : '<button class="masod-gomb" data-t="ujverseny">' + esc(sz('uj_verseny')) + '</button>') +
+          '<button class="halvany-gomb" data-t="beilleszt">' + esc(S.beillesztNyitva ? sz('beilleszt_bezar') : sz('beilleszt_gomb')) + '</button>' +
         '</div>' +
+        (S.beillesztNyitva
+          ? '<div class="beilleszt-doboz">' +
+              '<p class="sugo">' + esc(sz('beilleszt_sugo')) + '</p>' +
+              '<textarea id="beilleszt-be" class="beilleszt-mezo" rows="6" placeholder="' + esc(sz('beilleszt_hely')) + '"></textarea>' +
+              '<div class="nevezes-sor">' +
+                '<button class="fo-gomb" data-t="beilleszt-felvesz">' + esc(sz('beilleszt_felvesz')) + '</button>' +
+                '<span class="sugo">' + esc(sz('beilleszt_sugo2')) + '</span>' +
+              '</div>' +
+            '</div>'
+          : '') +
         '<div id="kod-visszajelzes" class="kod-visszajelzes"></div>' +
         '<div class="nevezes-sor kereso-sor">' +
           '<input id="nev-kereso" data-t="kereso" class="kozepes-input" placeholder="' + esc(sz('kereso_hely')) + '" autocomplete="off">' +
@@ -1841,24 +1869,31 @@
       var idx = parseInt(cel.getAttribute('data-idx'), 10);
       var r = (S.allapot.beall.weblapJelentkezok || [])[idx];
       if (!r) return;
-      /* először a kód, aztán a név alapján keressük a törzslistában */
-      var tW = r.kod ? torzsKeres(String(r.kod)) : null;
-      if (!tW) { var eW = M.nevEgyezes(torzsLista(), r.nev); if (eW.length === 1) tW = eW[0]; }
-      if (tW) {
-        if (M.keres(S.allapot.jatekosok, String(tW.id))) {
-          hiba(sz('uzen_mar_nevezve', { nev: tW.nev, kod: tW.id })); render(); return;
-        }
-        jatekosFelvesz(tW.id, tW.nev, tW.kartyakod);
-        mentes(); render();
-        ok(sz('uzen_hozzaadva', { nev: tW.nev, kod: tW.id }) + webesJelzes(tW.nev, tW.id));
-      } else {
-        /* nincs a törzslistán: a weblapon megadott névvel vesszük fel */
-        var ujW = M.ujVendegKod(S.allapot.jatekosok);
-        S.allapot.jatekosok.push({ id: ujW, nev: r.nev, kartyakod: '', kiemelt: false, vendeg: true });
-        S.ujJatekos = S.allapot.korok.length ? ujW : null;
-        mentes(); render();
-        ok(sz('uzen_vendeg', { nev: r.nev, kod: ujW }));
-      }
+      var eredmeny = felveszNevbol(r.nev, r.kod);
+      mentes(); render();
+      if (eredmeny === 'mar') { hiba(sz('uzen_mar_nevezve', { nev: r.nev, kod: r.kod || '' })); return; }
+      var jUj = S.allapot.jatekosok.filter(function (j) { return M.nevKulcs(j.nev) === M.nevKulcs(r.nev) || (r.kod && String(j.id) === String(r.kod)); })[0];
+      ok(sz(eredmeny === 'vendeg' ? 'uzen_vendeg' : 'uzen_hozzaadva',
+            { nev: r.nev, kod: jUj ? jUj.id : (r.kod || '') }) + webesJelzes(r.nev, jUj ? jUj.id : ''));
+      return;
+    }
+    /* Névsor beillesztése (Excelből is) */
+    if (t === 'beilleszt') { S.beillesztNyitva = !S.beillesztNyitva; render(); return; }
+    if (t === 'beilleszt-felvesz') {
+      var ta = document.getElementById('beilleszt-be');
+      var lista = M.nevlista(ta ? ta.value : '');
+      if (!lista.length) { hiba(sz('beilleszt_ures')); render(); return; }
+      var ujDb = 0, marDb = 0, vendDb = 0;
+      lista.forEach(function (x) {
+        var e2 = felveszNevbol(x.nev, x.kod);
+        if (e2 === 'uj') ujDb++;
+        else if (e2 === 'vendeg') { ujDb++; vendDb++; }
+        else marDb++;
+      });
+      mentes();
+      S.beillesztNyitva = false;
+      render();
+      ok(sz('beilleszt_kesz', { uj: ujDb, mar: marDb, vendeg: vendDb }));
       return;
     }
     if (t === 'hely-tipp') {
@@ -2145,6 +2180,15 @@
   V._torzsSorok = function (szoveg) { return torzsSorok(szoveg); };
   V._jatekosHozzaad = function () { jatekosHozzaad(); };
   V._ujSeed = function () { return V.Motor.ujSeed(); };
+  V._beilleszt = function (szoveg) {
+    var lista = M.nevlista(szoveg);
+    var uj = 0, mar = 0, vend = 0;
+    lista.forEach(function (x) {
+      var e = felveszNevbol(x.nev, x.kod);
+      if (e === 'mar') mar++; else { uj++; if (e === 'vendeg') vend++; }
+    });
+    return { lista: lista, uj: uj, mar: mar, vendeg: vend };
+  };
   V._importAlkalmaz = function (imp) { importAlkalmaz(imp); return S.allapot; };
   V._webesKulcs = function () { return V.WEBLAP_KULCS; };
   V._torzsLista = function () { return torzsLista(); };
