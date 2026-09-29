@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Máriás versenykezelő</title>
+<link rel="stylesheet" href="verseny.css">
+</head>
+<body>
+  <div id="teljes"><div id="nezet">Betöltés…</div></div>
+  <div id="nyomtat-terulet"></div>
+
+  <script src="roster.js"></script>
+  <script src="nyelv.js"></script>
+  <script src="verseny.js"></script>
+  <script src="qr.js"></script>
+  <script src="bekuldes.js"></script>
+  <script src="felulet.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.VERSENY && window.VERSENY.indit) window.VERSENY.indit();
+    });
+  </script>
+</body>
+</html>
