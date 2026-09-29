@@ -37,7 +37,9 @@
     nyelv: 'hu',              // a kezelő felület nyelve (alapból magyar)
     nyelvKivetites: 'mind',   // a kivetített/nyomtatott felületek nyelve (alapból magyar + szlovák)
     negyFosHely: 'vegen',     // a 4 fős asztal(ok) helye: vegen | elol | szetszorva
-    webcim: '',               // a weblapon futó program címe (a beküldő QR-hoz)
+    webcim: '',               // a weblapon futó program címe (ha üres, az alap címet használja)
+    webcimAlap: 'https://mub.sk/verseny/verseny.html',
+    qrBe: false,              // legyen-e QR-kód a cédulákon (mobil beküldés)
     oraPerc: 50,              // a visszaszámláló hossza percben
     oraVilagos: false,        // az óra világos (inverz) színnel
     papirDB: 8,               // hány eredménycédula fér egy A4-es lapra
