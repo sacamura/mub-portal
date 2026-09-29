@@ -43,6 +43,8 @@
     vetites: 'asztalok',
     elozoNezetek: [],      /* a Vissza gombhoz */
     beillesztNyitva: false, /* a nevezés lapon nyitva van-e a beillesztő doboz */
+    torzsValtozott: [],    /* a programban módosított törzslista-sorok (a weblapra töltéshez) */
+    torzsToroltek: [],     /* a programban törölt kódok */
 
     megerosites: null,     /* beépített megerősítés (nem böngésző-ablak) */
     ujJatekos: null,       /* későn érkező, akit el kell helyezni */
@@ -448,7 +450,7 @@
         '<div class="urlap">' +
           mezo('helyHu', 'mezo_hely_hu', '', 'nagy-input') +
           mezo('helySk', 'mezo_hely_sk', '', 'nagy-input') +
-          mezo('datum', 'mezo_datum', 'date') +
+          mezo('datum', 'mezo_datum', 'date', 'datum-input') +
           mezo('korok', 'mezo_korok') +
         '</div>' +
         '<div id="hely-tippek" class="hely-tippek"></div>' +
@@ -1407,14 +1409,15 @@
       '<div class="kartya-blokk">' +
         '<h2>' + esc(sz('beall_cim')) + '</h2>' +
         '<div class="urlap">' +
-          '<label>' + esc(sz('mezo_hely_hu')) + ' <input data-t="beall" data-mezo="helyHu" value="' + esc(b.helyHu || b.hely || '') + '"></label>' +
+          '<p class="sugo">' + szh('webcim_mi') + '</p>' +
+        '<label>' + esc(sz('mezo_hely_hu')) + ' <input data-t="beall" data-mezo="helyHu" value="' + esc(b.helyHu || b.hely || '') + '"></label>' +
           '<label>' + esc(sz('mezo_hely_sk')) + ' <input data-t="beall" data-mezo="helySk" value="' + esc(b.helySk || '') + '"></label>' +
           '<label>' + esc(sz('mezo_datum')) + ' <input type="date" data-t="beall" data-mezo="datum" value="' + esc(b.datum) + '"></label>' +
           '<label>' + esc(sz('mezo_korok')) + ' <input class="mini-input" data-t="beall" data-mezo="korok" value="' + esc(b.korok) + '"></label>' +
           '<label>' + esc(sz('mezo_asztal')) + ' <input class="mini-input" data-t="beall" data-mezo="asztalLetszam" value="' + esc(b.asztalLetszam) + '"></label>' +
           '<label title="' + esc(sz('mezo_jatekok_tipp')) + '">' + esc(sz('mezo_jatekok')) + ' <input class="mini-input" data-t="beall" data-mezo="jatekokKoronkent" value="' + esc(b.jatekokKoronkent) + '"></label>' +
           '<label title="' + esc(sz('mezo_befizetes_tipp')) + '">' + esc(sz('mezo_befizetes')) + ' <input class="mini-input" data-t="beall" data-mezo="penzJatekonkent" value="' + esc(b.penzJatekonkent) + '"></label>' +
-            '<label class="szeles">' + esc(sz('mezo_webcim')) + ' <input data-t="beall" data-mezo="webcim" value="' + esc(b.webcim || '') + '" placeholder="https://…/verseny/verseny.html"></label>' +
+            '<label class="szeles">' + esc(sz('mezo_webcim')) + ' <input placeholder="' + esc(sz('webcim_hely')) + '" data-t="beall" data-mezo="webcim" value="' + esc(b.webcim || '') + '" placeholder="https://…/verseny/verseny.html"></label>' +
           '<label class="kapcsolo"><input type="checkbox" data-t="beall" data-mezo="kiemeltVedelem"' + (b.kiemeltVedelem ? ' checked' : '') + '> ' + esc(sz('kiemelt_vedelem')) + '</label>' +
         '</div>' +
         '<p class="sugo">' + szh('beall_sugo') + '</p>' +
@@ -1434,6 +1437,28 @@
         '<p class="sugo">' + szh('mod_helycsere_sugo') + '</p>' +
         '<label>' + esc(sz('mod_korok')) + ' <input class="mini-input" data-t="beall" data-mezo="helycsereKorok" value="' + esc(b.helycsereKorok) + '"></label>' +
         '<h3>' + esc(sz('torzs_cim')) + '</h3>' +
+        '<p class="sugo">' + szh('torzs_szerk_sugo') + '</p>' +
+        '<div class="torzs-uj nevezes-sor">' +
+          '<input id="torzs-uj-kod" class="mini-input" placeholder="' + esc(sz('th_kod')) + '">' +
+          '<input id="torzs-uj-nev" class="kozepes-input" placeholder="' + esc(sz('th_nev')) + '">' +
+          '<input id="torzs-uj-kartya" class="mini-input" placeholder="' + esc(sz('th_kartya')) + '">' +
+          '<button class="fo-gomb" data-t="torzs-uj">' + esc(sz('hozzaad')) + '</button>' +
+        '</div>' +
+        '<div class="torzs-lista">' +
+          torzsLista().slice(0, 400).map(function (sor) {
+            return '<div class="torzs-sor">' +
+              '<span class="torzs-kod">' + esc(sor[0]) + '</span>' +
+              '<input class="torzs-nev" data-t="torzs-nev" data-id="' + esc(sor[0]) + '" value="' + esc(sor[2] || '') + '">' +
+              '<input class="torzs-kartya" data-t="torzs-kartya" data-id="' + esc(sor[0]) + '" value="' + esc(sor[1] || '') + '" placeholder="' + esc(sz('th_kartya')) + '">' +
+              '<button class="torles-gomb" data-t="torzs-torol" data-id="' + esc(sor[0]) + '">×</button>' +
+              '</div>';
+          }).join('') +
+        '</div>' +
+        '<div class="nevezes-sor">' +
+          '<button class="masod-gomb" data-t="torzs-weblap">' + esc(sz('torzs_webrol')) + '</button>' +
+          '<button class="masod-gomb" data-t="torzs-feltolt">' + esc(sz('torzs_webbe')) + '</button>' +
+          '<span id="torzs-uzenet" class="sugo"></span>' +
+        '</div>' +
         '<p class="sugo">' + szh('torzs_sugo') + '</p>' +
         '<div class="nevezes-sor">' +
           '<button class="masod-gomb" data-t="torzs-import">' + esc(sz('torzs_gomb')) + '</button>' +
@@ -2073,6 +2098,84 @@
       ok(sz('kezdes_kesz'));
       return;
     }
+    /* ---- törzslista szerkesztése a programban ---- */
+    if (t === 'torzs-uj') {
+      var ujKod = parseInt((document.getElementById('torzs-uj-kod') || {}).value, 10);
+      var ujNev = String((document.getElementById('torzs-uj-nev') || {}).value || '').trim();
+      var ujKartya = String((document.getElementById('torzs-uj-kartya') || {}).value || '').replace(/[^0-9]/g, '');
+      if (!ujNev) { hiba(sz('torzs_nincs_nev')); render(); return; }
+      if (!isFinite(ujKod) || ujKod <= 0) {
+        var maxK = 0;
+        torzsLista().forEach(function (s2) { if (s2[0] > maxK && s2[0] < 900) maxK = s2[0]; });
+        ujKod = maxK + 1;
+      }
+      if (torzsLista().some(function (s2) { return Number(s2[0]) === ujKod; })) { hiba(sz('torzs_kod_foglalt', { kod: ujKod })); render(); return; }
+      S.allapot.torzslista = torzsLista().concat([[ujKod, ujKartya, ujNev]]);
+      S.torzsValtozott = (S.torzsValtozott || []).concat([ujKod]);
+      mentes(); render();
+      ok(sz('torzs_hozzaadva', { nev: ujNev, kod: ujKod }));
+      return;
+    }
+    if (t === 'torzs-torol') {
+      var ttId = parseInt(cel.getAttribute('data-id'), 10);
+      S.allapot.torzslista = torzsLista().filter(function (s2) { return Number(s2[0]) !== ttId; });
+      S.torzsToroltek = (S.torzsToroltek || []);
+      if (S.torzsToroltek.indexOf(ttId) < 0) S.torzsToroltek.push(ttId);
+      mentes(); render();
+      ok(sz('torzs_torolve'));
+      return;
+    }
+    if (t === 'torzs-weblap') {
+      var celU = document.getElementById('torzs-uzenet');
+      if (celU) celU.textContent = sz('torzs_toltes');
+      global.BEKULDES.jatekosok(function (h, lista4) {
+        if (h || !lista4) { hiba(sz('torzs_web_hiba')); render(); return; }
+        var sajat = {};
+        torzsLista().forEach(function (s2) { sajat[String(s2[0])] = true; });
+        var ujak = lista4.filter(function (x) { return x.name && !sajat[String(x.code)]; })
+          .map(function (x) { return [Number(x.code), x.nfcCode || '', x.name]; });
+        S.allapot.torzslista = torzsLista().concat(ujak);
+        mentes(); render();
+        ok(sz('torzs_webrol_kesz', { n: ujak.length, ossz: torzsLista().length }));
+      });
+      return;
+    }
+    if (t === 'torzs-feltolt') {
+      var valtozott = (S.torzsValtozott || []);
+      var toroltek = (S.torzsToroltek || []);
+      if (!valtozott.length && !toroltek.length) {
+        var celF0 = document.getElementById('torzs-uzenet');
+        if (celF0) celF0.textContent = sz('torzs_nincs_valtozas');
+        render();
+        var celF0b = document.getElementById('torzs-uzenet');
+        if (celF0b) celF0b.textContent = sz('torzs_nincs_valtozas');
+        return;
+      }
+      global.BEKULDES.bejelentkezve(function (email) {
+        if (!email) { hiba(sz('torzs_nincs_bejelentkezve')); render(); return; }
+        var hatra = valtozott.length + toroltek.length;
+        var hibak = 0;
+        function kesz() {
+          if (hatra > 0) return;
+          S.torzsValtozott = []; S.torzsToroltek = [];
+          render();
+          if (hibak) hiba(sz('torzs_feltoltes_hiba', { n: hibak }));
+          else ok(sz('torzs_feltoltes_kesz', { email: email }));
+        }
+        valtozott.forEach(function (kod) {
+          var sor2 = torzsLista().filter(function (s2) { return Number(s2[0]) === Number(kod); })[0];
+          if (!sor2) { hatra--; kesz(); return; }
+          global.BEKULDES.jatekosMent(sor2[0], sor2[2], sor2[1], function (h2) {
+            if (h2) hibak++;
+            hatra--; kesz();
+          });
+        });
+        toroltek.forEach(function (kod) {
+          global.BEKULDES.jatekosTorol(kod, function (h2) { if (h2) hibak++; hatra--; kesz(); });
+        });
+      });
+      return;
+    }
     if (t === 'torzs-import') { var tf = document.getElementById('torzs-fajl'); if (tf) tf.click(); return; }
     if (t === 'torzs-alap') {
       delete S.allapot.torzslista;
@@ -2175,6 +2278,20 @@
             '<b>' + x.id + '</b> ' + esc(x.nev) + '<i>+ ' + esc(sz('hozzaad')) + '</i></button>';
         }).join('');
       }
+      return;
+    }
+    if (t === 'torzs-nev' || t === 'torzs-kartya') {
+      var tkId = parseInt(cel.getAttribute('data-id'), 10);
+      S.allapot.torzslista = torzsLista().map(function (s2) {
+        if (Number(s2[0]) !== tkId) return s2;
+        var uj3 = s2.slice();
+        if (t === 'torzs-nev') uj3[2] = cel.value.trim();
+        else uj3[1] = cel.value.replace(/[^0-9]/g, '');
+        return uj3;
+      });
+      S.torzsValtozott = (S.torzsValtozott || []);
+      if (S.torzsValtozott.indexOf(tkId) < 0) S.torzsValtozott.push(tkId);
+      mentes();
       return;
     }
     /* gépelés közben megmutatjuk, kié a beírt kód */
@@ -2351,6 +2468,9 @@
   V._jatekosHozzaad = function () { jatekosHozzaad(); };
   V._ujSeed = function () { return V.Motor.ujSeed(); };
   V._csipog = function () { return csipog(); };
+V._torzsValtozott = function () { return S.torzsValtozott || []; };
+  V._torzsToroltek = function () { return S.torzsToroltek || []; };
+  V._torzsLista = function () { return torzsLista(); };
   V._teljesTorles = function () {
     S.allapot = V.ujAllapot();
     mentes();
