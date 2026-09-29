@@ -1503,13 +1503,15 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
         var helyHu = String(t.location_hu || '');
         var helySk = String(t.location_sk || '');
         var hely = T(helyHu, helySk) || '';
+        var tesztPipa = document.getElementById('verseny-teszt');
+        var teszt = !!(tesztPipa && tesztPipa.checked);
         var jel = (regs || []).filter(function(r){ return String(r.tournamentId) === String(tid); })
           .map(function(r){ return { nev: String(r.name || '').trim(), kod: String(r.code || '').trim() }; })
           .filter(function(r){ return r.nev; });
         try{
           localStorage.setItem('mub-verseny-import', JSON.stringify({
             nev: hely, hely: hely, helyHu: helyHu, helySk: helySk, datum: String(t.date || ''),
-            azonosito: String(tid), jelentkezok: jel
+            azonosito: String(tid), jelentkezok: jel, teszt: teszt
           }));
         }catch(e){}
         window.open(versenyUrl(), '_blank');
@@ -1540,7 +1542,11 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
             : '<p>' + esc(T('Nincs közelgő verseny a naptárban.','V kalendári nie je žiadny najbližší turnaj.')) + '</p>')
           + (mult.length
             ? '<h2 style="font-size:1.1rem;margin:1rem 0 .4rem">' + esc(T('Korábbi versenyek','Staršie turnaje')) + '</h2>' + mult.map(sor).join('')
-            : '');
+            : '')
+          + '<p style="margin-top:1rem;color:#667;font-size:.9rem">'
+          + '<label style="cursor:pointer"><input type="checkbox" id="verseny-teszt"> '
+          + esc(T('Új teszt: az előző verseny törlése az indításkor','Nový test: pri spustení vymazať predchádzajúcu súťaž'))
+          + '</label></p>';
       });
     });
   }
