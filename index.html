@@ -1500,13 +1500,15 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       loadRegistrations(function(regs){
         var t = (ts || []).filter(function(x){ return String(x.id) === String(tid); })[0];
         if(!t){ alert(T('Ez a verseny nem található.','Tento turnaj sa nenašiel.')); return; }
-        var hely = T(t.location_hu, t.location_sk) || '';
+        var helyHu = String(t.location_hu || '');
+        var helySk = String(t.location_sk || '');
+        var hely = T(helyHu, helySk) || '';
         var jel = (regs || []).filter(function(r){ return String(r.tournamentId) === String(tid); })
           .map(function(r){ return { nev: String(r.name || '').trim(), kod: String(r.code || '').trim() }; })
           .filter(function(r){ return r.nev; });
         try{
           localStorage.setItem('mub-verseny-import', JSON.stringify({
-            nev: hely, hely: hely, datum: String(t.date || ''),
+            nev: hely, hely: hely, helyHu: helyHu, helySk: helySk, datum: String(t.date || ''),
             azonosito: String(tid), jelentkezok: jel
           }));
         }catch(e){}
