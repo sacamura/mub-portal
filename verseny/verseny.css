@@ -370,7 +370,7 @@
   .vet-kartya .vet-nev{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .vet-kartya .vet-nev-kicsi{font-size:.84em;letter-spacing:-.01em}
   /* a név nem rövidül le: ha hosszú, két sorba törik */
-  .vet-kartya .vet-nev{white-space:normal;overflow:visible;text-overflow:clip;
+  .vet-kartya .vet-nev{white-space:normal;overflow:hidden;text-overflow:clip;
     line-height:1.12;flex:1 1 auto;min-width:0}
   .vet-kartya li{line-height:1.18}
   .vet-racs{grid-auto-rows:clamp(104px,13.5vh,190px)}
@@ -378,7 +378,7 @@
   /* végső: a kivetítés sorai – teljes nevek, automatikusan méretezett betűvel.
      A --vet-meret értékét a program állítja be, hogy minden kiférjen egyszerre. */
   .vet-racs{--vet-meret:1}
-  .vet-kartya .vet-nev{white-space:normal;overflow:visible;text-overflow:clip;
+  .vet-kartya .vet-nev{white-space:normal;overflow:hidden;text-overflow:clip;
     flex:1 1 auto;min-width:0;font-size:calc(clamp(.8rem,1.05vw,1.22rem) * var(--vet-meret,1))}
   .vet-kartya .vet-nev-kicsi{font-size:calc(clamp(.7rem,.92vw,1.05rem) * var(--vet-meret,1));letter-spacing:-.01em}
   .vet-kartya li{gap:5px;font-size:calc(clamp(.8rem,1.05vw,1.22rem) * var(--vet-meret,1))}
