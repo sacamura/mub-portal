@@ -43,6 +43,8 @@
     papirDB: 8,               // hány eredménycédula fér egy A4-es lapra
     jatekmod: 'svajci',       // svajci | helycsere
     helycsereKorok: 2,        // hány körön át ülnek át a helycserélő rendszer szerint
+    helyHu: '',               // a helyszín magyarul (ez egyben a verseny neve is)
+    helySk: '',               // a helyszín szlovákul
     kezdesKesz: false,        // az első indítási adatlap kitöltve
     weblapJelentkezok: null,  // a weblapról átvett jelentkezők [{nev, kod}]
     weblapVerseny: '',        // a weblapi verseny azonosítója
@@ -465,6 +467,36 @@
       if (!d) return '';
       return d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
     },
+
+    /* A helyszín (egyben a verseny neve) a mindenkori nyelven. */
+    helySzoveg: function (allapot, mod) {
+      var b = (allapot && allapot.beall) || {};
+      var hu = b.helyHu || b.hely || '';
+      var sk = b.helySk || '';
+      if (mod === 'sk') return sk || hu;
+      if (mod === 'hu') return hu || sk;
+      if (hu && sk && hu !== sk) return hu + ' / ' + sk;
+      return hu || sk;
+    },
+
+    /* A szokásos helyszínek (a weblapról és a régi eredményekből) – két nyelven. */
+    HELYEK: [
+      ['Nagykapos', 'Veľké Kapušany'],
+      ['Királyhelmec', 'Kráľovský Chlmec'],
+      ['Bodrogszerdahely', 'Streda nad Bodrogom'],
+      ['Ruszka', 'Ruská'],
+      ['Kisgéres', 'Malý Horeš'],
+      ['Nagyszelmenc', 'Veľké Slemence'],
+      ['Szelmenc', 'Slemence'],
+      ['Csicser', 'Čičarovce'],
+      ['Zétény', 'Zatín'],
+      ['Parchovany', 'Parchovany'],
+      ['Kelecseny', ''],
+      ['Véke', ''],
+      ['Dobóruszka', ''],
+      ['Szőlőske', ''],
+      ['Kaposkelecsény', '']
+    ],
 
     /* Név-egyeztető kulcs: ékezet és kis/nagybetű nem számít. */
     nevKulcs: function (s) {
