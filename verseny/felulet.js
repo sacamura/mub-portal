@@ -448,7 +448,7 @@
           mezo('datum', 'mezo_datum', 'date') +
           mezo('korok', 'mezo_korok') +
         '</div>' +
-        helyTippek() +
+        '<div id="hely-tippek" class="hely-tippek"></div>' +
         '<div class="urlap kezdo-valasz">' +
           '<div><div class="kezdo-kerdes">' + esc(sz('kezdo_szabaly')) + '</div>' +
             '<div class="nevezes-sor">' +
@@ -577,14 +577,21 @@
   }
   function varE(mit) { return !!(S.megerosites && S.megerosites.t === mit); }
 
-  /* A szokásos helyszínek: egy kattintással beírja mindkét nyelvet. */
-  function helyTippek() {
-    return '<div class="hely-tippek">' +
-      (M.HELYEK || []).map(function (p) {
-        return '<button class="hely-tipp" data-t="hely-tipp" data-hu="' + esc(p[0]) + '" data-sk="' + esc(p[1] || '') + '">' +
-          esc(p[0]) + (p[1] ? ' / ' + esc(p[1]) : '') + '</button>';
-      }).join('') +
-      '</div>';
+  /* Gépelés közben felkínálja a szokásos helyszíneket – kattintásra mindkét
+     nyelvet beírja. Csak akkor jelenik meg, ha már van mit keresni. */
+  function helyJavaslat(szoveg) {
+    var cel = document.getElementById('hely-tippek');
+    if (!cel) return;
+    var q = String(szoveg || '').trim();
+    if (q.length < 2) { cel.innerHTML = ''; return; }
+    var tal = (M.HELYEK || []).filter(function (p) {
+      return M.nevKulcs(p[0]).indexOf(M.nevKulcs(q)) >= 0 ||
+             M.nevKulcs(p[1] || '').indexOf(M.nevKulcs(q)) >= 0;
+    }).slice(0, 8);
+    cel.innerHTML = tal.map(function (p) {
+      return '<button class="hely-tipp" data-t="hely-tipp" data-hu="' + esc(p[0]) + '" data-sk="' + esc(p[1] || '') + '">' +
+        esc(p[0]) + (p[1] ? ' / ' + esc(p[1]) : '') + '</button>';
+    }).join('');
   }
 
   function keresoListaHtml(lista) {
@@ -1902,6 +1909,8 @@
       b3.helySk = cel.getAttribute('data-sk') || b3.helyHu;
       b3.nev = b3.helyHu;
       mentes(); render();
+      var jt = document.getElementById('hely-tippek');
+      if (jt) jt.innerHTML = '';
       return;
     }
     if (t === 'kezdo-vedelem') {
@@ -2008,6 +2017,12 @@
           ? (Math.abs(ossz - vart2) < 0.005 ? sz('penz_rendben', { penz: penz(ossz) }) : sz('penz_hiba', { ossz: penz(ossz), vart: penz(vart2) }))
           : sz('penz_reszben', { kesz: kesz2, ossz: S.bekuld.kodok.length, vart: penz(vart2) });
       }
+      return;
+    }
+    /* helyszín gépelése közben felkínáljuk a szokásos neveket */
+    if (t === 'beall') {
+      var mez = cel.getAttribute('data-mezo');
+      if (mez === 'helyHu' || mez === 'helySk') helyJavaslat(cel.value);
       return;
     }
     /* gépelés közben megmutatjuk, kié a beírt kód */
@@ -2180,6 +2195,7 @@
   V._torzsSorok = function (szoveg) { return torzsSorok(szoveg); };
   V._jatekosHozzaad = function () { jatekosHozzaad(); };
   V._ujSeed = function () { return V.Motor.ujSeed(); };
+  V._helyJavaslat = function (szoveg) { helyJavaslat(szoveg); return (document.getElementById('hely-tippek') || {}).innerHTML || ''; };
   V._beilleszt = function (szoveg) {
     var lista = M.nevlista(szoveg);
     var uj = 0, mar = 0, vend = 0;
