@@ -468,6 +468,36 @@
       return d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
     },
 
+    /* Névsor szövegéből: soronként egy név, vagy kód + név (tabulátor, pontosvessző,
+       vessző – ahogy az Excelből jön). A sorszámot és a fejlécet kihagyja. */
+    nevlista: function (szoveg) {
+      var ki = [];
+      var fejlec = ['nev', 'name', 'meno', 'kod', 'szam', 'id'];
+      String(szoveg || '').split(/\r?\n/).forEach(function (sor) {
+        var t = String(sor).replace(/\u00a0/g, ' ').trim();
+        if (!t) return;
+        var also = Motor.nevKulcs(t);
+        if (fejlec.indexOf(also) >= 0) return;
+        var mezok = (t.indexOf('\t') >= 0) ? t.split('\t') : (t.indexOf(';') >= 0 ? t.split(';') : t.split(','));
+        mezok = mezok.map(function (x) { return x.trim(); }).filter(function (x) { return x !== ''; });
+        var kod = '', nev = '';
+        if (mezok.length >= 2) {
+          /* ha az első oszlop számszerű, az a kód */
+          if (/^[0-9]{1,6}$/.test(mezok[0])) { kod = mezok[0]; nev = mezok.slice(1).join(' '); }
+          else { nev = mezok.join(' '); }
+        } else {
+          nev = mezok[0] || '';
+          /* „27 Timko František" – a sor eleji szám a kód */
+          var m = nev.match(/^([0-9]{1,6})\s+(.+)$/);
+          if (m) { kod = m[1]; nev = m[2]; }
+        }
+        nev = String(nev).replace(/^\d+[.)]\s*/, '').replace(/\s+/g, ' ').trim();
+        if (!nev) return;
+        ki.push({ kod: kod, nev: nev });
+      });
+      return ki;
+    },
+
     /* A helyszín (egyben a verseny neve) a mindenkori nyelven. */
     helySzoveg: function (allapot, mod) {
       var b = (allapot && allapot.beall) || {};
