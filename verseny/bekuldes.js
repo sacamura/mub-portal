@@ -25,8 +25,10 @@
 
   var SDK = [
     'https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js',
-    'https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js'
+    'https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js',
+    'https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js'
   ];
+  var JATEKOSOK = 'players';          /* a weblap játékos-adatbázisa */
 
   var db = null, allapot = 'nincs';
 
@@ -90,6 +92,61 @@
             cb(null, ki);
           })
           .catch(function (e) { cb(e); });
+      });
+    },
+
+    /* ---- a weblap játékos-adatbázisa (players) ----
+       Ugyanaz a Firebase-projekt, mint a weblapé. Mivel a program ugyanarról a
+       címről (mub.sk) töltődik be, a weblapon bejelentkezett admin munkamenete
+       itt is érvényes – ezért tud írni a játékosok közé. */
+    bejelentkezve: function (cb) {
+      keszul(function (h) {
+        if (h) return cb(null);
+        try {
+          var a = global.firebase.auth();
+          if (a.currentUser) return cb(a.currentUser.email || '(bejelentkezve)');
+          /* az állapot lehet, hogy még töltődik – egyszer megvárjuk */
+          var valaszolt = false;
+          var lejart = global.setTimeout(function () { if (!valaszolt) { valaszolt = true; cb(null); } }, 2500);
+          a.onAuthStateChanged(function (u) {
+            if (valaszolt) return;
+            valaszolt = true;
+            try { global.clearTimeout(lejart); } catch (e) { }
+            cb(u ? (u.email || '(bejelentkezve)') : null);
+          });
+        } catch (e) { cb(null); }
+      });
+    },
+
+    jatekosok: function (cb) {
+      keszul(function (h, db2) {
+        if (h) return cb(h);
+        db2.collection(JATEKOSOK).get()
+          .then(function (snap) {
+            var ki = [];
+            snap.forEach(function (d) {
+              var x = d.data() || {};
+              ki.push({ code: d.id, name: String(x.name || ''), nfcCode: String(x.nfcCode || '') });
+            });
+            cb(null, ki);
+          })
+          .catch(function (e) { cb(e); });
+      });
+    },
+
+    jatekosMent: function (kod, nev, kartya, cb) {
+      keszul(function (h, db2) {
+        if (h) return cb(h);
+        db2.collection(JATEKOSOK).doc(String(kod)).set({ name: nev || '', nfcCode: kartya || '' }, { merge: true })
+          .then(function () { cb(null); })
+          .catch(function (e) { cb(e); });
+      });
+    },
+
+    jatekosTorol: function (kod, cb) {
+      keszul(function (h, db2) {
+        if (h) return cb(h);
+        db2.collection(JATEKOSOK).doc(String(kod)).delete().then(function () { cb(null); }).catch(function (e) { cb(e); });
       });
     },
 
