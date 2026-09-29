@@ -319,7 +319,9 @@
   function fejlec() {
     var a = S.allapot;
     var gombok = [
-      ['nevezes', 'nav_nevezes'], ['sorsolas', 'nav_sorsolas'], ['beiras', 'nav_beiras'], ['ora', 'nav_ora'],
+      ['nevezes', 'nav_nevezes'],
+      ['sorsolas', (S.allapot && S.allapot.korok && S.allapot.korok.length) ? 'nav_beosztas' : 'nav_sorsolas'],
+      ['beiras', 'nav_beiras'], ['ora', 'nav_ora'],
       ['rangsor', 'nav_rangsor'], ['vetites', 'nav_vetites'], ['nyomtat', 'nav_nyomtat'],
       ['beallitas', 'nav_beallitas'], ['sugo', 'nav_sugo']
     ];
@@ -999,12 +1001,6 @@
     var kulcsok = String(a.beall.tiebreak || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
 
     var sorok = lista.map(function (s, i) {
-      var elozo = i > 0 ? lista[i - 1] : null;
-      var dontetlen = '';
-      if (elozo && elozo.pont === s.pont) {
-        var k = M.dontetlenOk(a, elozo, s);
-        if (k) dontetlen = '<span class="dontetlen">' + esc(sz('dontetlen_ok', { szempont: sz('tb_' + k) })) + '</span>';
-      }
       var korok = '';
       for (var k2 = 0; k2 < ig; k2++) {
         var kr = s.korok.filter(function (x) { return x.kor === k2 + 1; })[0];
@@ -1013,8 +1009,7 @@
       return '<tr class="' + (s.kiemelt ? 'kiemelt-sor' : '') + '">' +
         '<td class="szam nagy">' + s.hely + '.</td>' +
         '<td>' + esc(s.nev) + (s.kiemelt ? ' <span class="cimke">' + esc(sz('cimke_kiemelt')) + '</span>' : '') +
-          (M.kilepettE(jatekos(s.id), 999) ? ' <span class="cimke kilepett">' + esc(sz('cimke_kilepett', { kor: jatekos(s.id).kilepettKor })) + '</span>' : '') +
-          ' <span class="elso-hely">' + esc(sz('th_elso_hely')) + ': ' + s.otos + '</span>' + dontetlen + '</td>' +
+          (M.kilepettE(jatekos(s.id), 999) ? ' <span class="cimke kilepett">' + esc(sz('cimke_kilepett', { kor: jatekos(s.id).kilepettKor })) + '</span>' : '') + '</td>' +
         korok +
         '<td class="szam nagy ossz">' + s.pont + '</td>' +
         '<td class="szam nagy ossz">' + penz(s.penz) + '</td>' +
@@ -1241,6 +1236,44 @@
     if (gorgeto) { global.clearInterval(gorgeto); gorgeto = null; }
   }
 
+  /* Rövid hangjelzés, ha lejárt az idő (nincs külső hangfájl). */
+  var oraCsipogott = false;
+  function csipog() {
+    try {
+      var AC = global.AudioContext || global.webkitAudioContext;
+      if (!AC) return false;
+      var ctx = new AC();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = 880;
+      g.gain.value = 0.18;
+      o.connect(g); g.connect(ctx.destination);
+      o.start();
+      global.setTimeout(function () { try { o.stop(); ctx.close(); } catch (e) { } }, 420);
+      global.setTimeout(function () {
+        try {
+          var ctx2 = new AC(), o2 = ctx2.createOscillator(), g2 = ctx2.createGain();
+          o2.type = 'sine'; o2.frequency.value = 1180; g2.gain.value = 0.18;
+          o2.connect(g2); g2.connect(ctx2.destination);
+          o2.start();
+          global.setTimeout(function () { try { o2.stop(); ctx2.close(); } catch (e) { } }, 620);
+        } catch (e) { }
+      }, 460);
+      return true;
+    } catch (e) { return false; }
+  }
+  /* Ha épp lejárt, egyszer jelez (és amíg nem indítják újra, nem ismétli). */
+  function oraLejartFigyelmeztetes() {
+    var o = (S.allapot && S.allapot.ora) || {};
+    var maradek = M.oraMaradek(S.allapot, Date.now());
+    if (o.fut && maradek <= 0) {
+      if (!oraCsipogott) { oraCsipogott = true; csipog(); return true; }
+    } else if (maradek > 0) {
+      oraCsipogott = false;
+    }
+    return false;
+  }
+
   var oraTickFut = false;
   function oraTickIndit() {
     if (oraTickFut) return;
@@ -1251,6 +1284,7 @@
       if (!el) return;
       var o = S.allapot.ora || {};
       var maradek = M.oraMaradek(S.allapot, Date.now());
+      oraLejartFigyelmeztetes();
       el.textContent = M.oraSzoveg(maradek);
       var v = document.getElementById('ora-vege');
       if (v) {
@@ -1667,6 +1701,7 @@
     if (t === 'nezet') { nezetValt(cel.getAttribute('data-nezet'), parseInt(cel.getAttribute('data-aszta'), 10) || 0); return; }
     if (t === 'vissza') { vissza(); return; }
     if (t === 'ora-indit') {
+      oraCsipogott = false;
       var pBe = document.getElementById('ora-perc');
       M.oraPerc(S.allapot, pBe ? pBe.value : (S.allapot.beall.oraPerc || 50));
       M.oraIndit(S.allapot);
@@ -2284,6 +2319,8 @@
   V._torzsSorok = function (szoveg) { return torzsSorok(szoveg); };
   V._jatekosHozzaad = function () { jatekosHozzaad(); };
   V._ujSeed = function () { return V.Motor.ujSeed(); };
+  V._csipog = function () { return csipog(); };
+  V._oraLejart = function () { return oraLejartFigyelmeztetes(); };
   V._helyJavaslat = function (szoveg) { helyJavaslat(szoveg); return (document.getElementById('hely-tippek') || {}).innerHTML || ''; };
   V._kiemeltLista = function () { return S.kiemeltLista || []; };
   V._beilleszt = function (szoveg) {
