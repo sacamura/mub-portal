@@ -154,8 +154,11 @@
   function importAlkalmaz(imp) {
     if (!imp) return;
     var b = S.allapot.beall;
-    b.nev = imp.nev || b.nev;
-    b.hely = imp.hely || b.hely;
+    /* A weblap a helyszínt két nyelven is átadhatja; ha csak egy van, azt használjuk. */
+    b.helyHu = imp.helyHu || imp.hely || b.helyHu || b.hely || '';
+    b.helySk = imp.helySk || (imp.helySk === '' ? '' : (imp.hely || b.helySk || ''));
+    b.hely = b.helyHu;
+    b.nev = imp.nev || b.helyHu || b.nev;
     b.datum = imp.datum || b.datum;
     if (imp.korok) b.korok = szam(imp.korok, b.korok);
     b.weblapJelentkezok = (imp.jelentkezok || []).slice();
@@ -173,17 +176,27 @@
     if (!jl || !jl.length) return '';
     var hianyzo = M.hianyzoJelentkezok(jl, a.jatekosok);
     var ott = jl.length - hianyzo.length;
+    /* szám szerint sorba: a kód szerint növekvő, a kód nélküliek a végére */
+    var sorba = jl.map(function (r, i) { return { r: r, i: i }; }).sort(function (x, y) {
+      var kx = parseInt(x.r.kod, 10), ky = parseInt(y.r.kod, 10);
+      var vx = isFinite(kx) ? kx : 1e9, vy = isFinite(ky) ? ky : 1e9;
+      if (vx !== vy) return vx - vy;
+      return String(x.r.nev).localeCompare(String(y.r.nev), 'hu');
+    });
     return '<div class="kartya-blokk weblap-kartya">' +
       '<h2>' + esc(sz('weblap_cim')) + '</h2>' +
       '<p class="sugo">' + esc(sz('weblap_db', { n: jl.length, k: ott, h: hianyzo.length })) + '</p>' +
-      (hianyzo.length
-        ? '<p><b>' + esc(sz('weblap_hianyzo_cim')) + '</b> ' +
-            hianyzo.map(function (r) { return esc(r.nev) + (r.kod ? ' (' + esc(r.kod) + ')' : ''); }).join(', ') + '</p>'
-        : '<p class="ok-jel">' + esc(sz('weblap_mindenki')) + '</p>') +
+      '<p class="sugo">' + esc(sz('weblap_kattints')) + '</p>' +
       '<div class="weblap-lista">' +
-        jl.map(function (r) {
+        sorba.map(function (x) {
+          var r = x.r;
           var mar = M.hianyzoJelentkezok([r], a.jatekosok).length === 0;
-          return '<span class="weblap-elem' + (mar ? ' megvan' : '') + '">' + (mar ? '✓ ' : '') + esc(r.nev) + '</span>';
+          return '<button class="weblap-elem' + (mar ? ' megvan' : '') + '"' +
+            (mar ? ' disabled' : ' data-t="weblap-felvesz" data-idx="' + x.i + '"') + '>' +
+            '<span class="weblap-jel">' + (mar ? '✓' : '☐') + '</span>' +
+            (r.kod ? '<span class="weblap-kod">' + esc(r.kod) + '</span>' : '') +
+            '<span>' + esc(r.nev) + '</span>' +
+            '</button>';
         }).join('') +
       '</div></div>';
   }
@@ -1824,6 +1837,30 @@
       return;
     }
     if (t === 'import-elvet') { S.fuggobenImport = null; render(); return; }
+    if (t === 'weblap-felvesz') {
+      var idx = parseInt(cel.getAttribute('data-idx'), 10);
+      var r = (S.allapot.beall.weblapJelentkezok || [])[idx];
+      if (!r) return;
+      /* először a kód, aztán a név alapján keressük a törzslistában */
+      var tW = r.kod ? torzsKeres(String(r.kod)) : null;
+      if (!tW) { var eW = M.nevEgyezes(torzsLista(), r.nev); if (eW.length === 1) tW = eW[0]; }
+      if (tW) {
+        if (M.keres(S.allapot.jatekosok, String(tW.id))) {
+          hiba(sz('uzen_mar_nevezve', { nev: tW.nev, kod: tW.id })); render(); return;
+        }
+        jatekosFelvesz(tW.id, tW.nev, tW.kartyakod);
+        mentes(); render();
+        ok(sz('uzen_hozzaadva', { nev: tW.nev, kod: tW.id }) + webesJelzes(tW.nev, tW.id));
+      } else {
+        /* nincs a törzslistán: a weblapon megadott névvel vesszük fel */
+        var ujW = M.ujVendegKod(S.allapot.jatekosok);
+        S.allapot.jatekosok.push({ id: ujW, nev: r.nev, kartyakod: '', kiemelt: false, vendeg: true });
+        S.ujJatekos = S.allapot.korok.length ? ujW : null;
+        mentes(); render();
+        ok(sz('uzen_vendeg', { nev: r.nev, kod: ujW }));
+      }
+      return;
+    }
     if (t === 'hely-tipp') {
       var b3 = S.allapot.beall;
       b3.helyHu = cel.getAttribute('data-hu') || '';
