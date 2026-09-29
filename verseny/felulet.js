@@ -897,7 +897,9 @@
 
     var gombok = asztalok.map(function (x) {
       var ell = M.asztalEllenorzes(x, a.beall);
-      return '<button class="asztal-gomb' + (x.asztal === S.asztal ? ' aktiv' : '') + (ell.kesz ? ' kesz' : '') + '" data-t="asztal" data-aszta="' + x.asztal + '">' +
+      return '<button class="asztal-gomb' + (x.asztal === S.asztal ? ' aktiv' : '') +
+        (ell.kesz ? ' kesz' : ' hianyzo') + '" data-t="asztal" data-aszta="' + x.asztal + '"' +
+        (ell.kesz ? '' : ' title="' + esc(sz('hianyzo_asztal_tipp')) + '"') + '>' +
         x.asztal + (ell.kesz ? '<span class="pip">✓</span>' : '') + '</button>';
     }).join('');
 
@@ -931,10 +933,11 @@
           ? '<p class="figyelem">' + szh('kor_javitas_figyelem', { kor: kor.kor, kov: a.korok.length }) + '</p>'
           : '') +
         '<p class="sugo">' + szh('beir_sugo') + '</p>' +
+        '<p class="haladas">' + esc(sz('haladas', { kesz: asztalok.length - hianyzo.length, ossz: asztalok.length })) +
+          (hianyzo.length ? ' · <b class="hianyzo-szoveg">' + esc(sz('hianyzo_asztalok', { lista: hianyzo.join(', ') })) + '</b>' : '') +
+        '</p>' +
         '<div class="asztal-gombok">' + gombok + '</div>' +
-        (hianyzo.length
-          ? '<p class="figyelem">' + esc(sz('hianyzo_asztalok', { lista: hianyzo.join(', ') })) + '</p>'
-          : '<p class="ok-jel">' + esc(sz('kor_minden_kesz')) + '</p>') +
+        (hianyzo.length ? '' : '<p class="ok-jel">' + esc(sz('kor_minden_kesz')) + '</p>') +
         '<p class="sugo">' + esc(kovetkezoModSzoveg()) + '</p>' +
       '</div>' +
       (S.allapot.beall.webcim
@@ -1012,7 +1015,7 @@
         var kr = s.korok.filter(function (x) { return x.kor === k2 + 1; })[0];
         korok += '<td class="szam">' + (kr ? kr.pont : '·') + '</td><td class="szam halvany">' + (kr ? penz(kr.penz) : '·') + '</td>';
       }
-      return '<tr class="' + (s.kiemelt ? 'kiemelt-sor' : '') + '">' +
+      return '<tr class="' + (s.kiemelt ? 'kiemelt-sor ' : '') + 'rang-' + Math.min(3, s.hely) + '">' +
         '<td class="szam nagy">' + s.hely + '.</td>' +
         '<td>' + esc(s.nev) + (s.kiemelt ? ' <span class="cimke">' + esc(sz('cimke_kiemelt')) + '</span>' : '') +
           (M.kilepettE(jatekos(s.id), 999) ? ' <span class="cimke kilepett">' + esc(sz('cimke_kilepett', { kor: jatekos(s.id).kilepettKor })) + '</span>' : '') + '</td>' +
@@ -1082,13 +1085,19 @@
       var jk2 = aktivJatekosok();
       var caps2 = M.asztalLetszamok(M.aktivJatekosok(a, (a.korok.length || 0) + 1).length,
         szam(a.beall.asztalLetszam, 3), 'vegen');
+      var utolso = S.ujJatekos ? jatekos(S.ujJatekos) : null;
       var sorok2 = jk2.map(function (j, i) {
-        return '<tr' + (j.kiemelt ? ' class="kiemelt-sor"' : '') + '><td class="szam">' + (i + 1) + '.</td>' +
+        return '<tr class="' + (j.kiemelt ? 'kiemelt-sor ' : '') + (utolso && j.id === utolso.id ? 'most-sor' : '') + '">' +
+          '<td class="szam">' + (i + 1) + '.</td>' +
           '<td class="szam">' + j.id + '</td><td class="vet-nev">' + esc(j.nev) + '</td>' +
           '<td>' + (j.kilepettKor ? esc(sz('cimke_kilepett', { kor: j.kilepettKor })) : '') + '</td></tr>';
       }).join('');
-      return gombok + '<div class="vetites vet-rangsor"><h1>' + esc(sz('nevlista_cim')) +
-        ' <span class="vet-db">' + esc(sz('nevlista_db', { n: jk2.length, t: caps2.length })) + '</span></h1>' +
+      return gombok + '<div class="vetites vet-rangsor">' +
+        '<div class="vet-nevlista-fej">' +
+          '<h1>' + esc(sz('nevlista_cim')) + '</h1>' +
+          '<span class="vet-szamlalo">' + esc(sz('nevlista_db', { n: jk2.length, t: caps2.length })) + '</span>' +
+          (utolso ? '<span class="vet-most">' + esc(sz('vet_most', { nev: utolso.nev, kod: utolso.id })) + '</span>' : '') +
+        '</div>' +
         '<table class="tabla vet-tabla"><tbody>' + sorok2 + '</tbody></table></div>';
     }
 
@@ -1102,7 +1111,7 @@
           korok += '<td class="szam">' + (kr ? penz(kr.penz) : '·') + '</td>' +
                    '<td class="szam">' + (kr ? kr.pont : '·') + '</td>';
         }
-        return '<tr' + (s.kiemelt ? ' class="kiemelt-sor"' : '') + '>' +
+        return '<tr class="' + (s.kiemelt ? 'kiemelt-sor ' : '') + 'rang-' + Math.min(3, s.hely) + '">' +
           '<td class="szam">' + s.hely + '.</td><td class="vet-nev">' + esc(s.nev) + '</td>' +
           korok +
           '<td class="szam nagy ossz">' + s.pont + '</td><td class="szam nagy ossz">' + penz(s.penz) + '</td></tr>';
@@ -1146,10 +1155,32 @@
         '<ul class="vet-tabla">' + rovatFej + nevek + '</ul></div>';
     }).join('');
     var db = kor.asztalok.length;
-    /* Széles képernyőn 4 asztal fér el egymás mellett, keskenyebben 3, telefonon 2. */
+    /* Azt az oszlopszámot választjuk, amelynél a NÉV a legnagyobb betűvel fér ki.
+       Két korlát: mennyi hely jut a névnek vízszintesen, és mennyi egy sornak
+       függőlegesen. A kisebbik dönt – ezt maximalizáljuk, így bármilyen felbontáson
+       és képarányon a lehető legolvashatóbb elrendezés jön ki. */
     var szel = szam(global.innerWidth, 1366);
-    var maxOszlop = szel >= 1250 ? 4 : (szel >= 1000 ? 3 : 2);
-    var oszlopok = Math.max(1, Math.min(maxOszlop, db));
+    var mag = szam(global.innerHeight, 768) - 100;
+    var maxSzek = 3;
+    kor.asztalok.forEach(function (a) {
+      var n = (a.szekek || []).filter(function (x) { return x !== null && x !== undefined; }).length;
+      if (n > maxSzek) maxSzek = n;
+    });
+    var NEV_HOSSZ = 16;                 /* a szokásos leghosszabb név */
+    var oszlopok = 1, legjobbBetu = 0;
+    for (var o = 1; o <= Math.min(db, 10); o++) {
+      var sor2 = Math.ceil(db / o);
+      var kartySz = szel / o - 22;
+      if (szel / o < 240) continue;     /* ennél keskenyebben a nevek nem olvashatók */
+      var kartyM = mag / sor2 - 10;
+      var vizszintes = (kartySz - 105) / (0.5 * NEV_HOSSZ);
+      var fuggoleges = kartyM / ((maxSzek + 2) * 1.3);
+      var betu = Math.min(vizszintes, fuggoleges);
+      if (betu > legjobbBetu) { legjobbBetu = betu; oszlopok = o; }
+    }
+    if (legjobbBetu <= 0) {
+      oszlopok = Math.max(1, Math.min(db, Math.round(Math.sqrt(db * szel / Math.max(1, mag)))));
+    }
     var sorok = Math.ceil(db / oszlopok);
     return gombok + '<div class="vetites"><h1>' + esc(sz('vet_ki_hol_ul', { kor: kor.kor })) + '</h1>' +
       '<div class="vet-racs" style="--oszlopok:' + oszlopok + ';--sorok:' + sorok + '">' + kartyak + '</div></div>';
@@ -1239,6 +1270,36 @@
       global.scrollBy(0, b.gorgetIrany * 2);
     }, 40);
   }
+  /* A kivetített asztalok automatikus méretezése. Az alapméret a képernyő
+     magasságából jön (lásd a CSS-t), és csak akkor csökkentünk, ha valami mégis
+     kilógna – így soha nem lesz olvashatatlan összecsúszás, és a teljes névsor
+     egyszerre látszik, görgetés nélkül. */
+  function vetitesIlleszt() {
+    if (!document.querySelector) return 0;
+    var racs = document.querySelector('.vet-racs');
+    if (!racs || !racs.style || !racs.style.setProperty) return 0;
+    var kartyak = [].slice.call(racs.querySelectorAll('.vet-kartya'));
+    if (!kartyak.length) return 0;
+    function kilogas() {
+      var v = 0;
+      kartyak.forEach(function (k) {
+        v = Math.max(v, (k.scrollHeight || 0) - (k.clientHeight || 0));
+        var ul = k.querySelector ? k.querySelector('ul') : null;
+        if (ul) v = Math.max(v, (ul.scrollHeight || 0) - (ul.clientHeight || 0));
+      });
+      return v;
+    }
+    var meret = 1, i;
+    racs.style.setProperty('--vet-meret', meret);
+    for (i = 0; i < 40 && meret > 0.35; i++) {
+      if (kilogas() <= 0) break;
+      meret -= 0.04;
+      racs.style.setProperty('--vet-meret', meret);
+    }
+    S.vetMeret = meret;
+    return meret;
+  }
+
   function gorgetoLeall() {
     if (gorgeto) { global.clearInterval(gorgeto); gorgeto = null; }
   }
@@ -1583,6 +1644,13 @@
     if (nyomtatTerulet) nyomtatTerulet.innerHTML = (S.nezet === 'nyomtat' && nyomtatKor()) ? cedulaHtml(nyomtatKor()) : '';
 
     rajzolasFut = false;
+    if (S.nezet === 'vetites' && S.vetites === 'asztalok') vetitesIlleszt();
+    if (S.nezet === 'vetites' && S.vetites === 'nevlista' && S.ujJatekos) {
+      var mostSor = document.querySelector ? document.querySelector('.most-sor') : null;
+      if (mostSor && mostSor.scrollIntoView) {
+        try { mostSor.scrollIntoView({ block: 'center' }); } catch (e) { }
+      }
+    }
     var rangsorban = (S.nezet === 'rangsor' || (S.nezet === 'vetites' && S.vetites === 'rangsor'));
     if (gorgetBe() && rangsorban) gorgetoIndit(); else gorgetoLeall();
     if (S.nezet === 'ora') oraTickIndit();
@@ -2474,6 +2542,9 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
+  V._vetitesMod = function (m) { S.vetites = m; };
+  V._ujJatekosBeall = function (id) { S.ujJatekos = id; };
+  V._vetitesIlleszt = function () { return vetitesIlleszt(); };
   V._torzsLista = function () { return torzsLista(); };
   V._teljesTorles = function () {
     S.allapot = V.ujAllapot();
