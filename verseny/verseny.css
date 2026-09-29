@@ -453,3 +453,11 @@
   .weblap-lista{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
   .weblap-elem{background:#fff;border:1px solid var(--vonal);border-radius:8px;padding:3px 9px;font-size:.92rem;color:var(--halvany)}
   .weblap-elem.megvan{background:#e8f5ec;border-color:#bcdcc6;color:var(--zold);font-weight:700}
+
+  /* ---- helyszín-tippek az első indításnál ---- */
+  .hely-tippek{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+  .hely-tipp{background:#fff;border:1px solid var(--vonal);border-radius:8px;padding:4px 10px;
+    cursor:pointer;font-size:.9rem;color:var(--szoveg)}
+  .hely-tipp:hover{background:#eef6ef;border-color:var(--zold);color:var(--zold)}
+  .kezdo-valasz{display:flex;gap:28px;flex-wrap:wrap;margin-top:10px}
+  .kezdo-kerdes{font-weight:700;margin-bottom:5px}
