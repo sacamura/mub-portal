@@ -163,6 +163,7 @@
     b.datum = imp.datum || b.datum;
     if (imp.korok) b.korok = szam(imp.korok, b.korok);
     b.weblapJelentkezok = (imp.jelentkezok || []).slice();
+    if (imp.teszt) b.feltoltesTiltva = true;
     b.weblapVerseny = imp.azonosito || '';
     S.fuggobenImport = null;
     mentes();
@@ -1459,7 +1460,22 @@
         '</div>' +
         (mentesek ? '<p class="sugo">' + esc(sz('visszaallitas_cim')) + ': ' + mentesek + '</p>' : '') +
       '</div>' +
-      (a.korok.length
+      '<div class="kartya-blokk teszt-blokk">' +
+        '<h3>' + esc(sz('teszt_cim')) + '</h3>' +
+        '<p class="sugo">' + szh('teszt_sugo') + '</p>' +
+        ((varE('torles1'))
+          ? megerositesSav(sz('teszt_kerdes1'), 'torles-1-igen', 'megerosites-nem')
+          : ((varE('torles2'))
+            ? megerositesSav(sz('teszt_kerdes2'), 'torles-2-igen', 'megerosites-nem')
+            : '<button class="halvany-gomb" data-t="teljes-torles">' + esc(sz('teszt_gomb')) + '</button>')) +
+      '</div>' +
+      (a.korok.length && a.beall.feltoltesTiltva
+        ? '<div class="kartya-blokk">' +
+            '<h2>' + esc(sz('weblap_cim')) + '</h2>' +
+            '<p class="figyelem">' + esc(sz('feltoltes_tiltva')) + '</p>' +
+          '</div>'
+        : '') +
+      (a.korok.length && !a.beall.feltoltesTiltva
         ? '<div class="kartya-blokk">' +
             '<h2>' + esc(sz('weblap_cim')) + '</h2>' +
             '<p class="sugo">' + szh('weblap_sugo') + '</p>' +
@@ -1945,6 +1961,19 @@
       return;
     }
     if (t === 'import-elvet') { S.fuggobenImport = null; render(); return; }
+    if (t === 'teljes-torles') { S.megerosites = { t: 'torles1' }; render(); return; }
+    if (t === 'torles-1-igen') { S.megerosites = { t: 'torles2' }; render(); return; }
+    if (t === 'torles-2-igen') {
+      S.megerosites = null;
+      /* Mindent elölről: a verseny törlése, a biztonsági mentések MEGMARADNAK. */
+      S.allapot = V.ujAllapot();
+      mentes();
+      S.nezet = 'nevezes';
+      S.asztal = 1;
+      render();
+      ok(sz('teszt_kesz'));
+      return;
+    }
     if (t === 'kezdes-mutat') {
       S.allapot.beall.kezdesKesz = false;
       mentes();
@@ -2216,6 +2245,8 @@
       if (nyers) {
         var imp = JSON.parse(nyers);
         global.localStorage.removeItem(V.WEBLAP_KULCS);
+        /* „Új teszt": a weblapról kérve az előző versenyt teljesen töröljük. */
+        if (imp && imp.teszt) S.allapot = V.ujAllapot();
         if (imp && imp.nev) {
           if (!S.allapot.jatekosok.length && !S.allapot.korok.length) importAlkalmaz(imp);
           else S.fuggobenImport = imp;
@@ -2320,6 +2351,11 @@
   V._jatekosHozzaad = function () { jatekosHozzaad(); };
   V._ujSeed = function () { return V.Motor.ujSeed(); };
   V._csipog = function () { return csipog(); };
+  V._teljesTorles = function () {
+    S.allapot = V.ujAllapot();
+    mentes();
+    return S.allapot;
+  };
   V._oraLejart = function () { return oraLejartFigyelmeztetes(); };
   V._helyJavaslat = function (szoveg) { helyJavaslat(szoveg); return (document.getElementById('hely-tippek') || {}).innerHTML || ''; };
   V._kiemeltLista = function () { return S.kiemeltLista || []; };
