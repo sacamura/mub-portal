@@ -312,6 +312,8 @@
   .hintline{margin:-.5rem 0 1.1rem; font-size:.95rem}
   .logoutbtn{border-color:var(--danger); color:var(--danger); background:var(--danger-soft)}
   .regcount{display:block; margin-top:.45rem; font-size:.98rem; color:var(--ink-soft)}
+  .regcount.regfull{color:var(--danger); font-weight:700}
+  .fullmark{display:block; margin-top:.5rem; font-weight:700; color:var(--danger)}
   .regcount strong{font-size:1.15rem; color:var(--accent-strong)}
   .picktitle{font-size:1.3rem; margin:.2rem 0 .8rem}
   .whoLink{margin:0 0 1.2rem}
@@ -708,7 +710,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 84;
+  var BUILD = 86;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1583,9 +1585,36 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   function toggleHomeTournaments(){ homeMoreTournaments = !homeMoreTournaments; renderHomePast(); }
   function shiftHomeSeason(d){ homeSeasonIdx = Math.max(0, homeSeasonIdx + d); renderHomeSeasons(); }
   var TID_COUNTS = {};
-  function regCountLine(tid){
+  /* A verseny maximális létszáma (0 vagy üres = nincs korlát). */
+  function tourCapacity(t){
+    var c = parseInt(String((t && t.capacity) == null ? '' : t.capacity).replace(/\D/g, ''), 10);
+    return (c > 0) ? c : 0;
+  }
+  function tourCount(tid){
     var n = TID_COUNTS[String(tid)];
-    return '<span class="regcount">'+esc(T('Eddig','Zatiaľ'))+' <strong>'+(typeof n === 'number' ? n : 0)+'</strong> '+esc(T('jelentkező','prihlásených'))+'</span>';
+    if(typeof n === 'number') return n;
+    /* ha még nincs betöltve a létszám, a gyorsítótárból számolunk */
+    var regs = (CACHE && CACHE.registrations) || [];
+    return regs.filter(function(r){ return String(r.tournamentId) === String(tid); }).length;
+  }
+  function tourFull(t){ var c = tourCapacity(t); return c > 0 && tourCount(t && t.id) >= c; }
+  /* Lehet-e még jelentkezni? (nyitva van, nem múlt el, és van hely) */
+  function regAllowed(t){ return regOpenNow(t) && !tourFull(t); }
+  /* A jelentkezők száma — korláttal együtt, ha van. */
+  function regCountLine(t){
+    var tid = (t && typeof t === 'object') ? t.id : t;
+    var n = tourCount(tid);
+    var c = (t && typeof t === 'object') ? tourCapacity(t) : 0;
+    if(!c){
+      return '<span class="regcount">'+esc(T('Eddig','Zatiaľ'))+' <strong>'+n+'</strong> '+esc(T('jelentkező','prihlásených'))+'</span>';
+    }
+    var full = n >= c;
+    return '<span class="regcount'+(full ? ' regfull' : '')+'">'
+      + esc(T('Eddig','Zatiaľ'))+' <strong>'+n+'</strong> / '+c+' '+esc(T('jelentkező','prihlásených'))
+      + ' · '+(full
+          ? '<strong>'+esc(T('megtelt','naplnené'))+'</strong>'
+          : esc(T('még ','ešte '))+'<strong>'+(c - n)+'</strong> '+esc(T('hely','miest')))
+      + '</span>';
   }
   /* További információk (jelentkezési díj, pontos helyszín, kultúrház, ebéd…).
      Minden sor két nyelven; ha a szlovák üres, a magyar szöveg jelenik meg helyette.
@@ -1609,10 +1638,11 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       + '<div class="meta num">'+fmtDate(t.date)+' · '+esc(t.time_start||'8:30')+'–'+esc(t.time_end||'15:30')+'</div>'
       + ((opts && opts.cal) ? calRow(t) : '')
       + infoList(t)
-      + regCountLine(t.id)
+      + regCountLine(t)
       + (t.date < todayISO() ? '<div style="margin-top:.5rem"><a href="#eredmenyek">'+esc(T('Eredmények a szezonhoz →','Výsledky sezóny →'))+'</a></div>' : '')
       + (t.registrationOpen ? regDeadlineNote(t) : '')
-      + (regOpenNow(t) ? '<div style="margin-top:.6rem"><a class="btn sm" href="#jelentkezes">'+esc(T('Jelentkezés','Prihlásenie'))+'</a></div>' : '')
+      + (tourFull(t) ? '<div class="fullmark">'+esc(T('Ez a verseny már megtelt.','Tento turnaj je už naplnený.'))+'</div>' : '')
+      + (regAllowed(t) ? '<div style="margin-top:.6rem"><a class="btn sm" href="#jelentkezes">'+esc(T('Jelentkezés','Prihlásenie'))+'</a></div>' : '')
       + '</div>';
   }
   function eventCard(t){ return eventCardLevel(t, ''); }
@@ -1835,11 +1865,12 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
               + '<div class="nextup__title">'+esc(T(next.location_hu,next.location_sk))+tagBadge(next.tag)+'</div>'
               + '<div class="nextup__date num">'+fmtDate(next.date)+' · '+esc(next.time_start||'8:30')+'–'+esc(next.time_end||'15:30')+'</div>'
               + infoList(next)
-              + regCountLine(next.id)
+              + regCountLine(next)
               + ' <a href="#jelentkezok">'+esc(T('kik jelentkeztek már?','kto sa už prihlásil?'))+'</a>'
               + (when ? '<div class="nextup__count">'+esc(when)+'</div>' : '')
               + (next.registrationOpen ? regDeadlineNote(next) : '')
-              + (regOpenNow(next) ? '<div style="margin-top:.8rem"><a class="btn" href="#jelentkezes">'+esc(T('Jelentkezés','Prihlásenie'))+'</a></div>' : '')
+              + (tourFull(next) ? '<div class="fullmark">'+esc(T('Ez a verseny már megtelt.','Tento turnaj je už naplnený.'))+'</div>' : '')
+              + (regAllowed(next) ? '<div style="margin-top:.8rem"><a class="btn" href="#jelentkezes">'+esc(T('Jelentkezés','Prihlásenie'))+'</a></div>' : '')
               + '</div>';
           }
           if(!next){
@@ -4439,13 +4470,21 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       TID_COUNTS = countByTid(regs);
       var regBody = document.getElementById('reg-body');
       if(!regBody) return;
-      /* Csak arra a versenyre lehet jelentkezni, amelyik nyitva van, és még
-         nem kezdődött el (a verseny napján a kezdésig, alapból 8:30-ig). */
-      var open = ts.filter(regOpenNow).sort(byDateAsc);
+      /* Csak arra a versenyre lehet jelentkezni, amelyik nyitva van, még nem
+         kezdődött el (a verseny napján a kezdésig), és VAN SZABAD HELY. */
+      var open = ts.filter(regAllowed).sort(byDateAsc);
+      /* A megtelt versenyeket megemlítjük, hogy lássa, miért nem választható. */
+      var fullTours = ts.filter(function(t){ return regOpenNow(t) && tourFull(t); }).sort(byDateAsc);
       /* A fülek felül mindig látszanak, ezért itt nincs szükség külön linkekre. */
       var whoLink = '';
       if(!open.length){
-        regBody.innerHTML = '<p class="meta">'+esc(T('Jelenleg nincs nyitott jelentkezés versenyre.','Momentálne nie je otvorené prihlasovanie na turnaj.'))+'</p>' + whoLink;
+        regBody.innerHTML = '<p class="meta">'+esc(T('Jelenleg nincs olyan verseny, amelyre lehet jelentkezni.','Momentálne nie je turnaj, na ktorý sa dá prihlásiť.'))+'</p>'
+          + (fullTours.length
+              ? '<div class="banner" role="status">'+esc(T('Ezek a versenyek már megteltek: ','Tieto turnaje sú už naplnené: '))
+                + fullTours.map(function(t){ return esc(T(t.location_hu, t.location_sk)) + ' (' + tourCount(t.id) + ' / ' + tourCapacity(t) + ')'; }).join(' · ')
+                + '</div>'
+              : '')
+          + whoLink;
         return;
       }
       if(!selectedTid || !open.some(function(t){return t.id===selectedTid;})){
@@ -4461,9 +4500,14 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
           + '<span class="title">'+esc(T(t.location_hu,t.location_sk))+tagBadge(t.tag)+'</span>'
           + '<span class="meta num">'+fmtDate(t.date)+' · '+esc(t.time_start||'8:30')+'–'+esc(t.time_end||'15:30')+'</span>'
           + infoList(t)
-          + regCountLine(t.id)
+          + regCountLine(t)
           + '</button>';
-      }).join('');
+      }).join('')
+      + (fullTours.length
+          ? '<div class="banner" role="status">'+esc(T('Megtelt versenyek (ezekre már nem lehet jelentkezni): ','Naplnené turnaje (na tie sa už nedá prihlásiť): '))
+            + fullTours.map(function(t){ return esc(T(t.location_hu, t.location_sk)) + ' (' + tourCount(t.id) + ' / ' + tourCapacity(t) + ')'; }).join(' · ')
+            + '</div>'
+          : '');
       var saved = loadLastReg();
       var banner = '';
       if(saved && saved.tid === selectedTid){
@@ -4712,8 +4756,9 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     }
     /* védelem a véletlen kétszeri jelentkezés ellen */
     db.collection('registrations').where('tournamentId','==',selectedTid).get().then(function(snap){
-      var dup = false;
+      var dup = false, already = 0;
       snap.forEach(function(d){
+        already++;
         if(String((d.data()||{}).name||'').trim().toLowerCase() === name.toLowerCase()) dup = true;
       });
       if(dup){
@@ -4728,6 +4773,15 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
           reset();
           alert(T('A kiválasztott verseny nem található, vagy már lezárult a jelentkezés. Kérjük, válassza ki újra a versenyt.',
                   'Vybraný turnaj sa nenašiel alebo je prihlasovanie už uzavreté. Vyberte turnaj znova.'));
+          renderRegister(document.getElementById('view'));
+          return;
+        }
+        /* Megtelt-e a verseny? (A létszámot az adatbázisból számoljuk.) */
+        var cap = tourCapacity(t);
+        if(cap && already >= cap){
+          reset();
+          alert(T('Ez a verseny már megtelt (','Tento turnaj je už naplnený (') + already + ' / ' + cap + T('). Kérjük, válasszon másik versenyt, vagy szóljon a szervezőnek.',
+                  '). Vyberte iný turnaj alebo sa obráťte na organizátora.'));
           renderRegister(document.getElementById('view'));
           return;
         }
@@ -4844,7 +4898,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
           + sorted.map(function(t){
               return '<tr><td>'+esc(T(t.location_hu,t.location_sk))+tagBadge(t.tag)+'</td>'
                 + '<td class="num">'+esc(t.date||'')+'</td>'
-                + '<td class="num"><strong>'+(counts[t.id]||0)+'</strong></td>'
+                + '<td class="num"><strong>'+(counts[t.id]||0)+'</strong>'+(tourCapacity(t) ? ' / '+tourCapacity(t) : '')
+                  + (tourFull(t) ? '<div class="meta" style="color:var(--danger);font-weight:700">'+esc(T('megtelt','naplnené'))+'</div>' : '')+'</td>'
                 + '<td>'+(regOpenNow(t) ? '<span class="openmark">'+esc(T('nyitva','otvorené'))+'</span>' : esc(T('zárva','zatvorené')))+'</td></tr>';
             }).join('')
           + '</tbody></table></div>';
@@ -5474,15 +5529,20 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     renderTournamentForm(null);
     invalidate('tournaments');
     loadTournaments(function(ts){
+      loadRegistrations(function(regs){
+      TID_COUNTS = countByTid(regs);
       var sorted = ts.slice().sort(byDateDesc);
-      document.getElementById('t-list').innerHTML = '<div class="table-wrap"><table class="list"><thead><tr><th>'+esc(T('Helyszín','Miesto'))+'</th><th>'+esc(T('Dátum','Dátum'))+'</th><th>'+esc(T('Idő','Čas'))+'</th><th>'+esc(T('Jelzés','Označenie'))+'</th><th>'+esc(T('Jelentkezés','Prihlásenie'))+'</th><th></th></tr></thead><tbody>'
+      document.getElementById('t-list').innerHTML = '<div class="table-wrap"><table class="list"><thead><tr><th>'+esc(T('Helyszín','Miesto'))+'</th><th>'+esc(T('Dátum','Dátum'))+'</th><th>'+esc(T('Idő','Čas'))+'</th><th>'+esc(T('Jelzés','Označenie'))+'</th><th>'+esc(T('Jelentkezés','Prihlásenie'))+'</th><th class="num">'+esc(T('Létszám','Počet'))+'</th><th></th></tr></thead><tbody>'
         + sorted.map(function(t){
           var nInfo = (t.info||[]).filter(function(r){ return String((r&&r.hu)||(r&&r.sk)||'').trim(); }).length;
+          var cap = tourCapacity(t), cnt = tourCount(t.id), full = tourFull(t);
           return '<tr><td>'+esc(t.location_hu)+(nInfo?'<div class="meta num">'+nInfo+' '+esc(T('info','info'))+'</div>':'')+'</td><td class="num">'+esc(t.date)+'</td><td class="num">'+esc(t.time_start||'8:30')+'–'+esc(t.time_end||'15:30')+'</td><td>'+esc(tagLabel(t.tag)||'—')+'</td>'
             + '<td>'+(regOpenNow(t) ? '<span style="color:var(--accent-strong);font-weight:700">'+esc(T('nyitva','otvorené'))+'</span>'
                         : esc(T('zárva','zatvorené')) + (t.registrationOpen ? '<div class="meta" style="font-size:.78rem">'+esc(T('idő szerint lezárult','uzavreté podľa času'))+'</div>' : ''))+'</td>'
+            + '<td class="num"><strong>'+cnt+'</strong>'+(cap ? ' / '+cap : '')+(full ? '<div class="meta" style="color:var(--danger);font-weight:700">'+esc(T('megtelt','naplnené'))+'</div>' : '')+'</td>'
             + '<td><button type="button" class="btn sm secondary" onclick="MUB.editTournament(\''+jsq(t.id)+'\')">'+esc(T('Szerkeszt','Upraviť'))+'</button> <button type="button" class="btn sm danger" onclick="MUB.deleteTournament(\''+jsq(t.id)+'\')">'+esc(T('Törlés','Zmazať'))+'</button></td></tr>';
         }).join('') + '</tbody></table></div>';
+      });
     });
   }
   /* ---------- admin: a versenyhez tartozó további információk ---------- */
@@ -5544,6 +5604,12 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '<div class="field"><label for="t-tag">'+esc(T('Jelzés a verseny mellett','Označenie pri turnaji'))+'</label><select id="t-tag">'+tagOptions(t.tag)+'</select></div></div>'
       + '<div class="row2"><div class="field"><label for="t-start">'+esc(T('Kezdés','Začiatok'))+'</label><input id="t-start" value="'+esc(t.time_start)+'"></div>'
       + '<div class="field"><label for="t-end">'+esc(T('Zárás','Koniec'))+'</label><input id="t-end" value="'+esc(t.time_end)+'"></div></div>'
+      + '<div class="row2"><div class="field"><label for="t-cap">'+esc(T('Maximális létszám (fő)','Maximálny počet (osôb)'))+'</label>'
+      + '<input id="t-cap" inputmode="numeric" value="'+esc(tourCapacity(t) || '')+'" placeholder="'+esc(T('pl. 40 — üresen hagyva nincs korlát','napr. 40 — prázdne znamená bez limitu'))+'"></div>'
+      + '<div class="field" style="align-self:flex-end"><p class="meta" style="margin:0 0 .4rem">'+esc(T('Ha megadja, a portál kiírja a maximumot, és ha megtelt, nem enged több jelentkezőt.',
+                                                                                                                 'Ak zadáte, portál zobrazí maximum a po naplnení už nepustí ďalších.'))+'</p>'
+      + ((t.id && tourCapacity(t)) ? '<p class="meta" style="margin:0"><strong>'+esc(T('Jelenleg: ','Teraz: '))+tourCount(t.id)+' / '+tourCapacity(t)+T(' jelentkező',' prihlásených')+'</strong></p>' : '')
+      + '</div></div>'
       + '<div class="field infobox"><span class="infolabel">'+esc(T('További információk a versenyhez','Ďalšie informácie k turnaju'))+'</span>'
       + '<p class="meta" style="margin:0 0 .6rem">'+esc(T('Amit ide ír, az megjelenik a verseny kártyáján (pl. jelentkezési díj, pontos helyszín, kultúrház, ebéd). Ha a szlovák mezőt üresen hagyja, a magyar szöveg jelenik meg.','Čo sem napíšete, zobrazí sa na karte turnaja (napr. štartovné, presné miesto, kultúrny dom, obed). Ak necháte slovenské pole prázdne, zobrazí sa maďarský text.'))+'</p>'
       + '<div class="infopresets noprint">'
@@ -5575,6 +5641,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       tag: document.getElementById('t-tag').value.trim(),
       time_start: document.getElementById('t-start').value.trim() || '8:30',
       time_end: document.getElementById('t-end').value.trim() || '15:30',
+      capacity: parseInt(String(document.getElementById('t-cap').value||'').replace(/\D/g, ''), 10) || 0,
       registrationOpen: document.getElementById('t-open').checked,
       info: tInfoRows.map(function(r){
         return { hu: String(r.hu||'').trim(), sk: String(r.sk||'').trim() };
