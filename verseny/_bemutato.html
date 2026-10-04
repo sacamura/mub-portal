@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<title>Verseny – bemutató (ideiglenes)</title>
+<link rel="stylesheet" href="verseny.css">
+<style>
+  body{margin:0;padding:0;background:#f4f6f8}
+  .democsik{position:fixed;bottom:6px;right:8px;z-index:99;background:#16202b;color:#fff;
+    font:12px/1.4 system-ui;padding:4px 8px;border-radius:6px;opacity:.75}
+</style>
+</head>
+<body>
+  <div class="democsik">bemutató állapot – ideiglenes fájl</div>
+  <div id="teljes"><div id="nezet">…</div></div>
+  <div id="nyomtat-terulet"></div>
+<script src="roster.js">
+  /* NYOMTATAS_BLOKK – a nyomtatási nézet megjelenítése a képernyőn, ellenőrzéshez */
+  if (location.search.indexOf('print') >= 0) {
+    var st = document.createElement('style');
+    st.textContent = '#teljes{display:none!important}#nyomtat-terulet{display:block!important;background:#fff}' +
+      'body{background:#fff;width:281mm;margin:0 auto}' +
+      '#nyomtat-terulet{margin:8mm}';
+    document.head.appendChild(st);
+  }
+</script>
+<script src="nyelv.js"></script>
+<script src="verseny.js"></script>
+<script src="felulet.js"></script>
+<script>
+/* Csak a felület megnézéséhez: valósághű versenyállapot építése.
+   A cím: _bemutato2.html#/nezet|nyelv   pl. #/sugo|sk */
+document.addEventListener('DOMContentLoaded', function () {
+  var V = window.VERSENY, M = V.Motor;
+  var nyers = (location.hash || '#/beiras|mind').replace(/^#\/?/, '');
+  var reszek = nyers.split('|');
+  var nezet = reszek[0] || 'beiras';
+  var nyelv = reszek[1] || 'mind';
+  var bekuldMod = nezet.indexOf('bekuld') === 0;
+  /* a 3. és további részek: nyelv (hu/sk/mind) vagy jelző (keso, orafut) */
+  var MODOK = ['hu', 'sk', 'mind'], kivetitesNyelv = nyelv, jelzo = '';
+  reszek.slice(2).forEach(function (x) {
+    if (MODOK.indexOf(x) >= 0) kivetitesNyelv = x; else if (x) jelzo = x;
+  });
+  var kesoMod = jelzo === 'keso';
+  var oraFut = jelzo === 'orafut' || jelzo === 'oravilagos';
+  var oraVilagos = jelzo === 'oravilagos';
+  var kezdoMod = jelzo === 'kezdo';
+  var lezarvaMod = jelzo === 'lezarva';
+
+  var a = V.ujAllapot();
+  a.beall.nev = 'Kaposvári Máriás Verseny';
+  a.beall.hely = 'V. Kapušany / Nagykapos';
+  a.beall.datum = '2026-01-10';
+  a.beall.sorsolasSeed = 20260110;
+  a.beall.nyelv = nyelv;
+  a.beall.nyelvKivetites = kivetitesNyelv;
+  a.beall.webcim = 'https://mub.sk/verseny/verseny.html';
+  a.esemenyId = 'k7m2p9qz';
+
+  (window.TORZSLISTA || []).slice(0, 60).forEach(function (s) {
+    if (!s[2]) return;
+    a.jatekosok.push({ id: s[0], nev: s[2], kartyakod: String(s[1]), kiemelt: s[0] <= 15, vendeg: false });
+  });
+  var vendegNevek = ['Gajdoš Viktor', 'Kovačová Slávka', 'Molnár Ladislav', 'Lešo Ján', 'Pahuly Vladimír',
+    'Kulik František', 'Tóbiás Ferenc', 'Sinčak Marián', 'Bertók Károly', 'Majoros Barnabás',
+    'Gamrat Jozef', 'Andrejco František', 'Seman Milan', 'Plucar Pavel', 'Dudaš Peter',
+    'Polak Lukáš', 'Szabó Béla', 'Tóth Attila', 'Világi Bertalan'];
+  var kov = 901;
+  vendegNevek.forEach(function (n) { a.jatekosok.push({ id: kov++, nev: n, kartyakod: '', kiemelt: false, vendeg: true }); });
+
+  var caps = M.asztalLetszamok(a.jatekosok.length, 3, 'vegen');
+  if ((nezet !== 'nevezes' && nezet !== 'sugo') || kesoMod) {
+    var e = M.sorsolElso(a.jatekosok, caps, a.beall.sorsolasSeed, true);
+    a.korok.push({
+      kor: 1, figyelmeztetes: e.figyelmeztetes,
+      asztalok: e.szekek.map(function (sz, i) { return { asztal: i + 1, szekek: sz, eredmenyek: {} }; })
+    });
+    a.aktualisKor = 1;
+    a.korok[0].asztalok.slice(0, 14).forEach(function (asz, i) {
+      var penzek = [[6.15, 5.55, 3.3], [7.2, 5.1, 2.7], [5.1, 5.1, 4.8], [8.4, 4.5, 2.1]][i % 4];
+      var ids = asz.szekek.filter(function (x) { return x !== null; });
+      var vp = M.vartPenz(ids.length, a.beall);
+      var ossz = penzek.slice(0, ids.length).reduce(function (x, y) { return x + y; }, 0);
+      penzek[0] = Math.round((penzek[0] + (vp - ossz)) * 100) / 100;
+      ids.forEach(function (id, j) { asz.eredmenyek[id] = { penz: penzek[j] }; });
+    });
+    if (nezet === 'beiras') a.korok[0].asztalok[13].eredmenyek = {};
+  } else {
+    a.jatekosok = a.jatekosok.slice(0, 8);
+  }
+  if (oraFut) {
+    /* félidőben járó óra a bemutatóhoz */
+    a.ora = { perc: 50, fut: true, vege: Date.now() + 42 * 60000 + 17000, maradek: null };
+    a.beall.oraPerc = 50;
+    a.beall.oraVilagos = oraVilagos;
+  }
+  if (kezdoMod) { a.beall.nev = ''; a.beall.hely = ''; a.beall.datum = ''; a.beall.kezdesKesz = false; }
+  if (lezarvaMod) { a.beall.lezarva = true; a.beall.kezdesKesz = true; }
+  V._beallit(a);
+  V.indit();
+  V._beallit(a);
+  if (kesoMod) {
+    /* későn érkező bemutatása: egy új játékos a sorsolás után */
+    var ujId = 990;
+    a.jatekosok.push({ id: ujId, nev: 'Későn Érkező János', kartyakod: '', kiemelt: false, vendeg: true });
+    /* a második asztalból kiveszünk egy játékost, hogy legyen hova ülni */
+    if (a.korok[0] && a.korok[0].asztalok[1]) a.korok[0].asztalok[1].szekek.pop();
+    V._beallit(a);
+    V._kesoBeallit(ujId);
+    return;
+  }
+  if (bekuldMod) {
+    var b = V._bekuldCimOlvas(location.hash);
+    if (b) { V._beallit(Object.assign({}, a, { beall: a.beall })); V._beallit(a); V._nezetValt('beiras'); V._bekuldBeallit(b); }
+  } else {
+    V._nezetValt(nezet);
+  }
+});
+</script>
+</body>
+</html>
