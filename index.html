@@ -473,7 +473,17 @@
   .infoitem.lvl-red::before{color:var(--lvl-red)}
   .infoitem.lvl-green::before{color:var(--lvl-green)}
   .infoitem.lvl-blue::before{color:var(--lvl-blue)}
-  .inforow select.info-level{flex:0 0 7rem; min-width:6rem; width:auto}
+  /* Színválasztó: 4 kis színes betű (F/P/Z/K) — egy kattintás, helytakarékos */
+  .lvlpick{display:inline-flex; gap:.15rem; flex:none}
+  .lvlbtn{width:2.1rem; height:2.1rem; border-radius:8px; border:1px solid var(--border); background:var(--surface-2);
+    font-weight:800; font-size:1rem; font-family:"IBM Plex Mono",monospace; padding:0; line-height:1; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center}
+  .lvlbtn.lvl-black{color:var(--ink)}
+  .lvlbtn.lvl-red{color:var(--lvl-red)}
+  .lvlbtn.lvl-green{color:var(--lvl-green)}
+  .lvlbtn.lvl-blue{color:var(--lvl-blue)}
+  .lvlbtn:hover{border-color:currentColor}
+  .lvlbtn.on{border-color:currentColor; box-shadow:inset 0 0 0 2px currentColor; background:var(--surface); font-size:1.15rem}
   .infobox{border:1px dashed var(--border); border-radius:12px; padding:.9rem 1rem; background:var(--surface-2)}
   .infolabel{display:block; font-size:.98rem; font-weight:700; color:var(--ink-soft); margin-bottom:.35rem}
   .steplist{margin:0 0 .6rem 1.3rem; padding:0; color:var(--ink-soft); font-size:1rem; line-height:1.6}
@@ -723,7 +733,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 87;
+  var BUILD = 88;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1634,6 +1644,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
      Végig <span>, hogy gomb belsejében is érvényes maradjon a HTML. */
   /* A sor szintje (színe): '' = fekete (alap), red / green / blue. */
   var INFO_LEVELS = [['', 'Fekete', 'Čierna'], ['red', 'Piros', 'Červená'], ['green', 'Zöld', 'Zelená'], ['blue', 'Kék', 'Modrá']];
+  /* A gombokon látszó betűk: F = fekete, P = piros, Z = zöld, K = kék. */
+  var INFO_LEVEL_LETTER = { '': 'F', 'red': 'P', 'green': 'Z', 'blue': 'K' };
   function infoLevel(r){
     var v = String((r && r.level) || '').toLowerCase();
     return (v === 'red' || v === 'green' || v === 'blue') ? v : '';
@@ -5580,11 +5592,14 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       return '<div class="inforow">'
         + '<input class="info-hu" data-i="'+i+'" value="'+esc(r.hu||'')+'" aria-label="'+esc(T('Információ magyarul','Informácia po maďarsky'))+'" placeholder="'+esc(T('magyarul, pl. Jelentkezési díj: 10 €','maďarsky, napr. Štartovné: 10 €'))+'" oninput="MUB.setInfoRow(this,\'hu\')">'
         + '<input class="info-sk" data-i="'+i+'" value="'+esc(r.sk||'')+'" aria-label="'+esc(T('Információ szlovákul','Informácia po slovensky'))+'" placeholder="'+esc(T('szlovákul, pl. Štartovné: 10 €','slovensky, napr. Štartovné: 10 €'))+'" oninput="MUB.setInfoRow(this,\'sk\')">'
-        + '<select class="info-level" data-i="'+i+'" aria-label="'+esc(T('A sor színe (szint)','Farba riadku'))+'" title="'+esc(T('A sor színe (szint)','Farba riadku'))+'" onchange="MUB.setInfoLevel(this)">'
+        + '<span class="lvlpick" role="group" aria-label="'+esc(T('A sor színe (szint)','Farba riadku'))+'">'
         + INFO_LEVELS.map(function(L){
-            return '<option value="'+L[0]+'"'+(infoLevel(r) === L[0] ? ' selected' : '')+'>'+esc(T(L[1], L[2]))+'</option>';
+            var on = (infoLevel(r) === L[0]);
+            return '<button type="button" class="lvlbtn lvl-'+(L[0] || 'black')+(on ? ' on' : '')+'" data-i="'+i+'" data-lvl="'+L[0]+'"'
+              + ' title="'+esc(T(L[1], L[2]))+'" aria-label="'+esc(T(L[1], L[2]))+'" aria-pressed="'+(on ? 'true' : 'false')+'"'
+              + ' onclick="MUB.setInfoLevel(this)">'+esc(INFO_LEVEL_LETTER[L[0]])+'</button>';
           }).join('')
-        + '</select>'
+        + '</span>'
         + '<button type="button" class="btn sm danger" onclick="MUB.removeInfoRow('+i+')" aria-label="'+esc(T('Sor törlése','Zmazať riadok'))+'">✕</button>'
         + '</div>';
     }).join('');
@@ -5618,12 +5633,16 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     if(!tInfoRows[i]) return;
     tInfoRows[i][(which === 'sk') ? 'sk' : 'hu'] = String(input.value||'');
   }
-  /* A sor színe (szint): fekete / piros / zöld / kék. */
-  function setInfoLevel(input){
-    if(!input || !input.getAttribute) return;
-    var i = Number(input.getAttribute('data-i'));
+  /* A sor színe (szint): fekete / piros / zöld / kék — a színes betűre kattintva. */
+  function setInfoLevel(btn){
+    if(!btn || !btn.getAttribute) return;
+    var i = Number(btn.getAttribute('data-i'));
     if(!tInfoRows[i]) return;
-    tInfoRows[i].level = infoLevel({ level: input.value });
+    var lvl = infoLevel({ level: btn.getAttribute('data-lvl') });
+    /* ugyanarra a színre kattintva visszaáll feketére (így egy kattintással törölhető) */
+    if(tInfoRows[i].level === lvl && lvl !== '') lvl = '';
+    tInfoRows[i].level = lvl;
+    renderInfoRows();
   }
   function renderTournamentForm(t){
     /* Új verseny: a jelentkezés alapból NYITVA van, hogy rögtön lehessen jelentkezni. */
@@ -5644,6 +5663,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '</div></div>'
       + '<div class="field infobox"><span class="infolabel">'+esc(T('További információk a versenyhez','Ďalšie informácie k turnaju'))+'</span>'
       + '<p class="meta" style="margin:0 0 .6rem">'+esc(T('Amit ide ír, az megjelenik a verseny kártyáján (pl. jelentkezési díj, pontos helyszín, kultúrház, ebéd). Ha a szlovák mezőt üresen hagyja, a magyar szöveg jelenik meg.','Čo sem napíšete, zobrazí sa na karte turnaja (napr. štartovné, presné miesto, kultúrny dom, obed). Ak necháte slovenské pole prázdne, zobrazí sa maďarský text.'))+'</p>'
+      + '<p class="meta" style="margin:0 0 .6rem">'+esc(T('A sor végén a színes betűkkel állíthatja a szintet: F = fekete, P = piros, Z = zöld, K = kék. Amelyik be van keretezve, az a sor színe; ugyanarra kattintva visszaáll feketére.',
+                                                              'Na konci riadku nastavíte farbu farebnými písmenami: F = čierna, P = červená, Z = zelená, K = modrá. Zarámmované písmeno je farba riadku; kliknutím na to isté sa vráti na čiernu.'))+'</p>'
       + '<div class="infopresets noprint">'
       + '<button type="button" class="btn sm secondary" onclick="MUB.addInfoPreset(0)">＋ '+esc(T('Jelentkezési díj','Štartovné'))+'</button>'
       + '<button type="button" class="btn sm secondary" onclick="MUB.addInfoPreset(1)">＋ '+esc(T('Pontos helyszín','Presné miesto'))+'</button>'
