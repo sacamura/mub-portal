@@ -47,6 +47,8 @@
     --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#EFF7F1; --ink:#151A16; --ink-soft:#46524A;
     --border:#C9E0D1; --accent:#128A46; --accent-strong:#0A5228; --accent-soft:#DFF3E6;
     --gold:#CC2936; --gold-soft:#FBE4E6; --danger:#8F2F2F; --danger-soft:#F6E1DE;
+    /* A versenyhez írt sorok színei (szint) */
+    --lvl-red:#C02626; --lvl-green:#0A7A3F; --lvl-blue:#0B4EA2;
     --shadow:rgba(20,30,24,0.10); --focus:#0A5228;
     --motif-url:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='%23128A46' fill-opacity='0.055'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' transform='translate(26,26) scale(2.4)'/%3E%3Cpath d='M12 2.6c3.9 2.9 5.9 6.3 5.9 9.7 0 4.4-2.6 7.6-5.9 9.1-3.3-1.5-5.9-4.7-5.9-9.1 0-3.4 2-6.8 5.9-9.7ZM11.4 20.4h1.2v2.8h-1.2z' transform='translate(140,26) scale(2.4)'/%3E%3Cpath d='M11.3 6.4C11.3 4.2 12.1 3 13.6 2.3L14.3 3.6C13.2 4.2 12.8 5 12.8 6.4ZM5.6 10.9C5.6 8 8.3 6.2 12 6.2s6.4 1.8 6.4 4.7V12H5.6ZM7.3 13.4h9.4c0 4.5-2.1 8.2-4.7 8.2s-4.7-3.7-4.7-8.2Z' transform='translate(26,140) scale(2.4)'/%3E%3Cpath d='M12 1.6a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8ZM12 5.6c3.8 0 6.4 3.4 6.4 8.2v3.1l1.7 3.1H3.9l1.7-3.1v-3.1c0-4.8 2.6-8.2 6.4-8.2ZM12 20.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6Z' transform='translate(140,140) scale(2.4)'/%3E%3C/g%3E%3C/svg%3E");
   }
@@ -54,6 +56,7 @@
     --bg:#121713; --surface:#1B221D; --surface-2:#242E26; --ink:#F5F9F6; --ink-soft:#C4D0C8;
     --border:#3D4E43; --accent:#5FD695; --accent-strong:#9AE9BE; --accent-soft:#1D3A28;
     --gold:#F4787E; --gold-soft:#3C2023; --danger:#F0A0A0; --danger-soft:#3A2323;
+    --lvl-red:#FF8A8A; --lvl-green:#5FD695; --lvl-blue:#8FBBF0;
     --shadow:rgba(0,0,0,0.5); --focus:#9AE9BE;
     --motif-url:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='%235FD695' fill-opacity='0.07'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' transform='translate(26,26) scale(2.4)'/%3E%3Cpath d='M12 2.6c3.9 2.9 5.9 6.3 5.9 9.7 0 4.4-2.6 7.6-5.9 9.1-3.3-1.5-5.9-4.7-5.9-9.1 0-3.4 2-6.8 5.9-9.7ZM11.4 20.4h1.2v2.8h-1.2z' transform='translate(140,26) scale(2.4)'/%3E%3Cpath d='M11.3 6.4C11.3 4.2 12.1 3 13.6 2.3L14.3 3.6C13.2 4.2 12.8 5 12.8 6.4ZM5.6 10.9C5.6 8 8.3 6.2 12 6.2s6.4 1.8 6.4 4.7V12H5.6ZM7.3 13.4h9.4c0 4.5-2.1 8.2-4.7 8.2s-4.7-3.7-4.7-8.2Z' transform='translate(26,140) scale(2.4)'/%3E%3Cpath d='M12 1.6a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8ZM12 5.6c3.8 0 6.4 3.4 6.4 8.2v3.1l1.7 3.1H3.9l1.7-3.1v-3.1c0-4.8 2.6-8.2 6.4-8.2ZM12 20.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6Z' transform='translate(140,140) scale(2.4)'/%3E%3C/g%3E%3C/svg%3E");
   }
@@ -63,12 +66,14 @@
   :root[lang="sk"]{
     --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#EFF3FB; --ink:#141922; --ink-soft:#414D63;
     --border:#C7D6EE; --accent:#0B4EA2; --accent-strong:#083A78; --accent-soft:#DEE9F9;
+    --lvl-red:#C02626; --lvl-green:#1C7C4A; --lvl-blue:#0B4EA2;
     --focus:#083A78;
     --motif-url:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='%230B4EA2' fill-opacity='0.055'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' transform='translate(26,26) scale(2.4)'/%3E%3Cpath d='M12 2.6c3.9 2.9 5.9 6.3 5.9 9.7 0 4.4-2.6 7.6-5.9 9.1-3.3-1.5-5.9-4.7-5.9-9.1 0-3.4 2-6.8 5.9-9.7ZM11.4 20.4h1.2v2.8h-1.2z' transform='translate(140,26) scale(2.4)'/%3E%3Cpath d='M11.3 6.4C11.3 4.2 12.1 3 13.6 2.3L14.3 3.6C13.2 4.2 12.8 5 12.8 6.4ZM5.6 10.9C5.6 8 8.3 6.2 12 6.2s6.4 1.8 6.4 4.7V12H5.6ZM7.3 13.4h9.4c0 4.5-2.1 8.2-4.7 8.2s-4.7-3.7-4.7-8.2Z' transform='translate(26,140) scale(2.4)'/%3E%3Cpath d='M12 1.6a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8ZM12 5.6c3.8 0 6.4 3.4 6.4 8.2v3.1l1.7 3.1H3.9l1.7-3.1v-3.1c0-4.8 2.6-8.2 6.4-8.2ZM12 20.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6Z' transform='translate(140,140) scale(2.4)'/%3E%3C/g%3E%3C/svg%3E");
   }
   :root[lang="sk"][data-theme="dark"]{
     --bg:#101319; --surface:#191E27; --surface-2:#1E2531; --ink:#F2F6FB; --ink-soft:#BFC8DA;
     --border:#39435C; --accent:#5B9BE8; --accent-strong:#93C0F5; --accent-soft:#16273F;
+    --lvl-red:#FF8A8A; --lvl-green:#7FD6A2; --lvl-blue:#8FBBF0;
     --focus:#93C0F5;
     --motif-url:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='%235B9BE8' fill-opacity='0.07'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z' transform='translate(26,26) scale(2.4)'/%3E%3Cpath d='M12 2.6c3.9 2.9 5.9 6.3 5.9 9.7 0 4.4-2.6 7.6-5.9 9.1-3.3-1.5-5.9-4.7-5.9-9.1 0-3.4 2-6.8 5.9-9.7ZM11.4 20.4h1.2v2.8h-1.2z' transform='translate(140,26) scale(2.4)'/%3E%3Cpath d='M11.3 6.4C11.3 4.2 12.1 3 13.6 2.3L14.3 3.6C13.2 4.2 12.8 5 12.8 6.4ZM5.6 10.9C5.6 8 8.3 6.2 12 6.2s6.4 1.8 6.4 4.7V12H5.6ZM7.3 13.4h9.4c0 4.5-2.1 8.2-4.7 8.2s-4.7-3.7-4.7-8.2Z' transform='translate(26,140) scale(2.4)'/%3E%3Cpath d='M12 1.6a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8ZM12 5.6c3.8 0 6.4 3.4 6.4 8.2v3.1l1.7 3.1H3.9l1.7-3.1v-3.1c0-4.8 2.6-8.2 6.4-8.2ZM12 20.2a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6Z' transform='translate(140,140) scale(2.4)'/%3E%3C/g%3E%3C/svg%3E");
   }
@@ -461,6 +466,14 @@
   .infolist{display:block; margin-top:.5rem}
   .infoitem{display:block; position:relative; padding-left:1.15rem; color:var(--ink-soft); font-size:1rem; line-height:1.5}
   .infoitem::before{content:'•'; position:absolute; left:.15rem; color:var(--accent); font-weight:700}
+  /* Szint (szín): a versenyhez írt sor kiemelése. Fekete az alap. */
+  .infoitem.lvl-red{color:var(--lvl-red); font-weight:700}
+  .infoitem.lvl-green{color:var(--lvl-green); font-weight:700}
+  .infoitem.lvl-blue{color:var(--lvl-blue); font-weight:700}
+  .infoitem.lvl-red::before{color:var(--lvl-red)}
+  .infoitem.lvl-green::before{color:var(--lvl-green)}
+  .infoitem.lvl-blue::before{color:var(--lvl-blue)}
+  .inforow select.info-level{flex:0 0 7rem; min-width:6rem; width:auto}
   .infobox{border:1px dashed var(--border); border-radius:12px; padding:.9rem 1rem; background:var(--surface-2)}
   .infolabel{display:block; font-size:.98rem; font-weight:700; color:var(--ink-soft); margin-bottom:.35rem}
   .steplist{margin:0 0 .6rem 1.3rem; padding:0; color:var(--ink-soft); font-size:1rem; line-height:1.6}
@@ -710,7 +723,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 86;
+  var BUILD = 87;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1619,13 +1632,20 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   /* További információk (jelentkezési díj, pontos helyszín, kultúrház, ebéd…).
      Minden sor két nyelven; ha a szlovák üres, a magyar szöveg jelenik meg helyette.
      Végig <span>, hogy gomb belsejében is érvényes maradjon a HTML. */
+  /* A sor szintje (színe): '' = fekete (alap), red / green / blue. */
+  var INFO_LEVELS = [['', 'Fekete', 'Čierna'], ['red', 'Piros', 'Červená'], ['green', 'Zöld', 'Zelená'], ['blue', 'Kék', 'Modrá']];
+  function infoLevel(r){
+    var v = String((r && r.level) || '').toLowerCase();
+    return (v === 'red' || v === 'green' || v === 'blue') ? v : '';
+  }
   function infoList(t){
     var rows = (t && t.info && t.info.length) ? t.info : [];
     var items = '';
     for(var i = 0; i < rows.length; i++){
       var r = rows[i] || {};
       var txt = String(T(r.hu, r.sk) || '').trim();
-      if(txt) items += '<span class="infoitem">'+esc(txt)+'</span>';
+      var lvl = infoLevel(r);
+      if(txt) items += '<span class="infoitem'+(lvl ? ' lvl-'+lvl : '')+'">'+esc(txt)+'</span>';
     }
     return items ? '<span class="infolist">'+items+'</span>' : '';
   }
@@ -5560,6 +5580,11 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       return '<div class="inforow">'
         + '<input class="info-hu" data-i="'+i+'" value="'+esc(r.hu||'')+'" aria-label="'+esc(T('Információ magyarul','Informácia po maďarsky'))+'" placeholder="'+esc(T('magyarul, pl. Jelentkezési díj: 10 €','maďarsky, napr. Štartovné: 10 €'))+'" oninput="MUB.setInfoRow(this,\'hu\')">'
         + '<input class="info-sk" data-i="'+i+'" value="'+esc(r.sk||'')+'" aria-label="'+esc(T('Információ szlovákul','Informácia po slovensky'))+'" placeholder="'+esc(T('szlovákul, pl. Štartovné: 10 €','slovensky, napr. Štartovné: 10 €'))+'" oninput="MUB.setInfoRow(this,\'sk\')">'
+        + '<select class="info-level" data-i="'+i+'" aria-label="'+esc(T('A sor színe (szint)','Farba riadku'))+'" title="'+esc(T('A sor színe (szint)','Farba riadku'))+'" onchange="MUB.setInfoLevel(this)">'
+        + INFO_LEVELS.map(function(L){
+            return '<option value="'+L[0]+'"'+(infoLevel(r) === L[0] ? ' selected' : '')+'>'+esc(T(L[1], L[2]))+'</option>';
+          }).join('')
+        + '</select>'
         + '<button type="button" class="btn sm danger" onclick="MUB.removeInfoRow('+i+')" aria-label="'+esc(T('Sor törlése','Zmazať riadok'))+'">✕</button>'
         + '</div>';
     }).join('');
@@ -5569,7 +5594,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     if(box) box.innerHTML = infoRowsHtml();
   }
   function addInfoRow(hu, sk){
-    tInfoRows.push({ hu: String(hu||''), sk: String(sk||'') });
+    tInfoRows.push({ hu: String(hu||''), sk: String(sk||''), level: '' });
     renderInfoRows();
     var box = document.getElementById('t-info-rows');
     if(box && box.children && box.children.length){
@@ -5593,10 +5618,17 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     if(!tInfoRows[i]) return;
     tInfoRows[i][(which === 'sk') ? 'sk' : 'hu'] = String(input.value||'');
   }
+  /* A sor színe (szint): fekete / piros / zöld / kék. */
+  function setInfoLevel(input){
+    if(!input || !input.getAttribute) return;
+    var i = Number(input.getAttribute('data-i'));
+    if(!tInfoRows[i]) return;
+    tInfoRows[i].level = infoLevel({ level: input.value });
+  }
   function renderTournamentForm(t){
     /* Új verseny: a jelentkezés alapból NYITVA van, hogy rögtön lehessen jelentkezni. */
     t = t || {location_hu:'',location_sk:'',date:'',time_start:'8:30',time_end:'15:30',tag:'',registrationOpen:true,info:[]};
-    tInfoRows = (t.info||[]).map(function(r){ return { hu: String((r&&r.hu)||''), sk: String((r&&r.sk)||'') }; });
+    tInfoRows = (t.info||[]).map(function(r){ return { hu: String((r&&r.hu)||''), sk: String((r&&r.sk)||''), level: infoLevel(r) }; });
     var html = '<input type="hidden" id="t-id" value="'+esc(t.id||'')+'">'
       + '<div class="row2"><div class="field"><label for="t-loc-hu">'+esc(T('Helyszín (magyar)','Miesto (maďarsky)'))+'</label><input id="t-loc-hu" list="vill-hu" autocomplete="off" value="'+esc(t.location_hu)+'" onchange="MUB.villagePair(\'t-loc-hu\',\'t-loc-sk\',\'hu\')"></div>'
       + '<div class="field"><label for="t-loc-sk">'+esc(T('Helyszín (szlovák)','Miesto (slovensky)'))+'</label><input id="t-loc-sk" list="vill-sk" autocomplete="off" value="'+esc(t.location_sk)+'" onchange="MUB.villagePair(\'t-loc-hu\',\'t-loc-sk\',\'sk\')"></div></div>'
@@ -5644,7 +5676,9 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       capacity: parseInt(String(document.getElementById('t-cap').value||'').replace(/\D/g, ''), 10) || 0,
       registrationOpen: document.getElementById('t-open').checked,
       info: tInfoRows.map(function(r){
-        return { hu: String(r.hu||'').trim(), sk: String(r.sk||'').trim() };
+        var o = { hu: String(r.hu||'').trim(), sk: String(r.sk||'').trim() };
+        if(infoLevel(r)) o.level = infoLevel(r);
+        return o;
       }).filter(function(r){ return r.hu || r.sk; })
     };
     var ref = id ? db.collection('tournaments').doc(id) : db.collection('tournaments').doc();
@@ -9385,6 +9419,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     alog: alog, setLogKind: setLogKind, setLogWho: setLogWho, reloadLogs: reloadLogs, logCsv: logCsv, cleanLogs: cleanLogs,
     hideInstallCard: hideInstallCard, reloadPage: reloadPage, setMenuVisible: setMenuVisible,
     moveHomeModule: moveHomeModule, toggleHomeModule: toggleHomeModule, setHomeResults: setHomeResults, mrPickTournament: mrPickTournament,
+    setInfoLevel: setInfoLevel,
     loadSheet: loadSheet,
   };
 
