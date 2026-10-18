@@ -216,6 +216,14 @@
   .thumbgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:.6rem; margin-top:.8rem}
   .thumbgrid .ph{position:relative; border-radius:10px; overflow:hidden; border:1px solid var(--border); aspect-ratio:1; display:block}
   .thumbgrid .ph img{width:100%; height:100%; object-fit:cover; display:block}
+  /* Galéria-szerkesztő sáv (kijelölés, törlés, áthelyezés) */
+  .galbar{display:flex; flex-wrap:wrap; gap:.45rem; align-items:center; margin:0 0 .9rem; padding:.6rem .7rem;
+    border:1px solid var(--border); border-radius:12px; background:var(--surface-2)}
+  .galbar .galcount{font-size:1rem; margin-right:.2rem}
+  .galbar .galmove{display:inline-flex; gap:.35rem; align-items:center; margin-left:auto; flex-wrap:wrap}
+  .ph .gsel{position:absolute; top:.3rem; left:.3rem; width:1.7rem; height:1.7rem; z-index:3; cursor:pointer; accent-color:var(--accent)}
+  .ph.issel{outline:3px solid var(--accent); outline-offset:-3px}
+  .galmsg{margin:.6rem 0 0; font-weight:700; color:var(--accent-strong)}
   .thumbgrid .ph .podiummark{position:absolute; top:6px; left:6px; background:var(--gold); color:#fff; font-size:.85rem; font-weight:700; padding:.15rem .5rem; border-radius:999px}
   .thumbgrid .ph .rm{position:absolute; bottom:6px; right:6px; background:rgba(0,0,0,.65); color:#fff; border:none; border-radius:999px; width:2.4rem; height:2.4rem; font-size:1.1rem}
   /* Forgató gombok (admin): a kép balra/jobbra fordítása. */
@@ -733,7 +741,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 88;
+  var BUILD = 89;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -6728,6 +6736,101 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     galleryRenameFor = '';
     renderAdminGallery();
   }
+  /* Az éppen szerkesztett album neve (a visszaigazoló szövegekhez). */
+  function galleryAlbumLabel(){
+    if(galleryMode === 'tournament'){
+      var t = (galleryTournaments || []).filter(function(x){ return x.id === galleryPickTid; })[0];
+      return t ? (T(t.location_hu, t.location_sk) + ' · ' + (t.date || '')) : '';
+    }
+    return (galleryCustomTitle || '').trim();
+  }
+  var gallerySel = {};          /* id -> ki van jelölve */
+  var galleryShownIds = [];     /* az éppen látszó képek */
+  function selectedGalleryIds(){
+    return Object.keys(gallerySel).filter(function(k){ return gallerySel[k]; });
+  }
+  function toggleGallerySel(el){
+    if(!el || !el.getAttribute) return;
+    var id = el.getAttribute('data-id');
+    if(!id) return;
+    gallerySel[id] = !!el.checked;
+    var box = el.parentNode;
+    if(box && box.classList && box.classList[el.checked ? 'add' : 'remove']) box.classList[el.checked ? 'add' : 'remove']('issel');
+    var c = document.getElementById('g-sel-count');
+    if(c) c.textContent = String(selectedGalleryIds().length);
+  }
+  function selectAllGallery(on){
+    galleryShownIds.forEach(function(id){ gallerySel[id] = !!on; });
+    renderGalleryThumbs();
+  }
+  function deleteSelectedGallery(){
+    var ids = selectedGalleryIds();
+    if(!ids.length){
+      alert(T('Előbb jelöljön ki legalább egy képet (a kép bal felső sarkában lévő négyzet).','Najprv označte aspoň jednu fotku (štvorček v ľavom hornom rohu fotky).'));
+      return;
+    }
+    if(!confirm(T('Biztosan törli a kijelölt képeket? (','Naozaj chcete zmazať označené fotky? (') + ids.length + T(' kép) Ez nem visszavonható.',' fotiek) Toto sa nedá vrátiť.'))) return;
+    deleteGalleryPhotos(ids);
+  }
+  function deleteAlbumGallery(){
+    var ids = galleryShownIds.slice();
+    if(!ids.length) return;
+    var name = galleryAlbumLabel();
+    if(!confirm(T('Biztosan törli az ÖSSZES képet ebből az albumból','Naozaj chcete zmazať VŠETKY fotky z tohto albumu')
+      + (name ? ' (' + name + ')' : '') + '? ' + ids.length + T(' kép — ez nem visszavonható.',' fotiek — toto sa nedá vrátiť.'))) return;
+    deleteGalleryPhotos(ids);
+  }
+  function deleteGalleryPhotos(ids){
+    loadGallery(function(photos){
+      var byId = {};
+      photos.forEach(function(p){ byId[p.id] = p; });
+      var jobs = ids.map(function(id){
+        var p = byId[id] || {};
+        if(p.storagePath){ try{ storage.ref().child(p.storagePath).delete().catch(function(){}); }catch(e){} }
+        return db.collection('gallery').doc(id).delete().catch(function(){});
+      });
+      Promise.all(jobs).then(function(){
+        ids.forEach(function(id){ delete gallerySel[id]; });
+        invalidate('gallery');
+        renderGalleryThumbs();
+        var box = document.getElementById('g-msg');
+        if(box) box.textContent = T('Törölve: ','Zmazané: ') + ids.length + T(' kép. Fent tölthet fel újakat.',' fotiek. Nové môžete nahrať vyššie.');
+      });
+    });
+  }
+  function moveSelectedGallery(){
+    var ids = selectedGalleryIds();
+    if(!ids.length){
+      alert(T('Előbb jelölje ki a képeket, amelyeket át szeretne tenni.','Najprv označte fotky, ktoré chcete presunúť.'));
+      return;
+    }
+    var sel = document.getElementById('g-move-tid');
+    var tid = sel ? String(sel.value || '') : '';
+    if(!tid){
+      alert(T('Válassza ki, melyik versenyhez kerüljenek a képek.','Vyberte, ku ktorému turnaju majú fotky ísť.'));
+      return;
+    }
+    var t = (galleryTournaments || []).filter(function(x){ return x.id === tid; })[0];
+    var name = t ? (T(t.location_hu, t.location_sk) + ' · ' + (t.date || '')) : '';
+    if(!confirm(T('Áthelyezi a kijelölt képeket ide: ','Presunúť označené fotky sem: ') + name + ' (' + ids.length + T(' kép)?',' fotiek)?'))) return;
+    var batch = db.batch();
+    ids.forEach(function(id){
+      batch.set(db.collection('gallery').doc(id), {
+        tournamentId: tid,
+        customTitle: firebase.firestore.FieldValue.delete(),
+        customTitle_sk: firebase.firestore.FieldValue.delete()
+      }, { merge: true });
+    });
+    batch.commit().then(function(){
+      ids.forEach(function(id){ delete gallerySel[id]; });
+      invalidate('gallery');
+      renderGalleryThumbs();
+      var box = document.getElementById('g-msg');
+      if(box) box.textContent = T('Áthelyezve: ','Presunuté: ') + ids.length + T(' kép ide: ',' fotiek sem: ') + name;
+    }).catch(function(err){
+      alert(T('Nem sikerült az áthelyezés: ','Presun sa nepodaril: ') + err.message);
+    });
+  }
   function currentGalleryFilter(photos){
     if(galleryMode==='tournament'){ return photos.filter(function(p){ return p.tournamentId===galleryPickTid; }); }
     var title = (galleryCustomTitle||'').trim();
@@ -6739,8 +6842,35 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       var mine = currentGalleryFilter(photos).sort(function(a,b){ return (b.isPodium?1:0)-(a.isPodium?1:0); });
       var thumbs = document.getElementById('g-thumbs');
       if(!thumbs) return;
-      thumbs.innerHTML = '<div class="thumbgrid">' + mine.map(function(p){
-        return '<div class="ph"><img src="'+esc(p.url)+'"'+rotStyle(p)+' loading="lazy" alt="">'
+      /* csak a most látszó képek maradhatnak kijelölve */
+      galleryShownIds = mine.map(function(p){ return p.id; });
+      var vis = {};
+      galleryShownIds.forEach(function(id){ vis[id] = 1; });
+      Object.keys(gallerySel).forEach(function(k){ if(!vis[k]) delete gallerySel[k]; });
+      var selN = selectedGalleryIds().length;
+      var bar = mine.length
+        ? '<div class="galbar noprint">'
+          + '<span class="galcount">'+esc(T('Ez az album: ','Tento album: '))+'<strong>'+mine.length+'</strong> '+esc(T('kép','fotiek'))+'</span>'
+          + '<button type="button" class="btn sm secondary" onclick="MUB.selectAllGallery(1)">'+esc(T('Mind kijelölése','Označiť všetky'))+'</button>'
+          + '<button type="button" class="btn sm secondary" onclick="MUB.selectAllGallery(0)">'+esc(T('Kijelölés törlése','Zrušiť označenie'))+'</button>'
+          + '<button type="button" class="btn sm danger" onclick="MUB.deleteSelectedGallery()">'+esc(T('Kijelöltek törlése','Zmazať označené'))+' (<span id="g-sel-count">'+selN+'</span>)</button>'
+          + '<button type="button" class="btn sm danger" onclick="MUB.deleteAlbumGallery()">'+esc(T('Összes kép törlése ebből az albumból','Zmazať všetky fotky z albumu'))+'</button>'
+          + '<span class="galmove">'
+          + '<select id="g-move-tid" aria-label="'+esc(T('Áthelyezés másik versenyhez','Presun k inému turnaju'))+'">'
+          + (galleryTournaments || []).filter(function(t){ return t.id !== galleryPickTid; }).map(function(t){
+              return '<option value="'+esc(t.id)+'">'+esc(T(t.location_hu, t.location_sk))+' · '+esc(t.date||'')+'</option>';
+            }).join('')
+          + '</select>'
+          + '<button type="button" class="btn sm secondary" onclick="MUB.moveSelectedGallery()">'+esc(T('Kijelöltek áthelyezése','Presunúť označené'))+'</button>'
+          + '</span>'
+          + '</div>'
+        : '<p class="meta">'+esc(T('Ebben az albumban még nincs kép. Fent tölthet fel újakat.','V tomto albume zatiaľ nie sú fotky. Nové môžete nahrať vyššie.'))+'</p>';
+      thumbs.innerHTML = bar + '<div id="g-msg" class="galmsg" role="status"></div>'
+        + '<div class="thumbgrid">' + mine.map(function(p){
+        return '<div class="ph'+(gallerySel[p.id] ? ' issel' : '')+'">'
+          + '<input type="checkbox" class="gsel" data-id="'+esc(p.id)+'"'+(gallerySel[p.id] ? ' checked' : '')
+          + ' aria-label="'+esc(T('Kép kijelölése','Označenie fotky'))+'" onchange="MUB.toggleGallerySel(this)">'
+          + '<img src="'+esc(p.url)+'"'+rotStyle(p)+' loading="lazy" alt="">'
           + '<span class="rot">'
           + '<button type="button" title="'+esc(T('Elforgatás balra','Otočiť vľavo'))+'" aria-label="'+esc(T('Elforgatás balra','Otočiť vľavo'))+'" onclick="MUB.rotatePhoto(\''+jsq(p.id)+'\',-90)">⟲</button>'
           + '<button type="button" title="'+esc(T('Elforgatás jobbra','Otočiť vpravo'))+'" aria-label="'+esc(T('Elforgatás jobbra','Otočiť vpravo'))+'" onclick="MUB.rotatePhoto(\''+jsq(p.id)+'\',90)">⟳</button>'
@@ -9441,6 +9571,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     hideInstallCard: hideInstallCard, reloadPage: reloadPage, setMenuVisible: setMenuVisible,
     moveHomeModule: moveHomeModule, toggleHomeModule: toggleHomeModule, setHomeResults: setHomeResults, mrPickTournament: mrPickTournament,
     setInfoLevel: setInfoLevel,
+    toggleGallerySel: toggleGallerySel, selectAllGallery: selectAllGallery, deleteSelectedGallery: deleteSelectedGallery,
+    deleteAlbumGallery: deleteAlbumGallery, moveSelectedGallery: moveSelectedGallery,
     loadSheet: loadSheet,
   };
 
