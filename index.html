@@ -752,7 +752,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 95;
+  var BUILD = 97;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1264,12 +1264,22 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
      ezért a táblázat magától betöltődhet: az oldal nem ugrik össze-vissza.
      A betöltés akkor indul, amikor a doboz a látható rész közelébe ér
      (IntersectionObserver), így a weblap gyors marad. */
-  var sheetSeq = 0, SHEET_SRC = {}, SHEET_OBS = null;
-  function sheetPlaceholder(url, title, tag){
+  var sheetSeq = 0, SHEET_SRC = {}, SHEET_OBS = null, SHEET_MANUAL = {};
+  /* manual = true: a táblázat csak kattintásra nyílik meg (a régebbi szezonoknál). */
+  function sheetPlaceholder(url, title, tag, manual){
     var embed = sheetEmbedUrl(url);
     if(!embed) return '';                 /* nem Google-táblázat: nem ágyazzuk be */
     var key = 'sheet-' + (++sheetSeq);
     SHEET_SRC[key] = url;
+    if(manual){
+      SHEET_MANUAL[key] = 1;
+      return '<div class="sheetwrap sheetload sheetmanual" id="'+esc(key)+'">'
+        + '<div class="sheetwait">'
+        + '<div><div class="sheetwait-t">📊 '+esc(title)+'</div>'
+        + '<div class="meta">'+esc(T('A régebbi szezonok táblázatai csak kattintásra nyílnak meg — így gyorsabb az oldal.','Tabuľky starších sezón sa otvoria až po kliknutí — stránka je tak rýchlejšia.'))+'</div>'
+        + '<button type="button" class="btn sm" style="margin-top:.5rem" onclick="MUB.loadSheet(\''+jsq(key)+'\')">📊 '+esc(T('Táblázat megjelenítése','Zobraziť tabuľku'))+'</button>'
+        + '</div></div></div>';
+    }
     return '<div class="sheetwrap sheetload" id="'+esc(key)+'">'
       + '<div class="sheetwait">'
       + '<div><div class="sheetwait-t">📊 '+esc(title)+'</div>'
@@ -1331,6 +1341,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     for(var i = 0; i < boxes.length; i++){
       (function(box){
         if(!box || !box.getAttribute || box.getAttribute('data-auto') === '1') return;
+        /* a régebbi szezonok táblázatai csak kattintásra nyílnak meg */
+        if(SHEET_MANUAL[box.id] || (box.className && String(box.className).indexOf('sheetmanual') >= 0)) return;
         box.setAttribute('data-auto', '1');
         if(!('IntersectionObserver' in window) || !box.isConnected){ queueSheet(box.id); return; }
         if(!SHEET_OBS){
@@ -1938,14 +1950,17 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
         + '</div>';
     }
     html += '<h3 class="seasonname">'+esc(T('Szezon','Sezóna'))+' '+esc(seasonTitle(s))+(s.current?'<span class="badge">'+esc(T('aktuális','aktuálna'))+'</span>':'')+'</h3>';
+    if(s.current && (s.perTournamentUrl || s.aggregateUrl)){
+      html += '<p class="meta" style="margin:.2rem 0 .6rem">'+esc(T('Az aktuális szezon táblázatai maguktól betöltődnek.','Tabuľky aktuálnej sezóny sa načítajú automaticky.'))+'</p>';
+    }
     if(s.perTournamentUrl){
       html += '<div class="meta" style="margin-top:.6rem">'+esc(T('Versenyenkénti eredmények','Výsledky podľa turnajov'))+'</div>'
-        + sheetPlaceholder(s.perTournamentUrl, T('Versenyenkénti eredmények','Výsledky podľa turnajov')+' · '+seasonTitle(s), 'per')
+        + sheetPlaceholder(s.perTournamentUrl, T('Versenyenkénti eredmények','Výsledky podľa turnajov')+' · '+seasonTitle(s), 'per', !s.current)
         + sheetLink(s.perTournamentUrl);
     }
     if(s.aggregateUrl){
       html += '<div class="meta" style="margin-top:.9rem">'+esc(T('Összesített eredmény','Súhrnné výsledky'))+'</div>'
-        + sheetPlaceholder(s.aggregateUrl, T('Összesített eredmény','Súhrnné výsledky')+' · '+seasonTitle(s), 'agg')
+        + sheetPlaceholder(s.aggregateUrl, T('Összesített eredmény','Súhrnné výsledky')+' · '+seasonTitle(s), 'agg', !s.current)
         + sheetLink(s.aggregateUrl);
     }
     if(!s.perTournamentUrl || !s.aggregateUrl){
@@ -3735,8 +3750,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     }
     return hint + sortedSeasons.map(function(se){
       return '<div class="seasonblock"><h3 class="seasonname">'+esc(T('Szezon','Sezóna'))+' '+esc(seasonTitle(se))+(se.current?'<span class="badge">'+esc(T('aktuális','aktuálna'))+'</span>':'')+'</h3>'
-        + (se.aggregateUrl ? '<div class="meta" style="margin-bottom:.3rem">'+esc(T('Összesített eredmény','Súhrnné výsledky'))+'</div>'+sheetPlaceholder(se.aggregateUrl, T('Összesített eredmény','Súhrnné výsledky')+' · '+seasonTitle(se), 'agg')+sheetLink(se.aggregateUrl) : '')
-        + (se.perTournamentUrl ? '<div class="meta" style="margin:.6rem 0 .3rem">'+esc(T('Versenyenkénti eredmények','Výsledky podľa turnajov'))+'</div>'+sheetPlaceholder(se.perTournamentUrl, T('Versenyenkénti eredmények','Výsledky podľa turnajov')+' · '+seasonTitle(se), 'per')+sheetLink(se.perTournamentUrl) : '')
+        + (se.aggregateUrl ? '<div class="meta" style="margin-bottom:.3rem">'+esc(T('Összesített eredmény','Súhrnné výsledky'))+'</div>'+sheetPlaceholder(se.aggregateUrl, T('Összesített eredmény','Súhrnné výsledky')+' · '+seasonTitle(se), 'agg', !se.current)+sheetLink(se.aggregateUrl) : '')
+        + (se.perTournamentUrl ? '<div class="meta" style="margin:.6rem 0 .3rem">'+esc(T('Versenyenkénti eredmények','Výsledky podľa turnajov'))+'</div>'+sheetPlaceholder(se.perTournamentUrl, T('Versenyenkénti eredmények','Výsledky podľa turnajov')+' · '+seasonTitle(se), 'per', !se.current)+sheetLink(se.perTournamentUrl) : '')
         + (!se.aggregateUrl && !se.perTournamentUrl ? '<p class="meta">'+esc(T('Ehhez a szezonhoz még nincs feltöltve eredmény.','Pre túto sezónu ešte nie sú nahraté výsledky.'))+'</p>' : '')
         + '</div>';
     }).join('');
