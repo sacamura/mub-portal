@@ -750,7 +750,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 91;
+  var BUILD = 92;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1878,10 +1878,12 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
         + sheetPlaceholder(s.aggregateUrl, T('Összesített eredmény','Súhrnné výsledky')+' · '+seasonTitle(s), 'agg')
         + sheetLink(s.aggregateUrl);
     }
-    if(!s.perTournamentUrl && !s.aggregateUrl){
+    if(!s.perTournamentUrl || !s.aggregateUrl){
       if(currentUser){
         html += '<div class="banner noprint" role="status">'
-          + esc(T('Ehhez a szezonhoz még nincs hivatalos Google-táblázat megadva.','Pre túto sezónu ešte nie je zadaná oficiálna Google tabuľka.'))
+          + (s.perTournamentUrl && !s.aggregateUrl
+              ? esc(T('Az összesített eredmény táblázatának linkje még hiányzik.','Odkaz na tabuľku súhrnných výsledkov ešte chýba.'))
+              : esc(T('Ehhez a szezonhoz még nincs hivatalos Google-táblázat megadva.','Pre túto sezónu ešte nie je zadaná oficiálna Google tabuľka.')))
           + ' <button type="button" class="btn sm" onclick="MUB.goAdminSeasons()">'+esc(T('Szezonok szerkesztése','Upraviť sezóny'))+'</button>'
           + '</div>';
       }
@@ -3633,11 +3635,15 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     if(!sortedSeasons || !sortedSeasons.length) return '<p class="meta">'+esc(T('Még nincs feltöltött eredmény.','Zatiaľ nie sú nahraté výsledky.'))+'</p>';
     var anyLink = sortedSeasons.some(function(s){ return s.aggregateUrl || s.perTournamentUrl; });
     var cur = sortedSeasons.filter(function(s){ return s.current; })[0];
+    var noAgg = !!(cur && !cur.aggregateUrl);
     var hint = '';
-    if(!anyLink || (cur && !cur.aggregateUrl && !cur.perTournamentUrl)){
+    if(!anyLink || noAgg){
       hint = '<div class="banner noprint" role="status">'
-        + esc(T('Ehhez a szezonhoz még nincs hivatalos Google-táblázat megadva. Az admin a „Szezonok" fülön illeszti be a táblázat linkjét — utána itt és a kezdőlapon is megjelenik.',
-                 'Pre túto sezónu ešte nie je zadaná oficiálna Google tabuľka. Administrátor vloží odkaz na tabuľku na karte „Sezóny" — potom sa zobrazí tu aj na domovskej stránke.'))
+        + ((noAgg && anyLink)
+          ? esc(T('Az ÖSSZESÍTETT eredmény táblázatának linkje még hiányzik ehhez a szezonhoz (','Odkaz na tabuľku SÚHRNNÝCH výsledkov pre túto sezónu ešte chýba (')) + esc(seasonTitle(cur)) + esc(T('). Az admin a „Szezonok" fülön illeszti be a Google Sheet linkjét.',
+                 '). Administrátor ho vloží na karte „Sezóny".'))
+          : esc(T('Ehhez a szezonhoz még nincs hivatalos Google-táblázat megadva. Az admin a „Szezonok" fülön illeszti be a táblázat linkjét — utána itt és a kezdőlapon is megjelenik.',
+                 'Pre túto sezónu ešte nie je zadaná oficiálna Google tabuľka. Administrátor vloží odkaz na tabuľku na karte „Sezóny" — potom sa zobrazí tu aj na domovskej stránke.')))
         + (currentUser ? ' <button type="button" class="btn sm" onclick="MUB.goAdminSeasons()">'+esc(T('Szezonok szerkesztése','Upraviť sezóny'))+'</button>' : '')
         + '</div>';
     }
