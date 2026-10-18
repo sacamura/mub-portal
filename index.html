@@ -750,7 +750,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 90;
+  var BUILD = 91;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1879,6 +1879,12 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
         + sheetLink(s.aggregateUrl);
     }
     if(!s.perTournamentUrl && !s.aggregateUrl){
+      if(currentUser){
+        html += '<div class="banner noprint" role="status">'
+          + esc(T('Ehhez a szezonhoz még nincs hivatalos Google-táblázat megadva.','Pre túto sezónu ešte nie je zadaná oficiálna Google tabuľka.'))
+          + ' <button type="button" class="btn sm" onclick="MUB.goAdminSeasons()">'+esc(T('Szezonok szerkesztése','Upraviť sezóny'))+'</button>'
+          + '</div>';
+      }
       html += '<p class="meta">'+esc(T('Ehhez a szezonhoz még nincs feltöltve eredmény.','Pre túto sezónu ešte nie sú nahraté výsledky.'))+'</p>';
     }
     html += '<div style="margin-top:.9rem"><a class="btn sm secondary" href="#eredmenyek">'+esc(T('Az összes szezon eredménye →','Výsledky všetkých sezón →'))+'</a></div>';
@@ -3625,7 +3631,17 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   /* A régi (Google-táblázatos) eredménynézet – ez látszik, ha a statisztika ki van kapcsolva. */
   function resultsSheetsHtml(sortedSeasons){
     if(!sortedSeasons || !sortedSeasons.length) return '<p class="meta">'+esc(T('Még nincs feltöltött eredmény.','Zatiaľ nie sú nahraté výsledky.'))+'</p>';
-    return sortedSeasons.map(function(se){
+    var anyLink = sortedSeasons.some(function(s){ return s.aggregateUrl || s.perTournamentUrl; });
+    var cur = sortedSeasons.filter(function(s){ return s.current; })[0];
+    var hint = '';
+    if(!anyLink || (cur && !cur.aggregateUrl && !cur.perTournamentUrl)){
+      hint = '<div class="banner noprint" role="status">'
+        + esc(T('Ehhez a szezonhoz még nincs hivatalos Google-táblázat megadva. Az admin a „Szezonok" fülön illeszti be a táblázat linkjét — utána itt és a kezdőlapon is megjelenik.',
+                 'Pre túto sezónu ešte nie je zadaná oficiálna Google tabuľka. Administrátor vloží odkaz na tabuľku na karte „Sezóny" — potom sa zobrazí tu aj na domovskej stránke.'))
+        + (currentUser ? ' <button type="button" class="btn sm" onclick="MUB.goAdminSeasons()">'+esc(T('Szezonok szerkesztése','Upraviť sezóny'))+'</button>' : '')
+        + '</div>';
+    }
+    return hint + sortedSeasons.map(function(se){
       return '<div class="seasonblock"><h3 class="seasonname">'+esc(T('Szezon','Sezóna'))+' '+esc(seasonTitle(se))+(se.current?'<span class="badge">'+esc(T('aktuális','aktuálna'))+'</span>':'')+'</h3>'
         + (se.aggregateUrl ? '<div class="meta" style="margin-bottom:.3rem">'+esc(T('Összesített eredmény','Súhrnné výsledky'))+'</div>'+sheetPlaceholder(se.aggregateUrl, T('Összesített eredmény','Súhrnné výsledky')+' · '+seasonTitle(se), 'agg')+sheetLink(se.aggregateUrl) : '')
         + (se.perTournamentUrl ? '<div class="meta" style="margin:.6rem 0 .3rem">'+esc(T('Versenyenkénti eredmények','Výsledky podľa turnajov'))+'</div>'+sheetPlaceholder(se.perTournamentUrl, T('Versenyenkénti eredmények','Výsledky podľa turnajov')+' · '+seasonTitle(se), 'per')+sheetLink(se.perTournamentUrl) : '')
@@ -5489,6 +5505,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '<h3 style="margin-bottom:.3rem">'+esc(T('Főoldali eredmény-blokk','Blok výsledkov na domovskej stránke'))+'</h3>'
       + '<p class="meta" style="margin:0 0 .7rem">'+esc(T('Válassza ki, mi jelenjen meg a főoldalon a szezonnál: a hivatalos Google-táblázat, vagy a portálra feltöltött adatokból számolt ranglista (a legjobb 12).',
                                                          'Vyberte, čo sa zobrazí na domovskej stránke pri sezóne: oficiálna Google tabuľka alebo rebríček z údajov nahratých do portálu (najlepších 12).'))+'</p>'
+      + '<p class="meta" style="margin:0 0 .7rem">'+esc(T('A hivatalos Google-táblázat linkjét a „Szezonok" fülön lehet megadni (szezononként).','Odkaz na oficiálnu Google tabuľku zadáte na karte „Sezóny" (pre každú sezónu).'))+'</p>'
       + '<div class="field" style="max-width:26rem"><label for="home-results">'+esc(T('Forrás','Zdroj'))+'</label>'
       + '<select id="home-results" onchange="MUB.setHomeResults(this.value)">'
       + [['sheet', T('Hivatalos Google-táblázat','Oficiálna Google tabuľka')],
@@ -5533,6 +5550,14 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   /* A régi (külön) fülek neveit átirányítjuk az összevont fül megfelelő alpontjára.
      A fő „Eredmények” fülre kattintva az utolsó alpont marad (elsőre a felvétel). */
   var ADMIN_TAB_ALIAS = { felvetel: 'felvetel', szezonok: 'szezonok', nevek: 'nevek', tablazat: 'tablazat', eredmeny: 'tablazat' };
+  /* A Szezonok fül megnyitása (pl. a Google-táblázat linkjének beillesztéséhez). */
+  function goAdminSeasons(){
+    if(!currentUser) return;
+    adminTab = 'eredmenyek';
+    adminSub = 'szezonok';
+    if(String(location.hash || '').replace(/^#/, '') === 'admin') render();
+    else location.hash = '#admin';
+  }
   function setAdminTab(t){
     if(t === 'eredmenyek'){
       adminTab = 'eredmenyek';
@@ -5754,7 +5779,9 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '</div>'
       + '<div class="field"><label for="s-per">'+esc(T('Versenyenkénti eredmények – egy fájl a teljes szezonra (Google Sheet link)','Výsledky podľa turnajov – jeden súbor pre celú sezónu (odkaz na Google Sheet)'))+'</label><input id="s-per" value="'+esc(s.perTournamentUrl||'')+'"></div>'
       + '<div class="field"><label for="s-agg">'+esc(T('Összesített (közös) eredmény (Google Sheet link)','Súhrnné (spoločné) výsledky (odkaz na Google Sheet)'))+'</label><input id="s-agg" value="'+esc(s.aggregateUrl||'')+'"></div>'
-      + '<p class="meta" style="margin:-.5rem 0 1rem">'+esc(T('Versenyenként külön táblázatot nem kell feltölteni: a szezon minden versenyének eredménye egy fájlban van, és külön a közös összesítés.','Pre jednotlivé turnaje netreba nahrávať samostatnú tabuľku: výsledky všetkých turnajov sezóny sú v jednom súbore a zvlášť je spoločný súhrn.'))+'</p>'
+      + '<p class="meta" style="margin:-.5rem 0 .5rem">'+esc(T('Versenyenként külön táblázatot nem kell feltölteni: a szezon minden versenyének eredménye egy fájlban van, és külön a közös összesítés.','Pre jednotlivé turnaje netreba nahrávať samostatnú tabuľku: výsledky všetkých turnajov sezóny sú v jednom súbore a zvlášť je spoločný súhrn.'))+'</p>'
+      + '<p class="meta" style="margin:0 0 1rem"><strong>'+esc(T('Ez a két link jelenik meg a kezdőlapon és az Eredmények oldalon.','Tieto dva odkazy sa zobrazia na domovskej stránke a na stránke Výsledky.'))+'</strong> '
+      + esc(T('Fontos: a táblázat legyen „nézegető" módban megosztva (Bárki, aki a linkkel rendelkezik – megtekintő).','Dôležité: tabuľka musí byť zdieľaná ako „Ktokoľvek s odkazom – čitateľ".'))+'</p>'
       + '<div class="field" style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" id="s-current" '+(s.current?'checked':'')+' style="width:auto"><label for="s-current" style="margin:0">'+esc(T('Ez az aktuális szezon','Toto je aktuálna sezóna'))+'</label></div>'
       + '<button type="button" class="btn sm" onclick="MUB.saveSeason()">'+esc(T('Mentés','Uložiť'))+'</button> '+(s.id?'<button type="button" class="btn sm secondary" onclick="MUB.editSeason(null)">'+esc(T('Mégse','Zrušiť'))+'</button>':'');
     document.getElementById('s-form').innerHTML = html;
@@ -9587,7 +9614,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     alog: alog, setLogKind: setLogKind, setLogWho: setLogWho, reloadLogs: reloadLogs, logCsv: logCsv, cleanLogs: cleanLogs,
     hideInstallCard: hideInstallCard, reloadPage: reloadPage, setMenuVisible: setMenuVisible,
     moveHomeModule: moveHomeModule, toggleHomeModule: toggleHomeModule, setHomeResults: setHomeResults, mrPickTournament: mrPickTournament,
-    setInfoLevel: setInfoLevel,
+    setInfoLevel: setInfoLevel, goAdminSeasons: goAdminSeasons,
     toggleGallerySel: toggleGallerySel, selectAllGallery: selectAllGallery, deleteSelectedGallery: deleteSelectedGallery,
     deleteAlbumGallery: deleteAlbumGallery, moveSelectedGallery: moveSelectedGallery,
     loadSheet: loadSheet,
