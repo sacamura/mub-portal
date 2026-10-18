@@ -752,7 +752,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 93;
+  var BUILD = 95;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -816,12 +816,22 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   function seasonLabelOfYear(year){
     var y = Number(year) || 0;
     var list = (CACHE && CACHE.seasons) || [];
-    for(var i = 0; i < list.length; i++){
-      var sy = seasonYear(list[i]);
-      if(sy && (sy === y || sy + 1 === y)){
-        var lab = seasonTitle(list[i]);
-        return (lab ? lab + ' · ' : '') + y;
+    /* Előbb az a szezon, amelyik ebben az évben ÉRT VÉGET (kezdő éve y-1),
+       csak ha ilyen nincs, akkor az, amelyik ebben az évben kezdődött. */
+    var hit = null, i, sy;
+    for(i = 0; i < list.length; i++){
+      sy = seasonYear(list[i]);
+      if(sy && sy + 1 === y){ hit = list[i]; break; }
+    }
+    if(!hit){
+      for(i = 0; i < list.length; i++){
+        sy = seasonYear(list[i]);
+        if(sy && sy === y){ hit = list[i]; break; }
       }
+    }
+    if(hit){
+      var lab = seasonTitle(hit);
+      return (lab ? lab + ' · ' : '') + y;
     }
     return String(year == null ? '' : year);
   }
@@ -1268,14 +1278,51 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   }
   /* A táblázat beágyazása a helyére — a magasság fix (480 px), így a betöltés
      nem mozdítja el az oldalt. */
-  function loadSheet(key){
+  function loadSheet(key, keepScroll){
     var url = SHEET_SRC[key], box = document.getElementById(key);
     if(!url || !box) return;
     var embed = sheetEmbedUrl(url);
     if(!embed) return;
+    if(box.getAttribute && box.getAttribute('data-loaded') === '1') return;
+    var y = (keepScroll && window.pageYOffset) ? window.pageYOffset : 0;
     box.className = 'sheetwrap';
+    if(box.setAttribute) box.setAttribute('data-loaded', '1');
     box.innerHTML = '<iframe src="'+esc(embed)+'" title="'+esc(T('Google-táblázat','Google tabuľka'))+'"'
       + ' loading="lazy" tabindex="-1" referrerpolicy="no-referrer-when-downgrade"></iframe>';
+    if(keepScroll) guardSheetScroll(y);
+  }
+  /* A látogató szándékának követése (teker/koppint/gépel) — a görgetés-védelemhez. */
+  var SHEET_USER = 0;
+  try{
+    ['wheel','touchstart','touchmove','keydown','mousedown'].forEach(function(ev){
+      window.addEventListener(ev, function(){ SHEET_USER = Date.now(); }, { passive: true });
+    });
+  }catch(e){}
+  /* A Google-táblázat beágyazása odagörgetheti az oldalt; ezt visszaállítjuk,
+     de csak addig, amíg a látogató maga nem kezd el tekerni. */
+  function guardSheetScroll(y){
+    var t0 = Date.now();
+    function tick(){
+      if(Date.now() - t0 > 2500) return;
+      if(Date.now() - SHEET_USER < 400) return;          /* a látogató teker: hagyjuk */
+      var cur = window.pageYOffset || 0;
+      if(Math.abs(cur - y) > 4){ try{ window.scrollTo(0, y); }catch(e){} }
+      if(window.requestAnimationFrame) window.requestAnimationFrame(tick);
+      else setTimeout(tick, 60);
+    }
+    if(window.requestAnimationFrame) window.requestAnimationFrame(tick);
+    else setTimeout(tick, 60);
+  }
+  /* Egyszerre csak EGY táblázat töltődik be (így nem ugrál többször egymás után). */
+  var SHEET_QUEUE = [], SHEET_BUSY = false;
+  function queueSheet(key){ if(SHEET_QUEUE.indexOf(key) < 0) SHEET_QUEUE.push(key); pumpSheets(); }
+  function pumpSheets(){
+    if(SHEET_BUSY) return;
+    var key = SHEET_QUEUE.shift();
+    if(!key) return;
+    SHEET_BUSY = true;
+    loadSheet(key, true);
+    setTimeout(function(){ SHEET_BUSY = false; pumpSheets(); }, 400);
   }
   /* A még be nem töltött táblázatok betöltése (amikor láthatóvá válnak). */
   function autoLoadSheets(){
@@ -1285,14 +1332,14 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       (function(box){
         if(!box || !box.getAttribute || box.getAttribute('data-auto') === '1') return;
         box.setAttribute('data-auto', '1');
-        if(!('IntersectionObserver' in window) || !box.isConnected){ loadSheet(box.id); return; }
+        if(!('IntersectionObserver' in window) || !box.isConnected){ queueSheet(box.id); return; }
         if(!SHEET_OBS){
           SHEET_OBS = new IntersectionObserver(function(entries){
             for(var k = 0; k < entries.length; k++){
               var en = entries[k];
-              if(en && en.isIntersecting){ SHEET_OBS.unobserve(en.target); loadSheet(en.target.id); }
+              if(en && en.isIntersecting){ SHEET_OBS.unobserve(en.target); queueSheet(en.target.id); }
             }
-          }, { rootMargin: '400px 0px', threshold: 0 });
+          }, { rootMargin: '250px 0px', threshold: 0 });
         }
         SHEET_OBS.observe(box);
       })(boxes[i]);
@@ -3698,6 +3745,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
      A szervező idő és község szerint tölti fel a versenyeket. Itt játékos,
      azonosító, szezon és verseny szerint lehet szűrni — és látszik, ki hogy állt. */
   var resQ = '', resQYear = 'all', resQTour = '', resQVill = '', RES_INDEX = null, RES_GROUPS = null;
+  var resQYearInit = false;      /* volt-e már alapérték beállítva */
   /* A verseny helyszíne a község-táblázat szerint (hivatalos magyar és szlovák név). */
   function resVillOf(o){ if(!o) return null; if(o.vill === undefined) o.vill = villageOf(o.name); return o.vill; }
   /* A verseny nevéből kiolvasott dátum (pl. „Ruszka 7.3.2020” → 2020-03-07). */
@@ -3757,10 +3805,10 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   }
   /* Gépelés közben csak a találat frissül, így a kurzor a helyén marad. */
   function setResQ(v){ resQ = String(v == null ? '' : v); renderResFound(); }
-  function setResQYear(v){ resQYear = String(v || 'all'); resQTour = ''; renderResSearch(); }
+  function setResQYear(v){ resQYear = String(v || 'all'); resQYearInit = true; resQTour = ''; renderResSearch(); }
   function setResQVill(v){ resQVill = String(v || ''); resQTour = ''; resQ = ''; renderResSearch(); }
   function setResQTour(v){ resQTour = String(v || ''); resQVill = ''; renderResSearch(); }
-  function setResQReset(){ resQ = ''; resQYear = 'all'; resQTour = ''; resQVill = ''; renderResSearch(); }
+  function setResQReset(){ resQ = ''; resQYear = 'all'; resQYearInit = true; resQTour = ''; resQVill = ''; renderResSearch(); }
   function renderResSearch(){
     var box = document.getElementById('res-search');
     if(!box) return;
@@ -3773,6 +3821,13 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     var years = [];
     idx.forEach(function(o){ if(o.year && years.indexOf(o.year) < 0) years.push(o.year); });
     years.sort().reverse();
+    /* Alapból a legfrissebb (aktuális) szezon — nem az összes. */
+    if(!resQYearInit){
+      resQYear = defaultResSeason(years, (CACHE && CACHE.seasons) || []);
+      resQYearInit = true;
+    } else if(resQYear !== 'all' && years.indexOf(String(resQYear)) < 0){
+      resQYear = 'all';
+    }
     var tours = idx.filter(function(o){ return resQYear === 'all' || o.year === resQYear; });
     var players = resPlayersOf(tours);
     /* a községek, ahol a szűrt szezonokban verseny volt — hivatalos név szerint */
@@ -3790,7 +3845,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       + '<div class="field"><label for="res-q-year">'+esc(T('Szezon','Sezóna'))+'</label>'
       + '<select id="res-q-year" onchange="MUB.setResQYear(this.value)">'
       + '<option value="all"'+(resQYear === 'all' ? ' selected' : '')+'>'+esc(T('összes szezon','všetky sezóny'))+'</option>'
-      + years.map(function(y){ return '<option value="'+esc(y)+'"'+(resQYear === y ? ' selected' : '')+'>'+esc(y)+'</option>'; }).join('')
+      + years.map(function(y){ return '<option value="'+esc(y)+'"'+(resQYear === y ? ' selected' : '')+'>'+esc(seasonLabelOfYear(y))+'</option>'; }).join('')
       + '</select></div>'
       + '<div class="field"><label for="res-q-vill">'+esc(T('Község','Obec'))+'</label>'
       + '<select id="res-q-vill" onchange="MUB.setResQVill(this.value)">'
