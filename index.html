@@ -225,9 +225,18 @@
   .ph.issel{outline:3px solid var(--accent); outline-offset:-3px}
   .galmsg{margin:.6rem 0 0; font-weight:700; color:var(--accent-strong)}
   .thumbgrid .ph .podiummark{position:absolute; top:6px; left:6px; background:var(--gold); color:#fff; font-size:.85rem; font-weight:700; padding:.15rem .5rem; border-radius:999px}
+  /* Dobogós (első) kép: csillag gomb a jobb felső sarokban + sárga jelölés */
+  .thumbgrid .ph .pod{position:absolute; top:6px; right:6px; z-index:4; width:2.4rem; height:2.4rem; border-radius:999px;
+    border:1px solid rgba(255,255,255,.7); background:rgba(0,0,0,.6); color:#FFD24A; font-size:1.25rem; line-height:1;
+    display:inline-flex; align-items:center; justify-content:center; cursor:pointer; padding:0}
+  .thumbgrid .ph .pod:hover{background:rgba(0,0,0,.85)}
+  .thumbgrid .ph.ispod{outline:4px solid #E8B32B; outline-offset:-4px}
+  .thumbgrid .ph.ispod .pod{background:#E8B32B; color:#3A2B00; border-color:#B88C00}
+  .thumbgrid .ph .podbadge{position:absolute; bottom:6px; left:6px; z-index:4; background:#E8B32B; color:#3A2B00;
+    font-weight:800; font-size:.8rem; padding:.15rem .5rem; border-radius:999px; letter-spacing:.02em}
   .thumbgrid .ph .rm{position:absolute; bottom:6px; right:6px; background:rgba(0,0,0,.65); color:#fff; border:none; border-radius:999px; width:2.4rem; height:2.4rem; font-size:1.1rem}
   /* Forgató gombok (admin): a kép balra/jobbra fordítása. */
-  .thumbgrid .ph .rot{position:absolute; top:6px; right:6px; display:flex; gap:.25rem}
+  .thumbgrid .ph .rot{position:absolute; top:6px; right:calc(2.4rem + 12px); display:flex; gap:.25rem}
   .thumbgrid .ph .rot button{background:rgba(0,0,0,.65); color:#fff; border:none; border-radius:999px; width:2.3rem; height:2.3rem; font-size:1.15rem; line-height:1; display:inline-flex; align-items:center; justify-content:center; padding:0}
   .thumbgrid .ph .rot button:hover{background:rgba(0,0,0,.85)}
   .thumbgrid .ph{cursor:zoom-in}
@@ -741,7 +750,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 89;
+  var BUILD = 90;
   var BUILD_DATE = '2026-09-19';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -6867,9 +6876,14 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         : '<p class="meta">'+esc(T('Ebben az albumban még nincs kép. Fent tölthet fel újakat.','V tomto albume zatiaľ nie sú fotky. Nové môžete nahrať vyššie.'))+'</p>';
       thumbs.innerHTML = bar + '<div id="g-msg" class="galmsg" role="status"></div>'
         + '<div class="thumbgrid">' + mine.map(function(p){
-        return '<div class="ph'+(gallerySel[p.id] ? ' issel' : '')+'">'
+        return '<div class="ph'+(gallerySel[p.id] ? ' issel' : '')+(p.isPodium ? ' ispod' : '')+'">'
           + '<input type="checkbox" class="gsel" data-id="'+esc(p.id)+'"'+(gallerySel[p.id] ? ' checked' : '')
           + ' aria-label="'+esc(T('Kép kijelölése','Označenie fotky'))+'" onchange="MUB.toggleGallerySel(this)">'
+          + '<button type="button" class="pod" title="'+esc(T('Ez legyen a dobogós (első) kép','Toto nech je fotka na stupni víťazov (prvá)'))+'"'
+          + ' aria-label="'+esc(T('Ez legyen a dobogós (első) kép','Toto nech je fotka na stupni víťazov (prvá)'))+'"'
+          + ' aria-pressed="'+(p.isPodium ? 'true' : 'false')+'"'
+          + ' onclick="MUB.setPodium(\''+jsq(p.id)+'\')">'+(p.isPodium ? '★' : '☆')+'</button>'
+          + (p.isPodium ? '<span class="podbadge">'+esc(T('ELSŐ KÉP','PRVÁ FOTKA'))+'</span>' : '')
           + '<img src="'+esc(p.url)+'"'+rotStyle(p)+' loading="lazy" alt="">'
           + '<span class="rot">'
           + '<button type="button" title="'+esc(T('Elforgatás balra','Otočiť vľavo'))+'" aria-label="'+esc(T('Elforgatás balra','Otočiť vľavo'))+'" onclick="MUB.rotatePhoto(\''+jsq(p.id)+'\',-90)">⟲</button>'
@@ -6879,8 +6893,9 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
           + '</div>';
       }).join('') + '</div>'
       + (mine.length ? '<p class="meta" style="margin:.7rem 0 0">'+esc(T('A képek felső sarkában lévő ⟲ ⟳ gombokkal tudja egyenesbe fordítani az oldalra dőlt képeket. Ez a látogatóknak azonnal látszik, és bármikor visszafordítható.','Tlačidlami ⟲ ⟳ v hornom rohu fotky narovnáte naklonené snímky. Návštevníci to uvidia okamžite a dá sa to kedykoľvek vrátiť.'))+'</p>' : '')
-      + (mine.length ? '<div class="field" style="margin-top:.8rem"><label for="g-podium">'+esc(T('Melyik a dobogós (első) kép?','Ktorá fotka je na stupni víťazov (prvá)?'))+'</label><select id="g-podium" onchange="MUB.setPodium(this.value)"><option value="">'+esc(T('— nincs kijelölve —','— nie je vybraná —'))+'</option>'
-        + mine.map(function(p){ return '<option value="'+p.id+'" '+(p.isPodium?'selected':'')+'>'+p.id.slice(0,6)+'…'+(p.isPodium?' ('+esc(T('jelenlegi','aktuálna'))+')':'')+'</option>'; }).join('') + '</select></div>' : '');
+      + (mine.length ? '<p class="meta" style="margin:.7rem 0 0"><strong>'+esc(T('Dobogós (első) kép: ','Fotka na stupni víťazov (prvá): '))+'</strong>'
+          + esc(T('kattintson a kép jobb felső sarkában lévő csillagra (☆) annál a képnél, amelyik elöl jelenjen meg. A kiválasztott képen ★ és sárga „ELSŐ KÉP” jelzés látszik; ugyanarra kattintva kikapcsolja.',
+                 'kliknite na hviezdičku (☆) v pravom hornom rohu tej fotky, ktorá sa má zobraziť vpredu. Vybraná fotka má ★ a žlté označenie „PRVÁ FOTKA”; kliknutím na to isté ju zrušíte.'))+'</p>' : '');
     });
   }
   /* Ha egy már meglévő albumhoz megadod a szlovák címet, a korábbi képek is megkapják,
@@ -7117,9 +7132,11 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   function setPodium(photoId){
     loadGallery(function(photos){
       var mine = currentGalleryFilter(photos);
+      /* ha arra a képre kattint, amelyik már a dobogós, akkor kikapcsolja */
+      var wasPodium = mine.some(function(p){ return p.id === photoId && p.isPodium; });
       var batch = db.batch();
       mine.forEach(function(p){
-        batch.set(db.collection('gallery').doc(p.id), {isPodium: p.id===photoId}, {merge:true});
+        batch.set(db.collection('gallery').doc(p.id), {isPodium: !wasPodium && p.id===photoId}, {merge:true});
       });
       batch.commit().then(function(){ invalidate('gallery'); renderGalleryThumbs(); });
     });
