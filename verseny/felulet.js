@@ -1735,6 +1735,11 @@
           '<button class="fo-gomb" data-t="excel-bizt">' + esc(sz('excel_bizt_gomb')) + '</button>' +
           '<button class="masod-gomb" data-t="excel-vagolap">' + esc(sz('excel_vagolap_gomb')) + '</button>' +
         '</div>' +
+        '<div class="nevezes-sor" style="margin-top:8px">' +
+          '<button class="fo-gomb kicsi" data-t="felho-ment">' + esc(sz('felho_gomb')) + '</button>' +
+          '<button class="masod-gomb kicsi" data-t="felho-vissza">' + esc(sz('felho_vissza_gomb')) + '</button>' +
+          '<span class="sugo">' + esc(sz('felho_sugo_rovid')) + '</span>' +
+        '</div>' +
         '<p class="sugo">' + szh('excel_bizt_sugo') + '</p>' +
         '<details class="beall-resz"><summary>' + esc(sz('gs_cim')) + sugoIkon('gs_sugo') + '</summary>' +
           '<label class="beall-mezo szeles"><span class="mezo-felirat">' + esc(sz('gs_url')) + '</span>' +
@@ -1892,6 +1897,33 @@
   /* A megszokott „Szerkesztes" lap szerkezete:
      B = kártyakód, C = játékoskód, D = név,
      E–N = körönként (€, pont), O = Σ€, P = Σpont. */
+  /* Teljes állapot a felhőbe (Firestore) – automatikus biztonsági mentés. */
+  function felhoMentes(csendes) {
+    var a = S.allapot;
+    if (!a.esemenyId) { if (!csendes) { hiba(sz('felho_nincs_esemeny')); render(); } return; }
+    if (!global.BEKULDES || !global.BEKULDES.mentesMent) { if (!csendes) { hiba(sz('felho_hiba')); render(); } return; }
+    global.BEKULDES.mentesMent(a.esemenyId, { nev: a.beall.nev || '', datum: a.beall.datum || '', teljes: JSON.stringify(a) }, function (h) {
+      if (h) { if (!csendes) { hiba(sz('felho_hiba')); render(); } return; }
+      if (!csendes) { ok(sz('felho_kesz')); render(); }
+      else S.felhoIdo = Date.now();
+    });
+  }
+
+  function felhoVissza() {
+    var a = S.allapot;
+    if (!a.esemenyId) { hiba(sz('felho_nincs_esemeny')); render(); return; }
+    if (!global.BEKULDES || !global.BEKULDES.mentesOlvas) { hiba(sz('felho_hiba')); render(); return; }
+    global.BEKULDES.mentesOlvas(a.esemenyId, function (h, d) {
+      if (h || !d || !d.teljes) { hiba(sz('felho_vissza_hiba')); render(); return; }
+      var a2 = null;
+      try { a2 = JSON.parse(d.teljes); } catch (e) { a2 = null; }
+      if (!a2 || !a2.beall) { hiba(sz('felho_vissza_hiba')); render(); return; }
+      S.allapot = a2;
+      mentes(); render();
+      ok(sz('felho_vissza_kesz'));
+    });
+  }
+
   /* Élő állás feltöltése a weblapra (a verseny napján mutatja). */
   function eloFeltolt() {
     var a = S.allapot;
@@ -1917,6 +1949,25 @@
       render();
       ok(sz('elo_kesz'));
     });
+  }
+
+  /* Élő állás feltöltése üzenet nélkül (kör végén, magától). */
+  function eloFeltoltCsendes() {
+    var a = S.allapot;
+    if (!a.esemenyId || !a.korok.length) return;
+    if (!global.BEKULDES || !global.BEKULDES.eloMent) return;
+    var lista = V.Motor.rangsor(a, a.aktualisKor || a.korok.length);
+    var sorok = lista.map(function (p, i) {
+      return { h: i + 1, nev: p.nev, pont: p.pont, penz: Math.round(p.penz * 100) / 100, kod: String(p.id) };
+    });
+    global.BEKULDES.eloMent(a.esemenyId, {
+      nev: a.beall.nev || a.beall.helyHu || '',
+      hely: a.beall.helyHu || '',
+      datum: a.beall.datum || '',
+      kor: a.korok.length,
+      dijazott: szam(a.beall.dijazott, 0),
+      sorok: sorok
+    }, function () { });
   }
 
   function excelSorok() {
@@ -2573,6 +2624,8 @@
         /* biztonsági mentés MAGÁTÓL: Google Sheets + helyi pillanatkép */
         try { V.Tarolo.biztonsagiMentes(S.allapot); } catch (e) { }
         try { if (S.allapot.beall.gsUrl) gsKuld(S.allapot.beall.gsUrl); } catch (e) { }
+        try { felhoMentes(true); } catch (e) { }
+        try { if (S.allapot.esemenyId) setTimeout(function () { eloFeltoltCsendes(); }, 600); } catch (e) { }
         S.nezet = 'vetites';
         S.vetites = 'asztalok';
         S.asztal = 1;
@@ -2628,6 +2681,11 @@
       return;
     }
     if (t === 'elo-feltolt') { eloFeltolt(); return; }
+    if (t === 'felho-ment') { felhoMentes(false); return; }
+    if (t === 'felho-vissza') {
+      if (!global.confirm || global.confirm(sz('felho_kerdes'))) felhoVissza();
+      return;
+    }
     if (t === 'excel') { excelExport(); render(); return; }
     if (t === 'utolso-beall') {
       var ub = null;
@@ -3161,7 +3219,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.25';
+  V.VERZIO = '1.26';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
