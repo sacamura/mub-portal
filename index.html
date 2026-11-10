@@ -1462,7 +1462,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   }
 
   /* ---------- router ---------- */
-  var ROUTES = ['home','naptar','galeria','jelentkezes','jelentkezesaim','jelentkezok','eredmenyek','statisztika','verseny','szabalyok','admin'];
+  var ROUTES = ['home','naptar','galeria','jelentkezes','jelentkezesaim','jelentkezok','eredmenyek','statisztika','elo','verseny','szabalyok','admin'];
   function currentRoute(){
     var h = (location.hash||'#home').replace('#','');
     var base = h.split('/')[0];
@@ -1608,6 +1608,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     if(route==='statisztika') return renderStats(el);
     if(route==='szabalyok') return renderRules(el);
     if(route==='verseny') return renderVerseny(el);
+    if(route==='elo') return renderElo(el);
     if(route==='admin') return renderAdmin(el);
   }
 
@@ -1642,6 +1643,56 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       });
     });
   }
+  /* ---------- ÉLŐ EREDMÉNY (a verseny napján) ---------- */
+  var ELO_ID = null;
+  /* Csak a verseny napján, 9:45 után jelenik meg. */
+  function eloMa(t){
+    if(!t || !t.date) return false;
+    var ma = todayISO();
+    if(String(t.date) !== ma) return false;
+    var d = new Date();
+    return (d.getHours() * 60 + d.getMinutes()) >= (9 * 60 + 45);
+  }
+  function eloMutat(tid){
+    ELO_ID = String(tid);
+    location.hash = '#elo';
+    if(typeof route === 'function') {} /* a hash-váltás újrarajzol */
+  }
+  function renderElo(el){
+    el.innerHTML = '<h1 class="page-title">'+esc(T('Élő eredmény','Živý výsledok'))+'</h1>'
+      + '<div class="card" style="padding:1.2rem 1.4rem"><p id="elo-tartalom">'+esc(T('Betöltés…','Načítava sa…'))+'</p></div>';
+    if(!ELO_ID){
+      try { ELO_ID = new URLSearchParams(location.search).get('id'); } catch(e){ ELO_ID = null; }
+    }
+    if(!ELO_ID){
+      el.querySelector('#elo-tartalom').textContent = T('Nincs kiválasztott verseny. Nyisd meg a Verseny oldalon az „Élő eredmény” gombot.','Nie je vybraná súťaž. Otvor ju cez tlačidlo „Živý výsledok” na stránke Súťaž.');
+      return;
+    }
+    db.collection('verseny_elo').doc(String(ELO_ID)).get().then(function(d){
+      var box = el.querySelector('#elo-tartalom');
+      if(!d || !d.exists){ if(box) box.textContent = T('Még nincs feltöltött állás.','Zatiaľ nie je nahratý stav.'); return; }
+      var x = d.data() || {};
+      var sorok = x.sorok || [];
+      var html = '<div style="margin-bottom:.6rem"><strong>'+esc(x.nev || '')+'</strong>'
+        + (x.hely ? ' · '+esc(x.hely) : '')
+        + (x.datum ? ' · '+esc(x.datum) : '')
+        + (x.kor ? ' · '+esc(String(x.kor))+' '+esc(T('kör','kolo')) : '')
+        + '</div>'
+        + '<table class="tbl"><thead><tr><th>#</th><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Pont','Body'))+'</th><th>€</th></tr></thead><tbody>'
+        + sorok.map(function(r){
+            var dij = (x.dijazott && r.h <= x.dijazott) ? ' 🎁' : '';
+            return '<tr><td>'+esc(String(r.h))+'</td><td>'+esc(r.nev || '')+dij+'</td><td>'+esc(String(r.pont))+'</td><td>'+esc(String(r.penz))+'</td></tr>';
+          }).join('')
+        + '</tbody></table>'
+        + (x.ts ? '<p style="color:#667;font-size:.9rem;margin-top:.6rem">'+esc(T('Frissítve:','Aktualizované:'))+' '+esc(new Date(x.ts).toLocaleString())+'</p>' : '')
+        + (x.dijazott ? '<p style="color:#7a6420;font-size:.95rem">🎁 '+esc(T('Az első','Prvých'))+' '+esc(String(x.dijazott))+' '+esc(T('helyezett ajándékot kap – érdemes maradni a díjátadó végéig.','miest dostane cenu – oplatí sa zostať do konca odovzdávania cien.'))+'</p>' : '');
+      if(box) box.innerHTML = html;
+    }).catch(function(){
+      var box = el.querySelector('#elo-tartalom');
+      if(box) box.textContent = T('Az élő eredmény most nem érhető el.','Živý výsledok teraz nie je dostupný.');
+    });
+  }
+
   function versenyLista(el){
     loadTournaments(function(ts){
       loadRegistrations(function(regs){
@@ -1655,6 +1706,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
           return '<div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;padding:.6rem 0;border-bottom:1px solid #e6ebf1">'
             + '<div style="flex:1;min-width:14rem"><strong>' + esc(T(t.location_hu, t.location_sk) || '') + '</strong>'
             + '<div style="color:#667;font-size:.92rem">' + esc(fmtDate(t.date)) + ' · ' + db + ' ' + esc(T('jelentkező','prihlásených')) + '</div></div>'
+            + ((typeof eloMa === 'function' && eloMa(t)) ? '<button class="btn sm" type="button" onclick="MUB.eloMutat(\'' + esc(String(t.id)) + '\')">'
+                + esc(T('Élő eredmény','Živý výsledok')) + '</button>' : '')
             + '<button class="btn sm" type="button" onclick="MUB.versenyIndit(\'' + esc(String(t.id)) + '\')">'
             + esc(T('Indítás ezzel a programmal','Spustiť týmto programom')) + '</button>'
             + '</div>';
@@ -9691,6 +9744,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   window.MUB = {
     toggleLang: toggleLang, setLang: setLang, toggleTheme: toggleTheme, textSize: textSize,
     versenyIndit: versenyIndit,
+  eloMutat: eloMutat,
     setCalFilter: setCalFilter, toggleHomeTournaments: toggleHomeTournaments, shiftHomeSeason: shiftHomeSeason,
     addInfoRow: addInfoRow, addInfoPreset: addInfoPreset, removeInfoRow: removeInfoRow, setInfoRow: setInfoRow,
     updateImportTarget: updateImportTarget,
