@@ -106,6 +106,25 @@
           .catch(function (e) { cb(e); });
       });
     },
+    /* Teljes állapot mentése a felhőbe – a weblap Firebase-ében, külön gyűjteményben.
+       Ez nem igényel semmilyen beállítást: ugyanaz a projekt, mint a weblapé. */
+    mentesMent: function (azonosito, csomag, cb) {
+      keszul(function (h, db2) {
+        if (h) return cb(h);
+        csomag.ts = Date.now();
+        db2.collection('verseny_mentes').doc(String(azonosito)).set(csomag)
+          .then(function () { cb(null); })
+          .catch(function (e) { cb(e); });
+      });
+    },
+    mentesOlvas: function (azonosito, cb) {
+      keszul(function (h, db2) {
+        if (h) return cb(h);
+        db2.collection('verseny_mentes').doc(String(azonosito)).get()
+          .then(function (d) { cb(null, d && d.exists ? d.data() : null); })
+          .catch(function (e) { cb(e); });
+      });
+    },
     eloOlvas: function (azonosito, cb) {
       keszul(function (h, db2) {
         if (h) return cb(h);
