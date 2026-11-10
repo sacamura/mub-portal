@@ -888,6 +888,32 @@
 
   /* ======================= eredménybeírás =============================== */
 
+  /* A hiányzó összeg: ha már csak egy játékos pénze hiányzik, kiszámoljuk.
+     Egy asztalon ugyanis mindig 5 € × játékosszám az összeg (3 főnél 15 €).
+     Visszaad: { id, ertek } vagy null. */
+  /* A hiányzó összeg kiemelt jelzése a táblázat alatt. */
+  function javaslatJel(asztal) {
+    var j = penzJavaslat(asztal);
+    if (!j) return '';
+    return ' <span class="javaslat-jel">' + esc(sz('javasolt_penz', { penz: j.ertek })) + '</span>';
+  }
+
+  function penzJavaslat(asztal) {
+    var e = asztal.eredmenyek || {};
+    var szekek = (asztal.szekek || []).filter(function (x) { return x !== null && x !== undefined; });
+    var kell = 5 * szekek.length;
+    var ossz = 0, uresDb = 0, uresId = null;
+    szekek.forEach(function (id) {
+      var x = e[id] || {};
+      if (vanErtek(x.penz)) ossz += szam(x.penz);
+      else { uresDb++; uresId = id; }
+    });
+    if (uresDb !== 1) return null;
+    var maradek = kell - ossz;
+    if (Math.abs(maradek) < 0.005) return null;
+    return { id: uresId, ertek: penz(maradek).replace('.', ',') };
+  }
+
   function beirasNezet() {
     var kor = aktualisKor();
     if (!kor) {
@@ -918,17 +944,9 @@
     /* A verseny szabálya: egy asztalon mindig 5 € × játékosszám a befizetett pénz
        összege (3 főnél 15 €, 4 főnél 20 €). Ha már csak egy valaki hiányzik,
        felkínáljuk neki a maradékot: kattintással elfogadható, de át is írható. */
-    var szekDb = (asztal.szekek || []).filter(function (x) { return x !== null; }).length;
-    var kellPenz = 5 * szekDb;
-    var beirtOssz = 0, uresDb = 0, uresId = null;
-    (asztal.szekek || []).forEach(function (id) {
-      if (id === null || id === undefined) return;
-      var x0 = e[id] || {};
-      if (vanErtek(x0.penz)) beirtOssz += szam(x0.penz);
-      else { uresDb++; uresId = id; }
-    });
-    var javaslat = (uresDb === 1 && Math.abs(kellPenz - beirtOssz) > 0.004)
-      ? penz(kellPenz - beirtOssz).replace('.', ',') : '';
+    var javObj = penzJavaslat(asztal);
+    var javaslat = javObj ? javObj.ertek : '';
+    var uresId = javObj ? javObj.id : null;
 
     var sorok = (asztal.szekek || []).filter(function (x) { return x !== null; }).map(function (id) {
       var j = jatekos(id);
@@ -980,7 +998,7 @@
       '<div class="kartya-blokk beiras-blokk">' +
         '<h3>' + esc(sz('asztal_cim', { n: asztal.asztal })) + '</h3>' +
         '<table class="tabla beiras"><thead><tr><th>' + esc(sz('th_jatekos')) + '</th><th>' + esc(sz('th_penz')) + '</th><th>' + esc(sz('th_kor_pont')) + '</th></tr></thead><tbody>' + sorok + '</tbody></table>' +
-        '<div class="beiras-lab">' + penzLabellal(ell) + '</div>' +
+        '<div class="beiras-lab">' + penzLabellal(ell) + (typeof javaslatJel === 'function' ? javaslatJel(asztal) : '') + '</div>' +
         (bekuldoLink(kor.kor, asztal.asztal, asztal.szekek)
           ? '<div class="bekuld-qr"><div>' + qrSvg(bekuldoLink(kor.kor, asztal.asztal, asztal.szekek), 3) + '</div>' +
             '<div class="bekuld-qr-szoveg"><b>' + esc(sz('bekuld_qr_cim')) + '</b><br>' + esc(sz('bekuld_qr_sugo')) + '</div></div>'
@@ -1009,12 +1027,31 @@
     if (!asztal) return;
     var ell = M.asztalEllenorzes(asztal, S.allapot.beall);
     var lab = document.querySelector('.beiras-lab');
-    if (lab) lab.innerHTML = penzLabellal(ell);
+    if (lab) lab.innerHTML = penzLabellal(ell) + javaslatJel(asztal);
     (asztal.szekek || []).forEach(function (id) {
       if (id === null) return;
       var cella = document.getElementById('pont-' + id);
       var e2 = asztal.eredmenyek[id] || {};
       if (cella && !vanErtek(e2.pont)) cella.innerHTML = '<b>' + ell.pontok[id] + '</b>';
+    });
+    /* A hiányzó összeget gépelés közben is felkínáljuk (szürke placeholder). */
+    var jav = penzJavaslat(asztal);
+    (asztal.szekek || []).forEach(function (id) {
+      if (id === null || id === undefined) return;
+      var inp = document.querySelector ? document.querySelector('input.penz-input[data-id="' + id + '"]') : null;
+      if (!inp) return;
+      var kitoltve = !!(inp.value && String(inp.value).trim());
+      if (jav && jav.id === id && !kitoltve) {
+        inp.placeholder = jav.ertek;
+        inp.className = 'penz-input javasolt';
+        inp.setAttribute('data-javaslat', jav.ertek);
+      } else if (jav && jav.id === id) {
+        inp.setAttribute('data-javaslat', jav.ertek);
+        inp.className = 'penz-input';
+      } else {
+        inp.removeAttribute('data-javaslat');
+        inp.className = 'penz-input';
+      }
     });
   }
 
@@ -2497,9 +2534,6 @@
       if (!kor) return;
       var asztal = kor.asztalok[S.asztal - 1];
       var id = parseInt(cel.getAttribute('data-id'), 10);
-      /* üres mezőre kattintva a felkínált összeget írja be */
-      var jav = cel.getAttribute && cel.getAttribute('data-javaslat');
-      if (jav && !String(cel.value || '').trim()) { cel.value = jav; }
       if (!asztal.eredmenyek[id]) asztal.eredmenyek[id] = {};
       asztal.eredmenyek[id].penz = cel.value;
       mentes(); beirasFrissit();
@@ -2763,6 +2797,8 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
   V._vetitesMod = function (m) { S.vetites = m; };
   V._excelExport = function () { return excelExport(); };
+  V._javaslatJel = function (asztal) { return javaslatJel(asztal); };
+  V._penzJavaslat = function (asztal) { return penzJavaslat(asztal); };
 
   V._ujJatekosBeall = function (id) { S.ujJatekos = id; };
   V._vetitesIlleszt = function () { return vetitesIlleszt(); };
