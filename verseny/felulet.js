@@ -611,8 +611,10 @@
     var q = String(szoveg || '').trim();
     if (q.length < 2) { cel.innerHTML = ''; return; }
     var tal = (M.HELYEK || []).filter(function (p) {
-      return M.nevKulcs(p[0]).indexOf(M.nevKulcs(q)) >= 0 ||
-             M.nevKulcs(p[1] || '').indexOf(M.nevKulcs(q)) >= 0;
+      var k = M.nevKulcs(q);
+      return M.nevKulcs(p[0]).indexOf(k) >= 0 ||
+             M.nevKulcs(p[1] || '').indexOf(k) >= 0 ||
+             M.nevKulcs(p[2] || '').indexOf(k) >= 0;   /* a régi/lyukas nevét is megtalálja */
     }).slice(0, 8);
     cel.innerHTML = tal.map(function (p) {
       return '<button class="hely-tipp" data-t="hely-tipp" data-hu="' + esc(p[0]) + '" data-sk="' + esc(p[1] || '') + '">' +
