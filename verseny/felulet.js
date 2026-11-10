@@ -1109,8 +1109,9 @@
         var kr = s.korok.filter(function (x) { return x.kor === k2 + 1; })[0];
         korok += '<td class="szam">' + (kr ? kr.pont : '·') + '</td><td class="szam halvany">' + (kr ? penz(kr.penz) : '·') + '</td>';
       }
-      return '<tr class="' + (s.kiemelt ? 'kiemelt-sor ' : '') + 'rang-' + Math.min(3, s.hely) +
-        (i % 2 ? ' paros-sor' : '') + '">' +
+      return '<tr class="' + (s.kiemelt ? 'kiemelt-sor ' : '') +
+        (s.hely <= 3 ? 'rang-' + s.hely + ' ' : '') +
+        (i % 2 ? 'paros-sor' : '') + '">' +
         '<td class="szam nagy">' + s.hely + '.</td>' +
         '<td>' + esc(s.nev) + (s.kiemelt ? ' <span class="cimke">' + esc(sz('cimke_kiemelt')) + '</span>' : '') +
           (M.kilepettE(jatekos(s.id), 999) ? ' <span class="cimke kilepett">' + esc(sz('cimke_kilepett', { kor: jatekos(s.id).kilepettKor })) + '</span>' : '') + '</td>' +
@@ -1202,14 +1203,16 @@
     if (S.vetites === 'rangsor') {
       var ig = a.aktualisKor || 0;
       var lista = ig ? M.rangsor(a, ig) : [];
-      var sorok = lista.map(function (s) {
+      var sorok = lista.map(function (s, i) {
         var korok = '';
         for (var k2 = 0; k2 < ig; k2++) {
           var kr = s.korok.filter(function (x) { return x.kor === k2 + 1; })[0];
           korok += '<td class="szam">' + (kr ? penz(kr.penz) : '·') + '</td>' +
                    '<td class="szam">' + (kr ? kr.pont : '·') + '</td>';
         }
-        return '<tr class="' + (s.kiemelt ? 'kiemelt-sor ' : '') + 'rang-' + Math.min(3, s.hely) + '">' +
+        return '<tr class="' + (s.kiemelt ? 'kiemelt-sor ' : '') +
+          (s.hely <= 3 ? 'rang-' + s.hely + ' ' : '') +
+          (i % 2 ? 'paros-sor' : '') + '">' +
           '<td class="szam">' + s.hely + '.</td><td class="vet-nev">' + esc(s.nev) + '</td>' +
           korok +
           '<td class="szam nagy ossz">' + s.pont + '</td><td class="szam nagy ossz">' + penz(s.penz) + '</td></tr>';
