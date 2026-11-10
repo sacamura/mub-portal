@@ -2868,7 +2868,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.20';
+  V.VERZIO = '1.21';
   V._vetitesMod = function (m) { S.vetites = m; };
   V._excelExport = function () { return excelExport(); };
   V._javaslatJel = function (asztal) { return javaslatJel(asztal); };
