@@ -1109,11 +1109,14 @@
         var kr = s.korok.filter(function (x) { return x.kor === k2 + 1; })[0];
         korok += '<td class="szam">' + (kr ? kr.pont : '·') + '</td><td class="szam halvany">' + (kr ? penz(kr.penz) : '·') + '</td>';
       }
+      var dijDb = szam(a.beall.dijazott, 0);
       return '<tr class="' + (s.kiemelt ? 'kiemelt-sor ' : '') +
         (s.hely <= 3 ? 'rang-' + s.hely + ' ' : '') +
+        (dijDb > 0 && s.hely <= dijDb ? 'dijazott-sor ' : '') +
         (i % 2 ? 'paros-sor' : '') + '">' +
         '<td class="szam nagy">' + s.hely + '.</td>' +
-        '<td>' + esc(s.nev) + (s.kiemelt ? ' <span class="cimke">' + esc(sz('cimke_kiemelt')) + '</span>' : '') +
+        '<td>' + esc(s.nev) + (dijDb > 0 && s.hely <= dijDb ? ' <span class="dij-jel" title="' + esc(sz('dij_tipp')) + '">🎁</span>' : '') +
+          (s.kiemelt ? ' <span class="cimke">' + esc(sz('cimke_kiemelt')) + '</span>' : '') +
           (M.kilepettE(jatekos(s.id), 999) ? ' <span class="cimke kilepett">' + esc(sz('cimke_kilepett', { kor: jatekos(s.id).kilepettKor })) + '</span>' : '') + '</td>' +
         korok +
         '<td class="szam nagy ossz">' + s.pont + '</td>' +
@@ -1140,10 +1143,16 @@
               : '<button class="masod-gomb" data-t="ujverseny">' + esc(sz('uj_verseny')) + '</button>') +
           '</div>'
         : '<div class="nevezes-sor">' +
-            (varE('lezar')
-              ? megerositesSav(sz('lezar_biztos'), 'lezar-igen', 'megerosites-nem')
-              : (varE('lezar1')
-          ? megerositesSav(sz('lezar_kerdes'), 'lezar-igen', 'megerosites-nem')
+            ((varE('lezar1')
+          ? '<div class="lezar-doboz">' +
+              '<p class="lezar-kerdes">' + esc(sz('lezar_kerdes')) + '</p>' +
+              '<label class="beall-mezo kicsi"><span class="mezo-felirat">' + esc(sz('dij_kerdes')) + sugoIkon('dij_sugo') + '</span>' +
+                '<input id="dijazott-be" class="mini-input" value="' + esc(szam(a.beall.dijazott, 0) || '') + '" placeholder="0"></label>' +
+              '<div class="nevezes-sor">' +
+                '<button class="fo-gomb" data-t="lezar-igen">' + esc(sz('lezar_igen')) + '</button>' +
+                '<button class="masod-gomb" data-t="megerosites-nem">' + esc(sz('megse')) + '</button>' +
+              '</div>' +
+            '</div>'
           : '<button class="masod-gomb kicsi veszely-gomb" data-t="lezar-ker">' + esc(sz('lezar_gomb')) + '</button>') +
         '<button class="masod-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
                 '<span class="sugo">' + esc(sz('lezar_sugo')) + '</span>') +
@@ -1160,6 +1169,9 @@
           '<th rowspan="2" class="ossz-fej">' + esc(sz('th_ossz_penz')) + '</th></tr>' +
         '<tr>' + korFej2 + '</tr>' +
         '</thead><tbody>' + sorok + '</tbody></table></div>' +
+        (szam(a.beall.dijazott, 0) > 0
+          ? '<p class="dij-lablec">🎁 ' + esc(sz('dij_lablec', { n: szam(a.beall.dijazott, 0) })) + '</p>'
+          : '') +
       '</div>';
   }
 
@@ -1213,8 +1225,10 @@
         }
         return '<tr class="' + (s.kiemelt ? 'kiemelt-sor ' : '') +
           (s.hely <= 3 ? 'rang-' + s.hely + ' ' : '') +
+          (szam(a.beall.dijazott, 0) > 0 && s.hely <= szam(a.beall.dijazott, 0) ? 'dijazott-sor ' : '') +
           (i % 2 ? 'paros-sor' : '') + '">' +
-          '<td class="szam">' + s.hely + '.</td><td class="vet-nev">' + esc(s.nev) + '</td>' +
+          '<td class="szam">' + s.hely + '.</td><td class="vet-nev">' + esc(s.nev) +
+            (szam(a.beall.dijazott, 0) > 0 && s.hely <= szam(a.beall.dijazott, 0) ? ' <span class="dij-jel">🎁</span>' : '') + '</td>' +
           korok +
           '<td class="szam nagy ossz">' + s.pont + '</td><td class="szam nagy ossz">' + penz(s.penz) + '</td></tr>';
       }).join('');
@@ -1230,7 +1244,11 @@
             fej1 +
             '<th rowspan="2" class="ossz-fej">' + esc(sz('th_ossz_pont')) + '</th>' +
             '<th rowspan="2" class="ossz-fej">' + esc(sz('th_ossz_penz')) + '</th></tr><tr>' + fej2 + '</tr>' +
-        '</thead><tbody>' + sorok + '</tbody></table></div>';
+        '</thead><tbody>' + sorok + '</tbody></table>' +
+        (szam(a.beall.dijazott, 0) > 0
+          ? '<p class="dij-lablec vet-dij">🎁 ' + esc(sz('dij_lablec', { n: szam(a.beall.dijazott, 0) })) + '</p>'
+          : '') +
+        '</div>';
     }
 
     if (!kor) return gombok + '<div class="vetites"><h1>' + esc(sz('vet_nincs_sorsolas')) + '</h1></div>';
@@ -2085,14 +2103,7 @@
       return;
     }
     if (t === 'ora-szin') { S.allapot.beall.oraVilagos = !S.allapot.beall.oraVilagos; mentes(); render(); return; }
-    if (t === 'lezar') { S.megerosites = { t: 'lezar' }; render(); return; }
-    if (t === 'lezar-igen') {
-      S.megerosites = null;
-      S.allapot.beall.lezarva = true;
-      mentes(); render();
-      ok(sz('lezar_kesz', { kor: S.allapot.korok.length }));
-      return;
-    }
+    if (t === 'lezar') { S.megerosites = { t: 'lezar1' }; render(); return; }
     if (t === 'gorget') {
       S.allapot.beall.gorget = !gorgetBe();
       S.allapot.beall.gorgetIrany = 1;
@@ -2299,6 +2310,8 @@
     if (t === 'lezar-ker') { S.megerosites = { t: 'lezar1' }; render(); return; }
     if (t === 'lezar-igen') {
       S.megerosites = null;
+      var dijBe = document.getElementById('dijazott-be');
+      S.allapot.beall.dijazott = Math.max(0, Math.min(500, szam(dijBe ? dijBe.value : 0, 0)));
       S.allapot.lezarva = true;
       mentes(); render();
       ok(sz('lezar_kesz'));
@@ -2872,7 +2885,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.22';
+  V.VERZIO = '1.23';
   V._vetitesMod = function (m) { S.vetites = m; };
   V._excelExport = function () { return excelExport(); };
   V._javaslatJel = function (asztal) { return javaslatJel(asztal); };
