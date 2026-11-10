@@ -783,3 +783,6 @@ tr.rang-3 td{background:#fbeee0}
 .veszely-gomb{color:#b3261e!important;border-color:#e7b7b3!important;background:#fff7f7!important}
 .veszely-gomb:hover{background:#fdecea!important}
 .c-hely{font-size:11.5pt!important;font-weight:800!important}
+/* nyelv-valto-override: a lenyíló menü NE legyen levágva */
+.nyelv-valto{overflow:visible!important}
+.nyelv-lenyilo{overflow:visible!important}
