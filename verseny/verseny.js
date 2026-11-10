@@ -509,6 +509,23 @@
         return Array.isArray(a) ? a.map(Number).filter(function (x) { return isFinite(x); }) : [];
       } catch (e) { return []; }
     },
+    /* Teszt: a verseny előtti állapot pillanatképe, hogy egy kattintással vissza
+       lehessen állni – így nyugodtan ki lehet próbálni a sorsolást. */
+    tesztMent: function (allapot) {
+      try { global.localStorage.setItem(TESZT_KULCS, JSON.stringify(allapot)); return true; }
+      catch (e) { return false; }
+    },
+    tesztBetolt: function () {
+      try {
+        var t = global.localStorage.getItem(TESZT_KULCS);
+        var a = JSON.parse(t);
+        return (a && a.beall) ? a : null;
+      } catch (e) { return null; }
+    },
+    tesztTorol: function () {
+      try { global.localStorage.removeItem(TESZT_KULCS); return true; } catch (e) { return false; }
+    },
+
     kiemeltekMent: function (lista) {
       try { global.localStorage.setItem(KIEMELT_KULCS, JSON.stringify(lista || [])); return true; }
       catch (e) { return false; }
@@ -847,6 +864,7 @@
 
   var WEBLAP_KULCS = 'mub-verseny-import';   /* ide írja a weblap az indítandó versenyt */
   var KIEMELT_KULCS = 'mub-verseny-kiemeltek'; /* a tartós kiemelt-lista (versenyeken át) */
+  var TESZT_KULCS = 'mub-verseny-teszt-mentes';   /* a teszt előtti pillanatkép */
   var KULCS = 'mub-verseny';
   var MENTES_KULCS = 'mub-verseny-mentes-';
   var MENTESEK_MAX = 8;
