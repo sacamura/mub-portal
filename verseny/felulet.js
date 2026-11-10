@@ -2121,6 +2121,7 @@
     if (t === 'nyelv') {
       var mezo = cel.getAttribute('data-mezo') || 'nyelv';
       S.allapot.beall[mezo] = cel.getAttribute('data-mod');
+      S.nyelvNyitva = false;
       if (!S.allapot.beall.nyelvKivetites) S.allapot.beall.nyelvKivetites = S.allapot.beall.nyelv;
       mentes(); render(); return;
     }
