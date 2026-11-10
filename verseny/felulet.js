@@ -357,13 +357,25 @@
           : sz('asztal_elosztas', { t: caps.length, a: caps.length - negyDb, alap: alapltSzam, b: negyDb, nagy: alapltSzam + 1 })))
       : '';
 
-    function nyelvSor(mezo, ertek, tipus) {
-      return '<div class="nyelv-sor"><span>' + esc(sz(tipus)) + '</span>' +
-        ['hu', 'sk', 'mind'].map(function (mod) {
-          var cimke = mod === 'mind' ? 'HU+SK' : mod.toUpperCase();
-          return '<button class="nyelv-gomb' + (ertek === mod ? ' aktiv' : '') + '" data-t="nyelv" data-mezo="' + mezo + '" data-mod="' + mod + '">' + cimke + '</button>';
-        }).join('') + '</div>';
+    /* Nyelv: két kis zászló, rákattintva lenyílik a választás.
+       A zászló a jelenlegi beállítást mutatja. */
+    function zaszlo(mod) {
+      if (mod === 'sk') return '<span class="zaszlo zaszlo-sk" aria-hidden="true"></span>';
+      if (mod === 'hu') return '<span class="zaszlo zaszlo-hu" aria-hidden="true"></span>';
+      return '<span class="zaszlo zaszlo-hu"></span><span class="zaszlo zaszlo-sk"></span>';
     }
+    function nyelvSor(mezo, ertek, tipus) {
+      var rovid = { hu: 'HU', sk: 'SK', mind: 'HU+SK' };
+      return '<details class="nyelv-lenyilo"><summary title="' + esc(sz(tipus)) + '">' +
+          zaszlo(ertek) + '<b>' + esc(rovid[ertek] || 'HU') + '</b></summary>' +
+        '<div class="nyelv-opciok">' +
+          ['hu', 'sk', 'mind'].map(function (mod) {
+            return '<button class="nyelv-opcio' + (ertek === mod ? ' aktiv' : '') + '" data-t="nyelv" data-mezo="' + mezo + '" data-mod="' + mod + '">' +
+              zaszlo(mod) + '<span>' + (mod === 'mind' ? 'HU + SK' : rovd(mod)) + '</span></button>';
+          }).join('') +
+        '</div></details>';
+    }
+    function rovd(mod) { return mod === 'hu' ? 'Magyar' : (mod === 'sk' ? 'Slovenčina' : 'HU + SK'); }
     var nyelvGombok = nyelvSor('nyelv', a.beall.nyelv, 'nyelv_kezelo') +
       nyelvSor('nyelvKivetites', a.beall.nyelvKivetites, 'nyelv_kivetites');
 
@@ -486,6 +498,9 @@
         '<h2>' + esc(sz('nevezes_cim')) + '</h2>' +
         szamlalo() +
         '<p class="sugo">' + szh('nevezes_sugo') + '</p>' +
+        ((a.korok || []).length
+          ? '<p class="figyelem keso-figyelem">' + esc(sz('keso_figyelem')) + '</p>'
+          : '') +
         '<div class="nevezes-sor">' +
           '<input id="kod-be" data-t="kodbemenet" class="nagy-input" placeholder="' + esc(sz('kod_hely')) + '" autocomplete="off">' +
           '<input id="nev-be" class="kozepes-input" placeholder="' + esc(sz('nev_hely')) + '" autocomplete="off">' +
@@ -656,6 +671,15 @@
       id: id, nev: nevErtek, kartyakod: kartyakod || '',
       kiemelt: kiemeltListan(id), vendeg: false
     });
+    /* Ha már elkezdődött a verseny, az új játékost az utolsó asztal utolsó helyére tesszük. */
+    if ((S.allapot.korok || []).length) {
+      var utolsoKor = S.allapot.korok[S.allapot.korok.length - 1];
+      var utolsoAsztal = utolsoKor.asztalok[utolsoKor.asztalok.length - 1];
+      if (utolsoAsztal) {
+        utolsoAsztal.szekek = (utolsoAsztal.szekek || []).concat([id]);
+        S.kesoJelzes = { nev: nevErtek, asztal: utolsoAsztal.asztal, kor: utolsoKor.kor };
+      }
+    }
     S.ujJatekos = S.allapot.korok.length ? id : null;
     S.kesoAsztal = null;
     return true;
@@ -975,7 +999,13 @@
           (hianyzo.length ? ' · <b class="hianyzo-szoveg">' + esc(sz('hianyzo_asztalok', { lista: hianyzo.join(', ') })) + '</b>' : '') +
         '</p>' +
         '<div class="asztal-gombok">' + gombok + '</div>' +
-        (hianyzo.length ? '' : '<p class="ok-jel">' + esc(sz('kor_minden_kesz')) + '</p>') +
+        (hianyzo.length
+          ? ''
+          : '<div class="kor-lezaras">' +
+              '<span class="ok-jel">' + esc(sz('kor_minden_kesz')) + '</span>' +
+              '<button class="fo-gomb kor-lezaras-gomb" data-t="kor-lezar">' +
+                esc(sz('kor_lezar_gomb', { kor: (kor.kor || 1) + 1 })) + '</button>' +
+            '</div>') +
         '<p class="sugo">' + esc(kovetkezoModSzoveg()) + '</p>' +
       '</div>' +
       (S.allapot.beall.webcim
@@ -1270,7 +1300,6 @@
       '<p class="sugo">' + szh('nyom_sugo') + '</p>' +
       '<div class="nevezes-sor">' +
         '<label>' + esc(sz('nyom_kor')) + ' <select id="nyomtat-kor">' + szelek + '</select></label>' +
-        '<label class="kapcsolo"><input type="checkbox" data-t="beall" data-mezo="qrBe"' + (a.beall.qrBe ? ' checked' : '') + '> ' + esc(sz('qr_be')) + '</label>' +
         '<label>' + esc(sz('nyom_db')) + ' <select data-t="beall" data-mezo="papirDB">' +
           [2, 4, 6, 8].map(function (n) { return '<option value="' + n + '"' + (db === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') +
         '</select></label>' +
@@ -1297,7 +1326,10 @@
       var negySzek = (asztal.szekek || []).filter(function (x) { return x !== null; }).length > 3;
       return '<div class="cedula' + (negySzek ? ' cedula-negy' : '') + '">' +
         '<div class="c-fej"><span class="c-hely">' + esc(helySzoveg()) + '</span><span class="c-datum">' + esc(a.beall.datum || '') + '</span></div>' +
-        '<div class="c-aszta">' + esc(sz('cedula_aszta', { n: asztal.asztal, kor: kor.kor })) + '</div>' +
+        '<div class="c-aszta">' +
+          '<span class="c-kor">' + kor.kor + '.<i>' + esc(sz('cedula_kor_szo')) + '</i></span>' +
+          '<span class="c-aszta-jel">' + asztal.asztal + '.<i>' + esc(sz('cedula_aszta_szo')) + '</i></span>' +
+        '</div>' +
         '<table class="c-tabla">' +
         '<colgroup><col class="c-col-id"><col><col class="c-col-ir"><col class="c-col-ir"></colgroup>' +
         '<thead><tr><th>' + esc(sz('cedula_id')) + '</th><th>' + esc(sz('cedula_nev')) + '</th><th>' + esc(sz('cedula_penz')) + '</th><th>' + esc(sz('cedula_pont')) + '</th></tr></thead>' +
@@ -1573,6 +1605,7 @@
             '<label class="beall-mezo szeles"><span class="mezo-felirat">' + esc(sz('mezo_webcim')) + sugoIkon('webcim_mi') + '</span>' +
               '<input data-t="beall" data-mezo="webcim" value="' + esc(b.webcim || '') + '" placeholder="' + esc(sz('webcim_hely')) + '"></label>' +
           '</div>' +
+          '<label class="kapcsolo"><input type="checkbox" data-t="beall" data-mezo="qrBe"' + (b.qrBe ? ' checked' : '') + '> ' + esc(sz('qr_be_rovid')) + '</label>' +
           '<label class="kapcsolo"><input type="checkbox" data-t="beall" data-mezo="kiemeltVedelem"' + (b.kiemeltVedelem ? ' checked' : '') + '> ' + esc(sz('kiemelt_vedelem')) + '</label>' +
         '</details>' +
       '</div>' +
@@ -2241,6 +2274,20 @@
     }
     if (t === 'sorsol') { sorsolElso(); return; }
     if (t === 'kovetkezokor') { kovetkezoKor(); return; }
+    if (t === 'kor-lezar') {
+      /* A kör lezárása: beosztjuk a következő kört, és rögtön a kivetítésre váltunk,
+         hogy a játékosok lássák, ki hol ül. */
+      var elotteKor = S.allapot.korok.length;
+      kovetkezoKor();
+      if (S.allapot.korok.length > elotteKor) {
+        S.nezet = 'vetites';
+        S.vetites = 'asztalok';
+        S.asztal = 1;
+        render();
+        ok(sz('kor_lezarva', { kor: S.allapot.korok.length }));
+      }
+      return;
+    }
     if (t === 'korvalt') { S.allapot.aktualisKor = parseInt(cel.getAttribute('data-kor'), 10); S.asztal = 1; mentes(); render(); return; }
     if (t === 'asztal') { S.asztal = parseInt(cel.getAttribute('data-aszta'), 10); render(); var be = document.querySelector('.penz-input'); if (be) be.focus(); return; }
     if (t === 'elozo-asztal') { S.asztal = Math.max(1, S.asztal - 1); render(); return; }
@@ -2798,6 +2845,7 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._vetitesMod = function (m) { S.vetites = m; };
   V._excelExport = function () { return excelExport(); };
   V._javaslatJel = function (asztal) { return javaslatJel(asztal); };
+  V._jatekosFelvesz = function (id, nev, k) { return jatekosFelvesz(id, nev, k); };
   V._penzJavaslat = function (asztal) { return penzJavaslat(asztal); };
 
   V._ujJatekosBeall = function (id) { S.ujJatekos = id; };
