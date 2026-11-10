@@ -695,3 +695,9 @@ table.c-tabla th{font-size:8pt}
 .vet-kartya .vet-pont,.vet-kartya .vet-penz{flex:0 0 auto;text-align:right}
 .vet-kartya .vet-pont{min-width:1.6em}
 .vet-kartya .vet-penz{min-width:2.9em}
+
+/* javasolt-osszeg */
+.javaslat-jel{display:inline-block;margin-left:10px;background:#fff8e1;border:1.5px solid #e8cf8a;
+  color:#8a6a12;padding:3px 10px;border-radius:8px;font-weight:700;font-size:.93rem}
+.penz-input.javasolt{border:1.5px dashed #c9a227;background:#fffdf3;color:#8a6a12;font-weight:700}
+.penz-input.javasolt::placeholder{color:#b08a2a;font-weight:700;opacity:1}
