@@ -448,28 +448,31 @@
           (tipus ? ' type="' + tipus + '"' : '') + '></label>';
       }
       kezdoKartya = '<div class="kartya-blokk kezdo-kartya">' +
-        '<h2>' + esc(sz('kezdes_cim')) + '</h2>' +
-        '<p class="sugo">' + szh('kezdes_sugo') + '</p>' +
-        '<div class="urlap">' +
-          mezo('helyHu', 'mezo_hely_hu', '', 'nagy-input') +
-          mezo('helySk', 'mezo_hely_sk', '', 'nagy-input') +
-          mezo('datum', 'mezo_datum', 'date', 'datum-input') +
-          mezo('korok', 'mezo_korok') +
+        '<h2>' + esc(sz('kezdes_cim')) + sugoIkon('kezdes_sugo') + '</h2>' +
+        '<div class="beall-racs">' +
+          '<label class="beall-mezo"><span class="mezo-felirat">' + esc(sz('mezo_hely_hu')) + '</span>' +
+            '<input data-t="beall" data-mezo="helyHu" value="' + esc(b0.helyHu || b0.hely || '') + '" autocomplete="off"></label>' +
+          '<label class="beall-mezo"><span class="mezo-felirat">' + esc(sz('mezo_hely_sk')) + '</span>' +
+            '<input data-t="beall" data-mezo="helySk" value="' + esc(b0.helySk || '') + '" autocomplete="off"></label>' +
+          '<label class="beall-mezo"><span class="mezo-felirat">' + esc(sz('mezo_datum')) + '</span>' +
+            '<input type="date" data-t="beall" data-mezo="datum" value="' + esc(b0.datum) + '"></label>' +
+          '<label class="beall-mezo kicsi"><span class="mezo-felirat">' + esc(sz('mezo_korok')) + '</span>' +
+            '<input class="mini-input" data-t="beall" data-mezo="korok" value="' + esc(b0.korok) + '"></label>' +
         '</div>' +
         '<div id="hely-tippek" class="hely-tippek"></div>' +
-        '<div class="urlap kezdo-valasz">' +
-          '<div><div class="kezdo-kerdes">' + esc(sz('kezdo_szabaly')) + '</div>' +
-            '<div class="nevezes-sor">' +
-              '<button class="' + (b0.jatekmod === 'helycsere' ? 'masod-gomb' : 'fo-gomb') + '" data-t="jatekmod" data-mod="svajci">' + esc(sz('mod_svajci')) + '</button>' +
-              '<button class="' + (b0.jatekmod === 'helycsere' ? 'fo-gomb' : 'masod-gomb') + '" data-t="jatekmod" data-mod="helycsere">' + esc(sz('mod_helycsere')) + '</button>' +
-            '</div></div>' +
-          '<div><div class="kezdo-kerdes">' + esc(sz('kezdo_kiemelt')) + '</div>' +
-            '<div class="nevezes-sor">' +
-              '<button class="' + (b0.kiemeltVedelem ? 'fo-gomb' : 'masod-gomb') + '" data-t="kezdo-vedelem" data-ertek="1">' + esc(sz('kezdo_kiemelt_kulon')) + '</button>' +
-              '<button class="' + (b0.kiemeltVedelem ? 'masod-gomb' : 'fo-gomb') + '" data-t="kezdo-vedelem" data-ertek="0">' + esc(sz('kezdo_kiemelt_egyutt')) + '</button>' +
-            '</div></div>' +
+        '<div class="kezdo-valasz">' +
+          '<div class="kezdo-kerdes">' + esc(sz('kezdo_szabaly')) + '</div>' +
+          '<div class="valaszto-sor">' +
+            '<button class="valaszto-gomb' + (b0.jatekmod === 'helycsere' ? '' : ' aktiv') + '" data-t="jatekmod" data-mod="svajci">' + esc(sz('mod_svajci_rovid')) + '</button>' +
+            '<button class="valaszto-gomb' + (b0.jatekmod === 'helycsere' ? ' aktiv' : '') + '" data-t="jatekmod" data-mod="helycsere">' + esc(sz('mod_helycsere_rovid')) + '</button>' +
+          '</div>' +
+          '<div class="kezdo-kerdes kezdo-kerdes-2">' + esc(sz('kezdo_kiemelt')) + '</div>' +
+          '<div class="valaszto-sor">' +
+            '<button class="valaszto-gomb' + (b0.kiemeltVedelem ? ' aktiv' : '') + '" data-t="kezdo-vedelem" data-ertek="1">' + esc(sz('kezdo_kiemelt_kulon')) + '</button>' +
+            '<button class="valaszto-gomb' + (b0.kiemeltVedelem ? '' : ' aktiv') + '" data-t="kezdo-vedelem" data-ertek="0">' + esc(sz('kezdo_kiemelt_egyutt')) + '</button>' +
+          '</div>' +
         '</div>' +
-        '<div class="nevezes-sor">' +
+        '<div class="nevezes-sor kezdo-gombok">' +
           '<button class="fo-gomb" data-t="kezdes-kesz">' + esc(sz('kezdes_gomb')) + '</button>' +
           '<span class="sugo">' + esc(sz('kezdes_sugo2')) + '</span>' +
         '</div>' +
@@ -1452,9 +1455,15 @@
 
   /* ======================= beállítás ==================================== */
 
+  /* Kis „?" ikon: egérrel ráhúzva megjelenik a magyarázat – így nem kell
+     hosszú szövegekkel teleírni az oldalt. */
+  function sugoIkon(kulcs) {
+    return ' <span class="sugo-ikon" data-sugo="' + esc(sz(kulcs)) + '" tabindex="0">?</span>';
+  }
+
   function beallitasNezet() {
     var a = S.allapot, b = a.beall;
-    var kulcsok = String(b.tiebreak || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    var kulcsok = String(b.tiebreak || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
     var tiebreakSor = kulcsok.map(function (k, i) {
       return '<span class="tiebreak-elem">' + (i + 1) + '. ' + esc(sz('tb_' + k)) +
         ' <button class="ikon-gomb" data-t="tiebreak-fel" data-kulcs="' + k + '" title="' + esc(sz('tiebreak_fel')) + '">↑</button>' +
@@ -1463,123 +1472,154 @@
     }).join(' ');
     var marad = Object.keys(V.TIEBREAK_KULCSOK).filter(function (k) { return kulcsok.indexOf(k) < 0; })
       .map(function (k) { return '<button class="masod-gomb kicsi" data-t="tiebreak-hozzaad" data-kulcs="' + k + '">+ ' + esc(sz('tb_' + k)) + '</button>'; }).join(' ');
-
-    var mentesek = Tarolo.mentesek().slice(0, 5).map(function (k) {
+    var mentesek = V.Tarolo.mentesek().slice(0, 5).map(function (k) {
       return '<button class="masod-gomb kicsi" data-t="visszaallit" data-kulcs="' + esc(k) + '">' +
         esc(k.replace('mub-verseny-mentes-', '').slice(0, 16).replace('T', ' ')) + '</button>';
     }).join(' ');
+    var tesztKi = M.tesztBetolt();
+    var tesztSor = tesztKi
+      ? '<div class="teszt-sor"><span class="teszt-jel">●</span> ' + esc(sz('teszt_van')) +
+          ' <button class="masod-gomb" data-t="teszt-vissza">' + esc(sz('teszt_vissza')) + '</button></div>'
+      : '<div class="teszt-sor"><span class="teszt-jel halvany">○</span> ' + esc(sz('teszt_nincs')) +
+          ' <button class="masod-gomb" data-t="teszt-indit">' + esc(sz('teszt_indit')) + '</button></div>';
 
     return '' +
+
+      /* ---------- Verseny adatai ---------- */
       '<div class="kartya-blokk">' +
-        '<h2>' + esc(sz('beall_cim')) + '</h2>' +
-        '<div class="urlap">' +
-          '<p class="sugo">' + szh('webcim_mi') + '</p>' +
-        '<label>' + esc(sz('mezo_hely_hu')) + ' <input data-t="beall" data-mezo="helyHu" value="' + esc(b.helyHu || b.hely || '') + '"></label>' +
-          '<label>' + esc(sz('mezo_hely_sk')) + ' <input data-t="beall" data-mezo="helySk" value="' + esc(b.helySk || '') + '"></label>' +
-          '<label>' + esc(sz('mezo_datum')) + ' <input type="date" data-t="beall" data-mezo="datum" value="' + esc(b.datum) + '"></label>' +
-          '<label>' + esc(sz('mezo_korok')) + ' <input class="mini-input" data-t="beall" data-mezo="korok" value="' + esc(b.korok) + '"></label>' +
-          '<label>' + esc(sz('mezo_asztal')) + ' <input class="mini-input" data-t="beall" data-mezo="asztalLetszam" value="' + esc(b.asztalLetszam) + '"></label>' +
-          '<label title="' + esc(sz('mezo_jatekok_tipp')) + '">' + esc(sz('mezo_jatekok')) + ' <input class="mini-input" data-t="beall" data-mezo="jatekokKoronkent" value="' + esc(b.jatekokKoronkent) + '"></label>' +
-          '<label title="' + esc(sz('mezo_befizetes_tipp')) + '">' + esc(sz('mezo_befizetes')) + ' <input class="mini-input" data-t="beall" data-mezo="penzJatekonkent" value="' + esc(b.penzJatekonkent) + '"></label>' +
-            '<label class="szeles">' + esc(sz('mezo_webcim')) + ' <input placeholder="' + esc(sz('webcim_hely')) + '" data-t="beall" data-mezo="webcim" value="' + esc(b.webcim || '') + '" placeholder="https://…/verseny/verseny.html"></label>' +
+        '<h2>' + esc(sz('beall_cim')) + sugoIkon('beall_sugo') + '</h2>' +
+        '<div class="beall-racs">' +
+          '<label class="beall-mezo">' + esc(sz('mezo_hely_hu')) +
+            '<input data-t="beall" data-mezo="helyHu" value="' + esc(b.helyHu || b.hely || '') + '" autocomplete="off"></label>' +
+          '<label class="beall-mezo">' + esc(sz('mezo_hely_sk')) +
+            '<input data-t="beall" data-mezo="helySk" value="' + esc(b.helySk || '') + '" autocomplete="off"></label>' +
+          '<label class="beall-mezo">' + esc(sz('mezo_datum')) +
+            '<input type="date" data-t="beall" data-mezo="datum" value="' + esc(b.datum) + '"></label>' +
+          '<label class="beall-mezo kicsi">' + esc(sz('mezo_korok')) +
+            '<input class="mini-input" data-t="beall" data-mezo="korok" value="' + esc(b.korok) + '"></label>' +
+          '<label class="beall-mezo kicsi"><span class="mezo-felirat">' + esc(sz('mezo_asztal')) + sugoIkon('mezo_asztal_sugo') + '</span>' +
+            '<input class="mini-input" data-t="beall" data-mezo="asztalLetszam" value="' + esc(b.asztalLetszam) + '"></label>' +
+        '</div>' +
+        '<div id="hely-tippek" class="hely-tippek"></div>' +
+        '<details class="beall-resz"><summary>' + esc(sz('beall_halado')) + '</summary>' +
+          '<div class="beall-racs">' +
+            '<label class="beall-mezo kicsi"><span class="mezo-felirat">' + esc(sz('mezo_jatekok')) + sugoIkon('mezo_jatekok_tipp') + '</span>' +
+              '<input class="mini-input" data-t="beall" data-mezo="jatekokKoronkent" value="' + esc(b.jatekokKoronkent) + '"></label>' +
+            '<label class="beall-mezo kicsi"><span class="mezo-felirat">' + esc(sz('mezo_befizetes')) + sugoIkon('mezo_befizetes_tipp') + '</span>' +
+              '<input class="mini-input" data-t="beall" data-mezo="penzJatekonkent" value="' + esc(b.penzJatekonkent) + '"></label>' +
+            '<label class="beall-mezo szeles"><span class="mezo-felirat">' + esc(sz('mezo_webcim')) + sugoIkon('webcim_mi') + '</span>' +
+              '<input data-t="beall" data-mezo="webcim" value="' + esc(b.webcim || '') + '" placeholder="' + esc(sz('webcim_hely')) + '"></label>' +
+          '</div>' +
           '<label class="kapcsolo"><input type="checkbox" data-t="beall" data-mezo="kiemeltVedelem"' + (b.kiemeltVedelem ? ' checked' : '') + '> ' + esc(sz('kiemelt_vedelem')) + '</label>' +
-        '</div>' +
-        '<p class="sugo">' + szh('beall_sugo') + '</p>' +
-        '<p class="sugo">' + esc(sz('negyfos_vegen_mindig')) + '</p>' +
-        '<p class="sugo">' + szh('penz_mezo_sugo') + '</p>' +
-        (!b.kezdesKesz
-          ? ''
-          : '<p class="sugo">' + esc(sz('kezdes_vissza_sugo')) + ' ' +
-            '<button class="masod-gomb kicsi" data-t="kezdes-mutat">' + esc(sz('kezdes_vissza')) + '</button></p>') +
-        kiemeltListaKartya() +
-        '<h3>' + esc(sz('mod_cim')) + '</h3>' +
-        '<p class="sugo">' + szh('mod_sugo') + '</p>' +
-        '<div class="nevezes-sor">' +
-          '<button class="' + (b.jatekmod === 'helycsere' ? 'masod-gomb' : 'fo-gomb') + '" data-t="jatekmod" data-mod="svajci">' + esc(sz('mod_svajci')) + '</button>' +
-          '<button class="' + (b.jatekmod === 'helycsere' ? 'fo-gomb' : 'masod-gomb') + '" data-t="jatekmod" data-mod="helycsere">' + esc(sz('mod_helycsere')) + '</button>' +
-        '</div>' +
-        '<p class="sugo">' + szh('mod_helycsere_sugo') + '</p>' +
-        '<label>' + esc(sz('mod_korok')) + ' <input class="mini-input" data-t="beall" data-mezo="helycsereKorok" value="' + esc(b.helycsereKorok) + '"></label>' +
-        '<h3>' + esc(sz('torzs_cim')) + '</h3>' +
-        '<p class="sugo">' + szh('torzs_szerk_sugo') + '</p>' +
-        '<div class="torzs-uj nevezes-sor">' +
-          '<input id="torzs-uj-kod" class="mini-input" placeholder="' + esc(sz('th_kod')) + '">' +
-          '<input id="torzs-uj-nev" class="kozepes-input" placeholder="' + esc(sz('th_nev')) + '">' +
-          '<input id="torzs-uj-kartya" class="mini-input" placeholder="' + esc(sz('th_kartya')) + '">' +
-          '<button class="fo-gomb" data-t="torzs-uj">' + esc(sz('hozzaad')) + '</button>' +
-        '</div>' +
-        '<div class="torzs-lista">' +
-          torzsLista().slice(0, 400).map(function (sor) {
-            return '<div class="torzs-sor">' +
-              '<span class="torzs-kod">' + esc(sor[0]) + '</span>' +
-              '<input class="torzs-nev" data-t="torzs-nev" data-id="' + esc(sor[0]) + '" value="' + esc(sor[2] || '') + '">' +
-              '<input class="torzs-kartya" data-t="torzs-kartya" data-id="' + esc(sor[0]) + '" value="' + esc(sor[1] || '') + '" placeholder="' + esc(sz('th_kartya')) + '">' +
-              '<button class="torles-gomb" data-t="torzs-torol" data-id="' + esc(sor[0]) + '">×</button>' +
-              '</div>';
-          }).join('') +
-        '</div>' +
-        '<div class="nevezes-sor">' +
-          '<button class="masod-gomb" data-t="torzs-weblap">' + esc(sz('torzs_webrol')) + '</button>' +
-          '<button class="masod-gomb" data-t="torzs-feltolt">' + esc(sz('torzs_webbe')) + '</button>' +
-          '<span id="torzs-uzenet" class="sugo"></span>' +
-        '</div>' +
-        '<p class="sugo">' + szh('torzs_sugo') + '</p>' +
-        '<div class="nevezes-sor">' +
-          '<button class="masod-gomb" data-t="torzs-import">' + esc(sz('torzs_gomb')) + '</button>' +
-          '<input type="file" id="torzs-fajl" accept=".csv,.txt,.tsv,.json" style="display:none">' +
-          (a.torzslista ? '<button class="masod-gomb" data-t="torzs-alap">' + esc(sz('torzs_alap')) + '</button>' : '') +
-          '<span class="sugo">' + esc(sz('torzs_most', { n: torzsLista().filter(function (x) { return x[2]; }).length })) + '</span>' +
-        '</div>' +
-        (b.webcim ? '<p class="sugo">' + esc(sz('beall_esemeny', { id: a.esemenyId || '—' })) + '</p>' : '<p class="sugo">' + esc(sz('beall_webcim_sugo')) + '</p>') +
+        '</details>' +
       '</div>' +
+
+      /* ---------- Játékszabály ---------- */
       '<div class="kartya-blokk">' +
-        '<h2>' + esc(sz('tiebreak_cim')) + '</h2>' +
-        '<p class="sugo">' + szh('tiebreak_sugo') + '</p>' +
-        '<div class="tiebreak">' + (tiebreakSor || '<i>' + esc(sz('tiebreak_nincs')) + '</i>') + '</div>' +
-        '<div class="tiebreak-hozzaad">' + marad + '</div>' +
+        '<h2>' + esc(sz('mod_cim')) + sugoIkon('mod_sugo') + '</h2>' +
+        '<div class="valaszto-sor">' +
+          '<button class="valaszto-gomb' + (b.jatekmod === 'helycsere' ? '' : ' aktiv') + '" data-t="jatekmod" data-mod="svajci">' + esc(sz('mod_svajci_rovid')) + '</button>' +
+          '<button class="valaszto-gomb' + (b.jatekmod === 'helycsere' ? ' aktiv' : '') + '" data-t="jatekmod" data-mod="helycsere">' + esc(sz('mod_helycsere_rovid')) + '</button>' +
+          '<label class="beall-mezo kicsi beall-inline"><span class="mezo-felirat">' + esc(sz('mod_korok')) + sugoIkon('mod_helycsere_sugo') + '</span>' +
+            '<input class="mini-input" data-t="beall" data-mezo="helycsereKorok" value="' + esc(b.helycsereKorok) + '"></label>' +
+        '</div>' +
       '</div>' +
+
+      /* ---------- Kiemelt játékosok ---------- */
       '<div class="kartya-blokk">' +
-        '<h2>' + esc(sz('mentes_cim')) + '</h2>' +
-        '<p class="sugo">' + szh('mentes_sugo') + '</p>' +
+        '<h2>' + esc(sz('klist_cim')) + sugoIkon('klist_sugo') + '</h2>' +
         '<div class="nevezes-sor">' +
-          '<button class="fo-gomb" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
+          '<input id="kiemelt-kereso" data-t="kiemelt-kereso" class="kozepes-input" placeholder="' + esc(sz('kereso_hely')) + '" autocomplete="off">' +
+          '<button class="masod-gomb kicsi" data-t="kiemelt-ment">' + esc(sz('klist_mostani')) + '</button>' +
+        '</div>' +
+        '<div id="kiemelt-talalatok" class="kereso-lista"></div>' +
+        ((S.kiemeltLista || []).length
+          ? '<div class="weblap-lista">' + (S.kiemeltLista || []).map(function (id) {
+              var t = torzsKeres(String(id));
+              return '<span class="weblap-elem megvan"><span class="weblap-kod">' + id + '</span>' +
+                '<span>' + esc(t ? t.nev : ('#' + id)) + '</span>' +
+                '<button class="torles-gomb" data-t="kiemelt-torol" data-id="' + id + '">×</button></span>';
+            }).join('') + '</div>'
+          : '<p class="sugo">' + esc(sz('klist_ures')) + '</p>') +
+      '</div>' +
+
+      /* ---------- Játékosok (törzslista) ---------- */
+      '<div class="kartya-blokk">' +
+        '<details class="beall-resz"><summary>' + esc(sz('torzs_cim')) + sugoIkon('torzs_szerk_sugo') +
+          '<span class="ossz-jel">' + esc(sz('torzs_most', { n: torzsLista().filter(function (x) { return x[2]; }).length })) + '</span>' +
+        '</summary>' +
+          '<div class="torzs-uj nevezes-sor">' +
+            '<input id="torzs-uj-kod" class="mini-input" placeholder="' + esc(sz('th_kod')) + '">' +
+            '<input id="torzs-uj-nev" class="kozepes-input" placeholder="' + esc(sz('th_nev')) + '">' +
+            '<input id="torzs-uj-kartya" class="mini-input" placeholder="' + esc(sz('th_kartya')) + '">' +
+            '<button class="fo-gomb kicsi" data-t="torzs-uj">' + esc(sz('hozzaad')) + '</button>' +
+          '</div>' +
+          '<div class="torzs-lista">' +
+            torzsLista().slice(0, 400).map(function (sor) {
+              return '<div class="torzs-sor">' +
+                '<span class="torzs-kod">' + esc(sor[0]) + '</span>' +
+                '<input class="torzs-nev" data-t="torzs-nev" data-id="' + esc(sor[0]) + '" value="' + esc(sor[2] || '') + '">' +
+                '<input class="torzs-kartya" data-t="torzs-kartya" data-id="' + esc(sor[0]) + '" value="' + esc(sor[1] || '') + '" placeholder="' + esc(sz('th_kartya')) + '">' +
+                '<button class="torles-gomb" data-t="torzs-torol" data-id="' + esc(sor[0]) + '">×</button>' +
+                '</div>';
+            }).join('') +
+          '</div>' +
+          '<div class="nevezes-sor">' +
+            '<button class="masod-gomb kicsi" data-t="torzs-weblap">' + esc(sz('torzs_webrol')) + '</button>' +
+            '<button class="masod-gomb kicsi" data-t="torzs-feltolt">' + esc(sz('torzs_webbe')) + '</button>' +
+            '<button class="masod-gomb kicsi" data-t="torzs-import">' + esc(sz('torzs_gomb')) + '</button>' +
+            (a.torzslista ? '<button class="masod-gomb kicsi" data-t="torzs-alap">' + esc(sz('torzs_alap')) + '</button>' : '') +
+            '<input type="file" id="torzs-fajl" accept=".csv,.txt,.tsv,.json" style="display:none">' +
+            '<span id="torzs-uzenet" class="sugo"></span>' +
+          '</div>' +
+        '</details>' +
+      '</div>' +
+
+      /* ---------- Döntetlen sorrendje ---------- */
+      '<div class="kartya-blokk">' +
+        '<details class="beall-resz"><summary>' + esc(sz('tiebreak_cim')) + sugoIkon('tiebreak_sugo') + '</summary>' +
+          '<div class="tiebreak">' + (tiebreakSor || '<i>' + esc(sz('tiebreak_nincs')) + '</i>') + '</div>' +
+          '<div class="tiebreak-hozzaad">' + marad + '</div>' +
+        '</details>' +
+      '</div>' +
+
+      /* ---------- Mentés, teszt ---------- */
+      '<div class="kartya-blokk">' +
+        '<h2>' + esc(sz('mentes_cim')) + sugoIkon('mentes_sugo') + '</h2>' +
+        '<div class="nevezes-sor">' +
+          '<button class="masod-gomb" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
           '<button class="masod-gomb" data-t="import">' + esc(sz('import_gomb')) + '</button>' +
-          '<input type="file" id="import-fajl" accept=".json" style="display:none">' +
           '<button class="masod-gomb" data-t="csv">' + esc(sz('csv_gomb')) + '</button>' +
+          '<input type="file" id="import-fajl" accept=".json" style="display:none">' +
         '</div>' +
-        (mentesek ? '<p class="sugo">' + esc(sz('visszaallitas_cim')) + ': ' + mentesek + '</p>' : '') +
-      '</div>' +
-      '<div class="kartya-blokk teszt-blokk">' +
-        '<h3>' + esc(sz('teszt_cim')) + '</h3>' +
-        '<p class="sugo">' + szh('teszt_sugo') + '</p>' +
+        (mentesek ? '<p class="mentes-sor">' + esc(sz('visszaallitas_cim')) + ': ' + mentesek + '</p>' : '') +
+        '<div class="teszt-doboz">' +
+          '<div class="teszt-fej">' + esc(sz('teszt_cim')) + sugoIkon('teszt_sugo') + '</div>' +
+          tesztSor +
+          (b.kezdesKesz ? '<button class="halvany-gomb kicsi" data-t="kezdes-mutat">' + esc(sz('kezdes_vissza')) + '</button>' : '') +
+        '</div>' +
         ((varE('torles1'))
           ? megerositesSav(sz('teszt_kerdes1'), 'torles-1-igen', 'megerosites-nem')
           : ((varE('torles2'))
             ? megerositesSav(sz('teszt_kerdes2'), 'torles-2-igen', 'megerosites-nem')
-            : '<button class="halvany-gomb" data-t="teljes-torles">' + esc(sz('teszt_gomb')) + '</button>')) +
+            : '<p class="veszely-sor"><button class="halvany-gomb kicsi veszely" data-t="teljes-torles">' + esc(sz('teszt_gomb')) + '</button></p>')) +
       '</div>' +
+
+      /* ---------- weblap-feltöltés állapot ---------- */
       (a.korok.length && a.beall.feltoltesTiltva
-        ? '<div class="kartya-blokk">' +
-            '<h2>' + esc(sz('weblap_cim')) + '</h2>' +
-            '<p class="figyelem">' + esc(sz('feltoltes_tiltva')) + '</p>' +
-          '</div>'
+        ? '<div class="kartya-blokk"><h2>' + esc(sz('weblap_cim')) + '</h2>' +
+            '<p class="figyelem">' + esc(sz('feltoltes_tiltva')) + '</p></div>'
         : '') +
       (a.korok.length && !a.beall.feltoltesTiltva
-        ? '<div class="kartya-blokk">' +
-            '<h2>' + esc(sz('weblap_cim')) + '</h2>' +
+        ? '<div class="kartya-blokk"><h2>' + esc(sz('weblap_cim')) + '</h2>' +
             '<p class="sugo">' + szh('weblap_sugo') + '</p>' +
-            '<p class="sugo"><b>' + esc(sz('weblap_lepesek')) + '</b></p>' +
             '<textarea id="weblap-szoveg" class="weblap-szoveg" rows="6" readonly>' + esc(weblapSzoveg()) + '</textarea>' +
             '<div class="nevezes-sor">' +
               '<button class="fo-gomb" data-t="weblap-masolas">' + esc(sz('weblap_masolas')) + '</button>' +
               '<button class="masod-gomb" data-t="weblap-txt">' + esc(sz('weblap_txt')) + '</button>' +
-              '<span class="sugo">' + esc(sz('weblap_sorok', { n: aktivJatekosok().length, kor: ig2() })) + '</span>' +
-            '</div>' +
-            (ig2() < 5 ? '<p class="figyelem">' + esc(sz('weblap_figyelem')) + '</p>' : '') +
-          '</div>'
+            '</div></div>'
         : '');
   }
-
   function ig2() { return Math.min(S.allapot.aktualisKor || S.allapot.korok.length || 0, 5); }
 
   /* ======================= súgó ========================================= */
@@ -1607,8 +1647,8 @@
     rajzolasFut = true;
     var kivetes2 = !!KIVETITETT[S.nezet];
     N.mod = S.allapot.beall.nyelv || 'mind';
-    var fej = (S.nezet === 'vetites' || S.nezet === 'nyomtat' || S.nezet === 'bekuld' || S.nezet === 'ora') ? '' : fejlec();
-    var lepes = (S.nezet === 'vetites' || S.nezet === 'nyomtat' || S.nezet === 'bekuld' || S.nezet === 'ora') ? '' : lepesSav();
+    var fej = (S.nezet === 'vetites' || S.nezet === 'bekuld' || S.nezet === 'ora') ? '' : fejlec();
+    var lepes = (S.nezet === 'vetites' || S.nezet === 'bekuld' || S.nezet === 'ora') ? '' : lepesSav();
     N.mod = kivetes2 ? (S.allapot.beall.nyelvKivetites || 'mind') : (S.allapot.beall.nyelv || 'mind');
 
     var torzs = '';
@@ -2062,6 +2102,26 @@
       return;
     }
     if (t === 'import-elvet') { S.fuggobenImport = null; render(); return; }
+    /* ---- teszt: pillanatkép, sorsolás, majd egy kattintással vissza ---- */
+    if (t === 'teszt-indit') {
+      if (!(S.allapot.jatekosok || []).length) { hiba(sz('teszt_nincs_jatekos')); render(); return; }
+      M.tesztMent(JSON.parse(JSON.stringify(S.allapot)));
+      sorsolElso();
+      ok(sz('teszt_indit_kesz'));
+      return;
+    }
+    if (t === 'teszt-vissza') {
+      var mt = M.tesztBetolt();
+      if (!mt) { hiba(sz('teszt_nincs_mentes')); render(); return; }
+      S.allapot = mt;
+      mentes();
+      M.tesztTorol();
+      S.nezet = 'beallitas';
+      S.elozeNezetek = [];
+      render();
+      ok(sz('teszt_vissza_kesz'));
+      return;
+    }
     if (t === 'teljes-torles') { S.megerosites = { t: 'torles1' }; render(); return; }
     if (t === 'torles-1-igen') { S.megerosites = { t: 'torles2' }; render(); return; }
     if (t === 'torles-2-igen') {
