@@ -915,6 +915,21 @@
     var elozoStat = {};
     M.statisztika(a, kor.kor - 1).forEach(function (s) { elozoStat[s.id] = s; });
 
+    /* A verseny szabálya: egy asztalon mindig 5 € × játékosszám a befizetett pénz
+       összege (3 főnél 15 €, 4 főnél 20 €). Ha már csak egy valaki hiányzik,
+       felkínáljuk neki a maradékot: kattintással elfogadható, de át is írható. */
+    var szekDb = (asztal.szekek || []).filter(function (x) { return x !== null; }).length;
+    var kellPenz = 5 * szekDb;
+    var beirtOssz = 0, uresDb = 0, uresId = null;
+    (asztal.szekek || []).forEach(function (id) {
+      if (id === null || id === undefined) return;
+      var x0 = e[id] || {};
+      if (vanErtek(x0.penz)) beirtOssz += szam(x0.penz);
+      else { uresDb++; uresId = id; }
+    });
+    var javaslat = (uresDb === 1 && Math.abs(kellPenz - beirtOssz) > 0.004)
+      ? penz(kellPenz - beirtOssz).replace('.', ',') : '';
+
     var sorok = (asztal.szekek || []).filter(function (x) { return x !== null; }).map(function (id) {
       var j = jatekos(id);
       var adat = e[id] || {};
@@ -922,7 +937,9 @@
       return '<tr>' +
         '<td class="nev-cell">' + esc(j ? j.nev : ('#' + id)) +
           (stat ? '<span class="elozo">' + esc(sz('eddig', { pont: stat.pont, penz: penz(stat.penz) })) + '</span>' : '') + '</td>' +
-        '<td><input class="penz-input" type="text" inputmode="decimal" autocomplete="off" data-t="penz" data-id="' + id + '" value="' + (vanErtek(adat.penz) ? esc(adat.penz) : '') + '" placeholder="0,00"></td>' +
+        '<td><input class="penz-input' + (javaslat && id === uresId ? ' javasolt' : '') + '" type="text" inputmode="decimal" autocomplete="off" data-t="penz" data-id="' + id + '"' +
+          (javaslat && id === uresId ? ' data-javaslat="' + esc(javaslat) + '" title="' + esc(sz('javasolt_penz', { penz: javaslat })) + '"' : '') +
+          ' value="' + (vanErtek(adat.penz) ? esc(adat.penz) : '') + '" placeholder="' + (javaslat && id === uresId ? esc(javaslat) : '0,00') + '"></td>' +
         '<td class="pont-cell" id="pont-' + id + '">' + (vanErtek(adat.pont)
           ? '<input class="pont-input" data-t="pont" data-id="' + id + '" value="' + esc(adat.pont) + '">'
           : '<b>' + pontok[id] + '</b>') + '</td>' +
@@ -1050,6 +1067,7 @@
             (varE('lezar')
               ? megerositesSav(sz('lezar_biztos'), 'lezar-igen', 'megerosites-nem')
               : '<button class="masod-gomb kicsi" data-t="lezar">' + esc(sz('lezar_gomb')) + '</button>' +
+        '<button class="masod-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
                 '<span class="sugo">' + esc(sz('lezar_sugo')) + '</span>') +
           '</div>') +
       '<div class="nevezes-sor"><button class="' + (gorgetBe() ? 'fo-gomb' : 'masod-gomb') + ' kicsi" data-t="gorget">' +
@@ -1150,11 +1168,14 @@
           var st = eddigi[id];
           return '<li class="vet-hely vet-hely-' + (i + 1) + '">' +
             '<span class="vet-sorszam">' + (i + 1) + '.</span>' +
-            '<span class="vet-nev' + ((nev(id) || '').length > 16 ? ' vet-nev-kicsi' : '') + '">' + esc(nev(id)) + '</span>' +
+            '<span class="vet-nev' + ((nev(id) || '').length > 16 ? ' vet-nev-kicsi' : '') + '">' +
+              esc(nev(id)) + '<i class="vet-kod">' + esc(id) + '</i></span>' +
             '<span class="vet-pont">' + (st ? st.pont : 0) + '</span>' +
             '<span class="vet-penz">' + penz(st ? st.penz : 0) + '</span></li>';
         }).join('');
-      return '<div class="vet-kartya"><div class="vet-aszta">' + asztal.asztal + '.</div>' +
+      return '<div class="vet-kartya">' +
+        '<div class="vet-aszta"><span class="vet-aszta-szam">' + asztal.asztal + '.</span>' +
+          '<span class="vet-aszta-szo">' + esc(sz('vet_aszta_szo')) + '</span></div>' +
         '<ul class="vet-tabla">' + rovatFej + nevek + '</ul></div>';
     }).join('');
     var db = kor.asztalok.length;
@@ -1169,7 +1190,7 @@
       var n = (a.szekek || []).filter(function (x) { return x !== null && x !== undefined; }).length;
       if (n > maxSzek) maxSzek = n;
     });
-    var NEV_HOSSZ = 16;                 /* a szokásos leghosszabb név */
+    var NEV_HOSSZ = 18;                 /* a leghosszabb nevekhez is legyen hely */
     var oszlopok = 1, legjobbBetu = 0;
     for (var o = 1; o <= Math.min(db, 10); o++) {
       var sor2 = Math.ceil(db / o);
@@ -1207,7 +1228,7 @@
     }).join('');
     var db = szam(a.beall.papirDB, 8);
     return '<div class="kartya-blokk">' +
-      '<button class="masod-gomb kicsi vissza-gomb nyomtat-vissza" data-t="vissza">← ' + esc(sz('vissza')) + '</button>' +
+      
       '<h2>' + esc(sz('nyom_cim')) + '</h2>' +
       '<p class="sugo">' + szh('nyom_sugo') + '</p>' +
       '<div class="nevezes-sor">' +
@@ -1289,6 +1310,11 @@
         v = Math.max(v, (k.scrollHeight || 0) - (k.clientHeight || 0));
         var ul = k.querySelector ? k.querySelector('ul') : null;
         if (ul) v = Math.max(v, (ul.scrollHeight || 0) - (ul.clientHeight || 0));
+        /* a teljes neveknek is bele kell férniük – ha csonkolódna, kisebbítünk */
+        var nevek = k.querySelectorAll ? k.querySelectorAll('.vet-nev') : [];
+        for (var n = 0; n < nevek.length; n++) {
+          v = Math.max(v, (nevek[n].scrollWidth || 0) - (nevek[n].clientWidth || 0));
+        }
       });
       return v;
     }
@@ -1620,6 +1646,108 @@
             '</div></div>'
         : '');
   }
+  /* ======================= Excel export ================================ */
+  /* A verseny végi eredménytábla, pontosan olyan elrendezésben, ahogy a
+     papíron/Excelben megszokták: Helyezés | Kód | Név | körönként € és pont | Σ €, Σ pont. */
+  function excelSzam(x, tizedes) {
+    if (x === null || x === undefined || x === '') return '';
+    var v = Number(x);
+    if (!isFinite(v)) return '';
+    if (tizedes) {
+      var t = v.toFixed(2).replace('.', ',');
+      if (t.slice(-1) === '0') t = t.slice(0, -1);
+      if (t.slice(-2) === ',0') t = t.slice(0, -2);
+      return t;
+    }
+    return String(Math.round(v));
+  }
+
+  function excelExport() {
+    var a = S.allapot;
+    var korDb = a.korok.length;
+    if (!korDb) { hiba(sz('excel_nincs_kor')); render(); return; }
+    var sorokSzama = Math.min(szam(a.beall.korok, 5), Math.max(korDb, 1));
+
+    /* körönkénti eredmény játékosonként */
+    var perKor = {};
+    a.korok.forEach(function (kor, ki) {
+      (kor.asztalok || []).forEach(function (asz) {
+        var e = asz.eredmenyek || {};
+        var pontok = V.Motor.asztalPontok(asz) || [];
+        (asz.szekek || []).forEach(function (id, si) {
+          if (id === null || id === undefined) return;
+          var adat = e[id] || {};
+          perKor[id] = perKor[id] || [];
+          perKor[id][ki] = {
+            penz: vanErtek(adat.penz) ? szam(adat.penz) : null,
+            pont: (pontok[si] === undefined || pontok[si] === null) ? null : pontok[si]
+          };
+        });
+      });
+    });
+
+    var lista = V.Motor.rangsor(a, korDb);
+    var nevO = esc(sz('excel_nev'));
+    var fej1 = '<tr><th rowspan="2" class="bal">' + esc(sz('excel_hely')) + '</th>' +
+      '<th rowspan="2">' + esc(sz('excel_kod')) + '</th>' +
+      '<th rowspan="2" class="bal">' + nevO + '</th>';
+    var fej2 = '<tr>';
+    for (var k = 1; k <= sorokSzama; k++) {
+      fej1 += '<th colspan="2" class="korfej">' + esc(sz('excel_kor', { kor: k })) + '</th>';
+      fej2 += '<th class="penzfej">€</th><th>' + esc(sz('excel_pont')) + '</th>';
+    }
+    fej1 += '<th colspan="2" class="korfej ossz">Σ</th></tr>';
+    fej2 += '<th class="penzfej ossz">€</th><th class="ossz">' + esc(sz('excel_pont')) + '</th></tr>';
+
+    var torzs = lista.map(function (p, i) {
+      var sor = '<tr><td class="kozep">' + (i + 1) + '</td>' +
+        '<td class="kozep">' + esc(p.id) + '</td>' +
+        '<td class="bal nev">' + esc(p.nev) + '</td>';
+      var osszPenz = 0, osszPont = 0;
+      for (var k = 0; k < sorokSzama; k++) {
+        var e = (perKor[p.id] || [])[k] || {};
+        sor += '<td class="penz">' + excelSzam(e.penz, true) + '</td>' +
+          '<td class="kozep">' + excelSzam(e.pont, false) + '</td>';
+        if (e.penz !== null && e.penz !== undefined) osszPenz += Number(e.penz);
+        if (e.pont !== null && e.pont !== undefined) osszPont += Number(e.pont);
+      }
+      sor += '<td class="penz ossz">' + excelSzam(osszPenz, true) + '</td>' +
+        '<td class="kozep ossz">' + excelSzam(osszPont, false) + '</td></tr>';
+      return sor;
+    }).join('');
+
+    var cim = a.beall.nev || (a.beall.helyHu || a.beall.hely || '') || sz('verseny_cim_hely');
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
+      'xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+      '<head><meta charset="utf-8">' +
+      '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
+      '<x:Name>' + esc(sz('excel_lap')) + '</x:Name><x:WorksheetOptions><x:DisplayGridlines/>' +
+      '</x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->' +
+      '<style>' +
+      'body{font-family:Calibri,Arial,sans-serif;font-size:11pt}' +
+      'table{border-collapse:collapse}' +
+      'th,td{border:1px solid #9aa7b4;padding:3px 6px}' +
+      'th{background:#eef2f6;font-weight:700;text-align:center}' +
+      '.korfej{background:#dfe8f0;font-weight:800}' +
+      '.ossz{background:#f6f0dc}' +
+      '.bal{text-align:left}.kozep{text-align:center;mso-number-format:"\\@"}' +
+      '.penz{text-align:right;mso-number-format:"0\.00"}' +
+      '.nev{font-weight:700}' +
+      '.cim{font-size:14pt;font-weight:800;border:none;padding:2px 0}' +
+      '.alcim{font-size:10pt;border:none;padding:0 0 8px}' +
+      '</style></head><body>' +
+      '<table>' +
+      '<tr><td colspan="' + (3 + sorokSzama * 2 + 2) + '" class="cim">' + esc(cim) + '</td></tr>' +
+      '<tr><td colspan="' + (3 + sorokSzama * 2 + 2) + '" class="alcim">' +
+        esc((a.beall.helyHu || a.beall.hely || '') + (a.beall.datum ? ' · ' + a.beall.datum : '') +
+          ' · ' + sz('excel_osszes', { n: lista.length })) + '</td></tr>' +
+      fej1 + fej2 + torzs +
+      '</table></body></html>';
+
+    letolt('verseny-eredmenyek-' + (a.beall.datum || '') + '.xls', html, 'application/vnd.ms-excel');
+    ok(sz('excel_kesz'));
+  }
+
   function ig2() { return Math.min(S.allapot.aktualisKor || S.allapot.korok.length || 0, 5); }
 
   /* ======================= súgó ========================================= */
@@ -2122,6 +2250,7 @@
       ok(sz('teszt_vissza_kesz'));
       return;
     }
+    if (t === 'excel') { excelExport(); render(); return; }
     if (t === 'teljes-torles') { S.megerosites = { t: 'torles1' }; render(); return; }
     if (t === 'torles-1-igen') { S.megerosites = { t: 'torles2' }; render(); return; }
     if (t === 'torles-2-igen') {
@@ -2368,6 +2497,9 @@
       if (!kor) return;
       var asztal = kor.asztalok[S.asztal - 1];
       var id = parseInt(cel.getAttribute('data-id'), 10);
+      /* üres mezőre kattintva a felkínált összeget írja be */
+      var jav = cel.getAttribute && cel.getAttribute('data-javaslat');
+      if (jav && !String(cel.value || '').trim()) { cel.value = jav; }
       if (!asztal.eredmenyek[id]) asztal.eredmenyek[id] = {};
       asztal.eredmenyek[id].penz = cel.value;
       mentes(); beirasFrissit();
@@ -2630,6 +2762,8 @@
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
   V._vetitesMod = function (m) { S.vetites = m; };
+  V._excelExport = function () { return excelExport(); };
+
   V._ujJatekosBeall = function (id) { S.ujJatekos = id; };
   V._vetitesIlleszt = function () { return vetitesIlleszt(); };
   V._torzsLista = function () { return torzsLista(); };
