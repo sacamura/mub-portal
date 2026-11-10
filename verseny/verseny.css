@@ -747,3 +747,24 @@ table.c-tabla th{font-size:8pt}
 /* keso-figyelem */
 .keso-figyelem{background:#fff8e8;border:1px solid #ecd9a8;border-radius:9px;padding:7px 11px;
   font-size:.87rem;color:#7a6220;margin:6px 0}
+
+/* nyelv-egy-zaszlo */
+.nyelv-lenyilo{position:relative}
+.nyelv-lenyilo>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:4px;
+  background:#fff;border:1px solid var(--vonal);border-radius:9px;padding:5px 8px;user-select:none}
+.nyelv-lenyilo>summary::-webkit-details-marker{display:none}
+.nyelv-lenyilo>summary:hover{border-color:#9fc3ae;background:#f8fcf9}
+.nyelv-lenyilo[open]>summary{border-color:var(--zold);background:#f6fbf7}
+.nyelv-lenyilo>summary .zaszlo{width:22px;height:15px;border-radius:2px}
+.nyelv-nyil{font-style:normal;font-size:.62rem;color:#93a5b6;line-height:1}
+.nyelv-opciok{position:absolute;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--vonal);
+  border-radius:11px;box-shadow:0 12px 30px rgba(15,25,35,.18);padding:10px 12px;z-index:300;min-width:210px}
+.nyelv-csoport{display:flex;flex-direction:column;gap:5px}
+.nyelv-csoport+.nyelv-csoport{margin-top:9px;padding-top:9px;border-top:1px solid #eef2f6}
+.nyelv-cim{font-size:.72rem;font-weight:800;letter-spacing:.06em;color:#93a5b6;text-transform:uppercase}
+.nyelv-gombok{display:flex;gap:5px}
+.nyelv-gombok .nyelv-gomb{flex:1 1 auto;background:#fff;border:1px solid var(--vonal);border-radius:7px;
+  padding:5px 9px;font-size:.78rem;font-weight:800;color:#54667a;cursor:pointer}
+.nyelv-gombok .nyelv-gomb:hover{background:#f1f7f3;border-color:#9fc3ae}
+.nyelv-gombok .nyelv-gomb.aktiv{background:var(--zold);border-color:var(--zold);color:#fff}
+.fej,.fej-jobb{overflow:visible}
