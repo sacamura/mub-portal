@@ -1741,7 +1741,7 @@
           '<span class="sugo">' + esc(sz('felho_sugo_rovid')) + '</span>' +
         '</div>' +
         '<p class="sugo">' + szh('excel_bizt_sugo') + '</p>' +
-        '<details class="beall-resz"><summary>' + esc(sz('gs_cim')) + sugoIkon('gs_sugo') + '</summary>' +
+        '<div class="beall-resz gs-blokk"><div class="gs-fej">' + esc(sz('gs_cim')) + sugoIkon('gs_sugo') + '</div>' +
           '<label class="beall-mezo szeles"><span class="mezo-felirat">' + esc(sz('gs_url')) + '</span>' +
             '<input data-t="beall" data-mezo="gsUrl" value="' + esc(b.gsUrl || '') + '" placeholder="https://script.google.com/macros/s/…/exec"></label>' +
           '<div class="nevezes-sor">' +
@@ -1750,7 +1750,7 @@
             '<span id="gs-allapot" class="sugo">' + esc(S.gsAllapot || '') + '</span>' +
           '</div>' +
           '<p class="sugo">' + szh('gs_sugo') + '</p>' +
-        '</details>' +
+        '</div>' +
       '</div>' +
       /* ---------- Mentés, teszt ---------- */
       '<div class="kartya-blokk">' +
@@ -2108,6 +2108,15 @@
         gsJel();
       });
       S.gsAllapot = sz('gs_kuld');
+      gsJel();
+      /* ellenőrzés: visszaolvassuk a mentett állapotot (a no-cors miatt a POST válaszát nem látjuk) */
+      global.setTimeout(function () {
+        try {
+          global.fetch(url, { method: 'GET' }).then(function (r) { return r.text(); })
+            .then(function (t2) { S.gsAllapot = (t2 && t2.length > 20) ? sz('gs_mentve', { ido: oraPerc2() }) : sz('gs_hiba'); gsJel(); })
+            .catch(function () { S.gsAllapot = sz('gs_hiba'); gsJel(); });
+        } catch (e) { S.gsAllapot = sz('gs_hiba'); gsJel(); }
+      }, 1500);
     } catch (e) {
       S.gsAllapot = sz('gs_hiba');
     }
@@ -2992,7 +3001,12 @@
     /* helyszín gépelése közben felkínáljuk a szokásos neveket */
     if (t === 'beall') {
       var mez = cel.getAttribute('data-mezo');
-      if (mez === 'helyHu' || mez === 'helySk') helyJavaslat(cel.value);
+      S.allapot.beall[mez] = (cel.type === 'checkbox') ? !!cel.checked : cel.value;
+      if (mez === 'helyHu' || mez === 'helySk') {
+        helyJavaslat(cel.value);
+        S.allapot.beall.nev = M.helySzoveg(S.allapot, 'hu');
+      }
+      mentes();
       return;
     }
     if (t === 'kiemelt-kereso') {
@@ -3219,7 +3233,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.26';
+  V.VERZIO = '1.27';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
