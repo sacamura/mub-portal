@@ -701,3 +701,49 @@ table.c-tabla th{font-size:8pt}
   color:#8a6a12;padding:3px 10px;border-radius:8px;font-weight:700;font-size:.93rem}
 .penz-input.javasolt{border:1.5px dashed #c9a227;background:#fffdf3;color:#8a6a12;font-weight:700}
 .penz-input.javasolt::placeholder{color:#b08a2a;font-weight:700;opacity:1}
+
+/* vet-fejlec-min */
+.vet-kartya .vet-fejlec-li{flex:0 0 auto;min-height:0;height:auto;padding:1px 2px 2px;
+  font-size:calc(clamp(.46rem,.66vw,.78rem) * var(--vet-meret,1));line-height:1}
+.vet-aszta{padding:5px 10px}
+.vet-aszta-szam{font-size:calc(clamp(1.05rem,1.95vw,1.7rem) * var(--vet-meret,1))}
+
+/* nyelv-lenyilo */
+.fej-jobb .nyelv-valto{gap:10px}
+.nyelv-lenyilo{position:relative}
+.nyelv-lenyilo>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:5px;
+  background:#fff;border:1px solid var(--vonal);border-radius:9px;padding:4px 9px;font-size:.8rem;
+  font-weight:800;color:#41525f;user-select:none}
+.nyelv-lenyilo>summary::-webkit-details-marker{display:none}
+.nyelv-lenyilo>summary:hover{border-color:#9fc3ae}
+.nyelv-lenyilo[open]>summary{border-color:var(--zold)}
+.nyelv-opciok{position:absolute;right:0;top:calc(100% + 5px);background:#fff;border:1px solid var(--vonal);
+  border-radius:10px;box-shadow:0 10px 26px rgba(15,25,35,.16);padding:5px;z-index:120;min-width:150px}
+.nyelv-opcio{display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;
+  padding:6px 8px;border-radius:7px;font-size:.85rem;font-weight:600;color:#3d4e5e;cursor:pointer;text-align:left}
+.nyelv-opcio:hover{background:#eef6ef}
+.nyelv-opcio.aktiv{background:#e9f5ec;color:var(--zold);font-weight:800}
+.zaszlo{width:18px;height:12px;border-radius:2px;display:inline-block;flex:0 0 auto;
+  border:1px solid rgba(0,0,0,.18);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)}
+.zaszlo-hu{background:linear-gradient(to bottom,#c8102e 0 33%,#fff 33% 66%,#00753a 66% 100%)}
+.zaszlo-sk{background:linear-gradient(to bottom,#fff 0 33%,#0b4ea2 33% 66%,#c8102e 66% 100%)}
+.nyelv-lenyilo>summary .zaszlo+.zaszlo{margin-left:-11px}
+
+/* cedula-aszta-uj */
+.c-aszta{display:flex;align-items:baseline;gap:12px;font-size:12pt;border-bottom:1.4px solid #000;
+  padding:0 0 1mm;margin:0.2mm 0 1mm}
+.c-aszta .c-kor,.c-aszta .c-aszta-jel{font-weight:900;font-size:15pt;line-height:1;letter-spacing:-.01em}
+.c-aszta .c-aszta-jel{margin-left:auto}
+.c-aszta i{font-style:normal;font-weight:600;font-size:9pt;margin-left:2px;text-transform:lowercase}
+.c-hely{font-weight:700;font-size:10pt}
+.c-datum{font-weight:600;font-size:9.5pt}
+
+/* kor-lezaras */
+.kor-lezaras{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0 10px}
+.kor-lezaras-gomb{background:#1f7a44;color:#fff;padding:12px 22px;font-size:1.02rem;border-radius:11px;
+  box-shadow:0 2px 8px rgba(31,122,68,.28);animation:korPulzus 1.6s ease-in-out infinite}
+@keyframes korPulzus{0%,100%{box-shadow:0 2px 8px rgba(31,122,68,.28)}50%{box-shadow:0 2px 16px rgba(31,122,68,.55)}}
+
+/* keso-figyelem */
+.keso-figyelem{background:#fff8e8;border:1px solid #ecd9a8;border-radius:9px;padding:7px 11px;
+  font-size:.87rem;color:#7a6220;margin:6px 0}
