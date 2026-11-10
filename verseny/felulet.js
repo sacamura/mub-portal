@@ -65,6 +65,7 @@
 
   function mentes() {
     if (!Tarolo.ment(S.allapot)) hiba(sz('mentes_hiba'));
+    try { gsMent(); } catch (e) { }
   }
 
   function jatekos(id) {
@@ -1714,6 +1715,24 @@
         '</details>' +
       '</div>' +
 
+      /* ---------- Biztonsági mentés (Excel + Google Sheets) ---------- */
+      '<div class="kartya-blokk">' +
+        '<h2>' + esc(sz('mentes_bizt_cim')) + sugoIkon('mentes_bizt_sugo') + '</h2>' +
+        '<div class="nevezes-sor">' +
+          '<button class="fo-gomb" data-t="excel-bizt">' + esc(sz('excel_bizt_gomb')) + '</button>' +
+          '<button class="masod-gomb" data-t="excel-vagolap">' + esc(sz('excel_vagolap_gomb')) + '</button>' +
+        '</div>' +
+        '<p class="sugo">' + szh('excel_bizt_sugo') + '</p>' +
+        '<details class="beall-resz"><summary>' + esc(sz('gs_cim')) + sugoIkon('gs_sugo') + '</summary>' +
+          '<label class="beall-mezo szeles"><span class="mezo-felirat">' + esc(sz('gs_url')) + '</span>' +
+            '<input data-t="beall" data-mezo="gsUrl" value="' + esc(b.gsUrl || '') + '" placeholder="https://script.google.com/macros/s/…/exec"></label>' +
+          '<div class="nevezes-sor">' +
+            '<button class="masod-gomb kicsi" data-t="gs-most">' + esc(sz('gs_most')) + '</button>' +
+            '<span id="gs-allapot" class="sugo">' + esc(S.gsAllapot || '') + '</span>' +
+          '</div>' +
+          '<p class="sugo">' + szh('gs_sugo') + '</p>' +
+        '</details>' +
+      '</div>' +
       /* ---------- Mentés, teszt ---------- */
       '<div class="kartya-blokk">' +
         '<h2>' + esc(sz('mentes_cim')) + sugoIkon('mentes_sugo') + '</h2>' +
@@ -1778,14 +1797,14 @@
     a.korok.forEach(function (kor, ki) {
       (kor.asztalok || []).forEach(function (asz) {
         var e = asz.eredmenyek || {};
-        var pontok = V.Motor.asztalPontok(asz) || [];
+        var pontok = V.Motor.asztalPontok(asz) || {};
         (asz.szekek || []).forEach(function (id, si) {
           if (id === null || id === undefined) return;
           var adat = e[id] || {};
           perKor[id] = perKor[id] || [];
           perKor[id][ki] = {
             penz: vanErtek(adat.penz) ? szam(adat.penz) : null,
-            pont: (pontok[si] === undefined || pontok[si] === null) ? null : pontok[si]
+            pont: (pontok[id] === undefined || pontok[id] === null) ? null : pontok[id]
           };
         });
       });
@@ -1851,6 +1870,158 @@
 
     letolt('verseny-eredmenyek-' + (a.beall.datum || '') + '.xls', html, 'application/vnd.ms-excel');
     ok(sz('excel_kesz'));
+  }
+
+  /* ============ Biztonsági mentés a régi Excelbe ====================== */
+  /* A megszokott „Szerkesztes" lap szerkezete:
+     B = kártyakód, C = játékoskód, D = név,
+     E–N = körönként (€, pont), O = Σ€, P = Σpont. */
+  function excelSorok() {
+    var a = S.allapot;
+    var korDb = a.korok.length;
+    var perKor = {};
+    a.korok.forEach(function (kor, ki) {
+      (kor.asztalok || []).forEach(function (asz) {
+        var e = asz.eredmenyek || {};
+        var pontok = V.Motor.asztalPontok(asz) || {};
+        (asz.szekek || []).forEach(function (id, si) {
+          if (id === null || id === undefined) return;
+          var adat = e[id] || {};
+          perKor[id] = perKor[id] || [];
+          perKor[id][ki] = {
+            penz: vanErtek(adat.penz) ? szam(adat.penz) : null,
+            pont: (pontok[id] === undefined || pontok[id] === null) ? null : pontok[id]
+          };
+        });
+      });
+    });
+    var ki = [];
+    aktivJatekosok().forEach(function (j) {
+      var sor = [];
+      sor.push(j.kartyakod || '');                 /* B: kártya kódja */
+      sor.push(j.vendeg ? '' : String(j.id));      /* C: játékos kódja */
+      sor.push(j.nev || '');                       /* D: név */
+      var osszP = 0, osszE = 0;
+      for (var k = 0; k < 5; k++) {
+        var e2 = (perKor[j.id] || [])[k] || {};
+        sor.push(e2.penz === null || e2.penz === undefined ? '' : e2.penz);
+        sor.push(e2.pont === null || e2.pont === undefined ? '' : e2.pont);
+        if (e2.penz) osszE += Number(e2.penz);
+        if (e2.pont) osszP += Number(e2.pont);
+      }
+      sor.push(Math.round(osszE * 100) / 100);     /* O: Σ€ */
+      sor.push(osszP);                             /* P: Σpont */
+      ki.push(sor);
+    });
+    return ki;
+  }
+
+  /* A „Szerkesztes" lap HTML-je (Excel ezt gond nélkül megnyitja .xlsx-ként). */
+  function excelBiztonsagiHtml() {
+    var a = S.allapot;
+    var sorok = excelSorok();
+    var fej1 = '<tr><td></td>' +
+      '<td><b>Kártya</b></td><td><b>Játékos</b></td><td><b>Név / Meno</b></td>' +
+      [1, 2, 3, 4, 5].map(function (k) { return '<td colspan="2"><b>' + k + '. kör/kolo</b></td>'; }).join('') +
+      '<td colspan="2"><b>Σ</b></td></tr>';
+    var fej2 = '<tr><td></td><td><b>Kódja</b></td><td><b>Kódja</b></td><td></td>' +
+      [1, 2, 3, 4, 5].map(function () { return '<td><b>€</b></td><td><b>pont/body</b></td>'; }).join('') +
+      '<td><b>€</b></td><td><b>pont/body</b></td></tr>';
+    var torzs = sorok.map(function (sor) {
+      return '<tr>' + '<td>' + ''.replace('', '') + '</td>' +
+        sor.map(function (v, i) {
+          if (i === 2) return '<td>' + esc(v) + '</td>';
+          if (i === 3) return '<td>' + esc(v) + '</td>';
+          return '<td>' + esc(v === '' || v === null || v === undefined ? '' : v) + '</td>';
+        }).join('') + '</tr>';
+    }).join('');
+    return '<html xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8">' +
+      '<style>table{border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt}' +
+      'td{border:1px solid #b8c4d0;padding:2px 5px}td:first-child{border:none;width:18px}</style>' +
+      '</head><body><table>' + fej1 + fej2 + torzs + '</table></body></html>';
+  }
+
+  /* Letöltés + vágólapra másolás (TSV), hogy a régi Excelbe lehessen illeszteni. */
+  function excelBiztonsagiMentes() {
+    var a = S.allapot;
+    if (!(a.jatekosok || []).length) { hiba(sz('excel_nincs_jatekos')); render(); return; }
+    letolt('verseny-mentes-' + (a.beall.datum || '') + '.xls', excelBiztonsagiHtml(), 'application/vnd.ms-excel');
+    ok(sz('excel_mentes_kesz'));
+  }
+
+  function excelVagolap() {
+    var sorok = excelSorok();
+    if (!sorok.length) { hiba(sz('excel_nincs_jatekos')); render(); return; }
+    var tsv = sorok.map(function (sor) {
+      return sor.map(function (v) {
+        var t = (v === null || v === undefined) ? '' : String(v);
+        return t.indexOf('	') >= 0 ? t.replace(/	/g, ' ') : t;
+      }).join('	');
+    }).join('\n');
+    if (global.navigator && global.navigator.clipboard && global.navigator.clipboard.writeText) {
+      global.navigator.clipboard.writeText(tsv).then(function () {
+        ok(sz('excel_vagolap_kesz'));
+      }, function () {
+        hiba(sz('excel_vagolap_hiba'));
+        render();
+      });
+    } else {
+      hiba(sz('excel_vagolap_hiba'));
+      render();
+    }
+  }
+
+  /* ============ Google Sheets folyamatos mentés ======================= */
+  /* A beállításban megadott Apps Script-webalkalmazás címére POST-olunk
+     minden változás után (3 mp késleltetéssel, hogy ne terhelje a hálózatot). */
+  var gsIdozito = null;
+  function gsMent() {
+    var a = S.allapot;
+    if (!a || !a.beall) return;
+    var url = String(a.beall.gsUrl || '').trim();
+    if (!url) return;
+    if (gsIdozito) global.clearTimeout(gsIdozito);
+    gsIdozito = global.setTimeout(function () {
+      gsKuld(url);
+    }, 3000);
+  }
+  function gsKuld(url) {
+    try {
+      if (!global.fetch) { S.gsAllapot = sz('gs_nincs_fetch'); return; }
+      var a = S.allapot;
+      var csomag = {
+        nev: a.beall.nev || a.beall.helyHu || '',
+        hely: a.beall.helyHu || '',
+        datum: a.beall.datum || '',
+        kor: a.korok.length,
+        dijazott: szam(a.beall.dijazott, 0),
+        sorok: excelSorok()
+      };
+      global.fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(csomag)
+      }).then(function () {
+        S.gsAllapot = sz('gs_mentve', { ido: oraPerc2() });
+        gsJel();
+      }, function () {
+        S.gsAllapot = sz('gs_hiba');
+        gsJel();
+      });
+      S.gsAllapot = sz('gs_kuld');
+    } catch (e) {
+      S.gsAllapot = sz('gs_hiba');
+    }
+  }
+  function oraPerc2() {
+    var d = new Date();
+    return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
+  }
+  function gsJel() {
+    var el = global.document && global.document.getElementById
+      ? global.document.getElementById('gs-allapot') : null;
+    if (el) el.textContent = S.gsAllapot || '';
   }
 
   function ig2() { return Math.min(S.allapot.aktualisKor || S.allapot.korok.length || 0, 5); }
@@ -2378,6 +2549,15 @@
       return;
     }
     if (t === 'excel') { excelExport(); render(); return; }
+    if (t === 'excel-bizt') { excelBiztonsagiMentes(); return; }
+    if (t === 'excel-vagolap') { excelVagolap(); return; }
+    if (t === 'gs-most') {
+      var gsUrl2 = String(S.allapot.beall.gsUrl || '').trim();
+      if (!gsUrl2) { hiba(sz('gs_nincs_url')); render(); return; }
+      gsKuld(gsUrl2);
+      render();
+      return;
+    }
     if (t === 'teljes-torles') { S.megerosites = { t: 'torles1' }; render(); return; }
     if (t === 'torles-1-igen') { S.megerosites = { t: 'torles2' }; render(); return; }
     if (t === 'torles-2-igen') {
@@ -2885,7 +3065,10 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.23';
+  V.VERZIO = '1.24';
+  V._excelSorok = function () { return excelSorok(); };
+  V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
+  V._gsKuld = function (url) { return gsKuld(url); };
   V._vetitesMod = function (m) { S.vetites = m; };
   V._excelExport = function () { return excelExport(); };
   V._javaslatJel = function (asztal) { return javaslatJel(asztal); };
