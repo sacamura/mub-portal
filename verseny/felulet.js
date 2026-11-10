@@ -1152,13 +1152,14 @@
         esc(gorgetBe() ? sz('gorget_ki') : sz('gorget_be')) + '</button>' +
         '<span class="sugo">' + esc(sz('gorget_sugo')) + '</span></div>' +
       '<p class="sugo">' + esc(sz('rang_sugo', { sorrend: kulcsok.map(function (k) { return sz('tb_' + k); }).join(' → ') })) + '</p>' +
+      '<div class="rangsor-gorgeto" id="rangsor-gorgeto">' +
       '<table class="tabla rangsor"><thead>' +
         '<tr><th rowspan="2">' + esc(sz('th_hely')) + '</th><th rowspan="2">' + esc(sz('th_nev')) + '</th>' +
           korFej +
           '<th rowspan="2" class="ossz-fej">' + esc(sz('th_ossz_pont')) + '</th>' +
           '<th rowspan="2" class="ossz-fej">' + esc(sz('th_ossz_penz')) + '</th></tr>' +
         '<tr>' + korFej2 + '</tr>' +
-        '</thead><tbody>' + sorok + '</tbody></table>' +
+        '</thead><tbody>' + sorok + '</tbody></table></div>' +
       '</div>';
   }
 
@@ -1363,17 +1364,20 @@
     if (gorgeto) return;
     gorgeto = global.setInterval(function () {
       if (!gorgetBe()) return;
-      if (!global.scrollBy) return;
       if (gorgetSzunet > 0) { gorgetSzunet--; return; }
-      var sz = global.scrollY || global.pageYOffset || 0;
-      var lat = global.innerHeight || 800;
-      var teljes = (global.document && global.document.documentElement)
-        ? (global.document.documentElement.scrollHeight || 0) : 0;
+      /* Csak a RANGSOR TÁBLÁZATÁN belül görgetünk (nem az egész lapot),
+         így a menü és a fejléc helyben marad. */
+      var doboz = (global.document && global.document.getElementById)
+        ? global.document.getElementById('rangsor-gorgeto') : null;
+      if (!doboz) return;
       var b = S.allapot.beall;
       if (b.gorgetIrany === undefined) b.gorgetIrany = 1;
-      if (b.gorgetIrany > 0 && teljes && sz + lat >= teljes - 6) { b.gorgetIrany = -1; gorgetSzunet = 45; return; }
-      if (b.gorgetIrany < 0 && sz <= 6) { b.gorgetIrany = 1; gorgetSzunet = 45; return; }
-      global.scrollBy(0, b.gorgetIrany * 2);
+      var max = (doboz.scrollHeight || 0) - (doboz.clientHeight || 0);
+      if (max <= 2) return;
+      var sz = doboz.scrollTop || 0;
+      if (b.gorgetIrany > 0 && sz >= max - 2) { b.gorgetIrany = -1; gorgetSzunet = 45; return; }
+      if (b.gorgetIrany < 0 && sz <= 2) { b.gorgetIrany = 1; gorgetSzunet = 45; return; }
+      doboz.scrollTop = sz + b.gorgetIrany * 2;
     }, 40);
   }
   /* A kivetített asztalok automatikus méretezése. Az alapméret a képernyő
@@ -2868,7 +2872,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.21';
+  V.VERZIO = '1.22';
   V._vetitesMod = function (m) { S.vetites = m; };
   V._excelExport = function () { return excelExport(); };
   V._javaslatJel = function (asztal) { return javaslatJel(asztal); };
