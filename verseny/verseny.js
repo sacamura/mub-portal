@@ -51,6 +51,7 @@
     weblapJelentkezok: null,  // a weblapról átvett jelentkezők [{nev, kod}]
     weblapVerseny: '',        // a weblapi verseny azonosítója
     lezarva: false,           // a verseny le van zárva
+    dijazott: 0,              // hány helyezett kap ajándékot (0 = nincs)
     feltoltesTiltva: true,    // TESZT FÁZIS: a weblapra feltöltés egyelőre tiltva
     gorget: false,            // automatikus görgetés a rangsor kivetítésénél
     gorgetIrany: 1,           // 1 = lefelé, -1 = felfelé
