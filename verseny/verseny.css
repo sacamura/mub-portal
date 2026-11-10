@@ -809,3 +809,7 @@ tr.dijazott-sor td:first-child{box-shadow:inset 3px 0 0 #c8a13a}
 .vet-dij{font-size:calc(clamp(.62rem,.95vw,1rem) * var(--vet-meret,1));text-align:center}
 .lezar-doboz{background:#fff7f7;border:1.5px solid #e7b7b3;border-radius:10px;padding:12px 14px}
 .lezar-kerdes{margin:0 0 8px;font-weight:700;color:#8c3a34}
+
+/* gs-blokk */
+.gs-blokk{border-top:1px solid #eef2f6;margin-top:12px;padding-top:10px}
+.gs-fej{font-weight:700;font-size:.94rem;color:#43566a;display:flex;align-items:center;gap:4px;margin-bottom:6px}
