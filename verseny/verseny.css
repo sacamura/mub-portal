@@ -800,3 +800,12 @@ table.tabla tbody tr.rang-3 td{font-weight:700}
 /* rangsor-gorgeto */
 .rangsor-gorgeto{max-height:calc(100vh - 330px);overflow:auto;border-radius:10px}
 .rangsor-gorgeto .tabla thead th{position:sticky;top:0;background:#fff;z-index:2}
+
+/* dijazott */
+tr.dijazott-sor td:first-child{box-shadow:inset 3px 0 0 #c8a13a}
+.dij-jel{font-size:.82em;opacity:.85;margin-left:5px;filter:grayscale(.25)}
+.dij-lablec{margin:10px 0 0;padding:7px 12px;background:#fdf8ea;border:1px solid #ecdcb4;border-radius:9px;
+  font-size:.88rem;color:#7a6420;font-weight:600}
+.vet-dij{font-size:calc(clamp(.62rem,.95vw,1rem) * var(--vet-meret,1));text-align:center}
+.lezar-doboz{background:#fff7f7;border:1.5px solid #e7b7b3;border-radius:10px;padding:12px 14px}
+.lezar-kerdes{margin:0 0 8px;font-weight:700;color:#8c3a34}
