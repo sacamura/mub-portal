@@ -1891,6 +1891,9 @@
     if (nyomtatTerulet) nyomtatTerulet.innerHTML = (S.nezet === 'nyomtat' && nyomtatKor()) ? cedulaHtml(nyomtatKor()) : '';
 
     rajzolasFut = false;
+    /* apró verzió-lábjegyzet minden nézeten */
+    var lab = document.getElementById('app-verzio');
+    if (lab) lab.textContent = 'v' + V.VERZIO + ' · ' + sz('verzio_szo');
     if (S.nezet === 'vetites' && S.vetites === 'asztalok') vetitesIlleszt();
     if (S.nezet === 'vetites' && S.vetites === 'nevlista' && S.ujJatekos) {
       var mostSor = document.querySelector ? document.querySelector('.most-sor') : null;
@@ -2862,6 +2865,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
+  V.VERZIO = '1.20';
   V._vetitesMod = function (m) { S.vetites = m; };
   V._excelExport = function () { return excelExport(); };
   V._javaslatJel = function (asztal) { return javaslatJel(asztal); };
