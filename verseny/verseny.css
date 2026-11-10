@@ -786,3 +786,13 @@ tr.rang-3 td{background:#fbeee0}
 /* nyelv-valto-override: a lenyíló menü NE legyen levágva */
 .nyelv-valto{overflow:visible!important}
 .nyelv-lenyilo{overflow:visible!important}
+
+/* rangsor-stripes-2 */
+table.tabla tbody tr.paros-sor td{background:#e8f1f8!important}
+table.tabla tbody tr td{background:#ffffff}
+table.tabla tbody tr.rang-1 td{background:#fff6d8!important}
+table.tabla tbody tr.rang-2 td{background:#eef3f7!important}
+table.tabla tbody tr.rang-3 td{background:#fdeee0!important}
+table.tabla tbody tr.rang-1 td{font-weight:800}
+table.tabla tbody tr.rang-2 td{font-weight:700}
+table.tabla tbody tr.rang-3 td{font-weight:700}
