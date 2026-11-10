@@ -1619,6 +1619,10 @@
       return '<button class="masod-gomb kicsi" data-t="visszaallit" data-kulcs="' + esc(k) + '">' +
         esc(k.replace('mub-verseny-mentes-', '').slice(0, 16).replace('T', ' ')) + '</button>';
     }).join(' ');
+    /* A szekciók nyitottságát megjegyezzük, hogy a csillagozás után ne csukódjanak össze. */
+    function nyitott(kulcs) {
+      return (S.nyitottDetails && S.nyitottDetails[kulcs]) ? ' open' : '';
+    }
     var biztNyit = (S.biztNyitva !== false);
     var tesztKi = M.tesztBetolt();
     var tesztSor = tesztKi
@@ -1646,7 +1650,7 @@
         '</div>' +
         '<div id="hely-tippek" class="hely-tippek"></div>' +
         '<div class="nevezes-sor"><button class="halvany-gomb kicsi" data-t="utolso-beall">' + esc(sz('utolso_gomb')) + '</button></div>' +
-        '<details class="beall-resz"><summary>' + esc(sz('beall_halado')) + '</summary>' +
+        '<details class="beall-resz" data-dk="halado"' + nyitott('halado') + '><summary>' + esc(sz('beall_halado')) + '</summary>' +
           '<div class="beall-racs">' +
             '<label class="beall-mezo kicsi"><span class="mezo-felirat">' + esc(sz('mezo_jatekok')) + sugoIkon('mezo_jatekok_tipp') + '</span>' +
               '<input class="mini-input" data-t="beall" data-mezo="jatekokKoronkent" value="' + esc(b.jatekokKoronkent) + '"></label>' +
@@ -1691,7 +1695,7 @@
 
       /* ---------- Játékosok (törzslista) ---------- */
       '<div class="kartya-blokk">' +
-        '<details class="beall-resz"><summary>' + esc(sz('torzs_cim')) + sugoIkon('torzs_szerk_sugo') +
+        '<details class="beall-resz" data-dk="torzs"' + nyitott('torzs') + '><summary>' + esc(sz('torzs_cim')) + sugoIkon('torzs_szerk_sugo') +
           '<span class="ossz-jel">' + esc(sz('torzs_most', { n: torzsLista().filter(function (x) { return x[2]; }).length })) + '</span>' +
         '</summary>' +
           '<p class="sugo torzs-csillag-sugo">' + esc(sz('torzs_csillag_sugo')) + '</p>' +
@@ -1727,7 +1731,7 @@
 
       /* ---------- Döntetlen sorrendje ---------- */
       '<div class="kartya-blokk">' +
-        '<details class="beall-resz"><summary>' + esc(sz('tiebreak_cim')) + sugoIkon('tiebreak_sugo') + '</summary>' +
+        '<details class="beall-resz" data-dk="tiebreak"' + nyitott('tiebreak') + '><summary>' + esc(sz('tiebreak_cim')) + sugoIkon('tiebreak_sugo') + '</summary>' +
           '<div class="tiebreak">' + (tiebreakSor || '<i>' + esc(sz('tiebreak_nincs')) + '</i>') + '</div>' +
           '<div class="tiebreak-hozzaad">' + marad + '</div>' +
         '</details>' +
@@ -1762,13 +1766,13 @@
         '</div>' +
 
         /* magyarázat – csak ha kéred */
-        '<details class="beall-resz bizt-magyarazat"><summary>' + esc(sz('bizt_hogyan')) + '</summary>' +
+        '<details class="beall-resz bizt-magyarazat" data-dk="hogyan"' + nyitott('hogyan') + '><summary>' + esc(sz('bizt_hogyan')) + '</summary>' +
           '<div class="bizt-szoveg">' + szh('bizt_hogyan_szoveg') + '</div>' +
           '<p class="sugo">' + szh('excel_bizt_sugo') + '</p>' +
         '</details>' +
 
         /* 3. fájl */
-        '<details class="beall-resz"><summary>' + esc(sz('bizt_fajl')) + '</summary>' +
+        '<details class="beall-resz" data-dk="fajl"' + nyitott('fajl') + '><summary>' + esc(sz('bizt_fajl')) + '</summary>' +
           '<div class="nevezes-sor">' +
             '<button class="masod-gomb" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
             '<button class="masod-gomb" data-t="import">' + esc(sz('import_gomb')) + '</button>' +
@@ -1779,7 +1783,7 @@
         '</details>' +
 
         /* 4. Google Sheets */
-        '<details class="beall-resz"><summary>' + esc(sz('bizt_gs')) + sugoIkon('gs_sugo') + '</summary>' +
+        '<details class="beall-resz" data-dk="gs"' + nyitott('gs') + '><summary>' + esc(sz('bizt_gs')) + sugoIkon('gs_sugo') + '</summary>' +
           '<label class="beall-mezo szeles"><span class="mezo-felirat">' + esc(sz('gs_url')) + '</span>' +
             '<input data-t="beall" data-mezo="gsUrl" value="' + esc(b.gsUrl || '') + '" placeholder="https://script.google.com/macros/s/…/exec"></label>' +
           '<div class="nevezes-sor">' +
@@ -1791,7 +1795,7 @@
         '</details>' +
 
         /* 5. teszt és törlés */
-        '<details class="beall-resz bizt-veszely"><summary>' + esc(sz('bizt_teszt')) + sugoIkon('teszt_sugo') + '</summary>' +
+        '<details class="beall-resz bizt-veszely" data-dk="teszt"' + nyitott('teszt') + '><summary>' + esc(sz('bizt_teszt')) + sugoIkon('teszt_sugo') + '</summary>' +
           '<div class="teszt-doboz">' +
             tesztSor +
             (b.kezdesKesz ? '<button class="halvany-gomb kicsi" data-t="kezdes-mutat" style="margin-top:8px">' + esc(sz('kezdes_vissza')) + '</button>' : '') +
@@ -3227,6 +3231,15 @@
       else if (e.target.getAttribute && e.target.getAttribute('data-t') === 'kod') kodModosit(e.target);
       else bevitel(e);
     });
+    /* a lenyíló szekciók állapotának megjegyzése (ne csukódjanak be újrarajzoláskor) */
+    document.addEventListener('toggle', function (e) {
+      var el = e.target;
+      if (!el || !el.getAttribute) return;
+      var k = el.getAttribute('data-dk');
+      if (!k) return;
+      S.nyitottDetails = S.nyitottDetails || {};
+      S.nyitottDetails[k] = !!el.open;
+    }, true);
     document.addEventListener('keydown', gombok);
 
     /* Ha átméretezik az ablakot (vagy a kivetítő más felbontású), újraszámoljuk. */
@@ -3296,7 +3309,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.30';
+  V.VERZIO = '1.31';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
@@ -3304,6 +3317,7 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._excelExport = function () { return excelExport(); };
   V._javaslatJel = function (asztal) { return javaslatJel(asztal); };
   V._jatekosFelvesz = function (id, nev, k) { return jatekosFelvesz(id, nev, k); };
+  V._nyitottBeallit = function (k, v) { S.nyitottDetails = S.nyitottDetails || {}; S.nyitottDetails[k] = !!v; };
   V._penzJavaslat = function (asztal) { return penzJavaslat(asztal); };
 
   V._ujJatekosBeall = function (id) { S.ujJatekos = id; };
