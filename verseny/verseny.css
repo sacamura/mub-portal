@@ -565,3 +565,94 @@
   body.popup-mod .ora-vezerlok .mini-input{background:#fff;color:#111}
   body.popup-mod .ora-vissza:hover,
   body.popup-mod .vetites-valto .nav-gomb:hover{background:rgba(255,255,255,.24)}
+
+/* ===== design 2026 ===== */
+/* egységes, visszafogott gombok */
+.fo-gomb{padding:10px 18px;font-size:.97rem;font-weight:700;border-radius:10px;
+  box-shadow:0 1px 2px rgba(16,24,40,.06)}
+.masod-gomb{padding:9px 14px;font-size:.95rem;border-radius:10px}
+.fo-gomb.kicsi,.masod-gomb.kicsi,.halvany-gomb.kicsi{padding:6px 11px;font-size:.89rem}
+.halvany-gomb.kicsi{padding:6px 11px;font-size:.89rem}
+
+/* kártyák: levegősebb, világosabb */
+.kartya-blokk{border-radius:14px;padding:18px 20px;box-shadow:0 1px 2px rgba(16,24,40,.05);
+  margin-bottom:14px}
+.kartya-blokk h2{font-size:1.1rem;margin:0 0 12px;display:flex;align-items:center;gap:4px;
+  flex-wrap:wrap}
+.kartya-blokk h3{font-size:1rem;margin:14px 0 8px}
+.sugo{font-size:.87rem;line-height:1.45;color:#7b8a9c;margin:6px 0 8px}
+.figyelem{font-size:.87rem}
+
+/* --- választó chipek (a nagy zöld gombok helyett) --- */
+.valaszto-sor{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 4px}
+.valaszto-gomb{background:#fff;border:1.6px solid #dde4ec;border-radius:999px;padding:8px 18px;
+  font-size:.96rem;font-weight:700;color:#46586a;cursor:pointer;transition:.15s;line-height:1.1}
+.valaszto-gomb:hover{border-color:#9fc3ae;background:#f6fbf7}
+.valaszto-gomb.aktiv{background:#e9f5fd;border-color:#8fb9d6;color:#1c5f86}
+body.tema-zold .valaszto-gomb.aktiv{background:#e8f5ec;border-color:#7bbd92;color:#1f7a44}
+.beall-inline{flex-direction:row;align-items:center;gap:8px}
+
+/* --- beállítás: rács --- */
+.beall-racs{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:12px 16px;align-items:end;margin-bottom:4px}
+.beall-mezo{display:flex;flex-direction:column;gap:5px;font-size:.83rem;font-weight:700;
+  letter-spacing:.01em;color:#6b7d90;text-transform:none}
+.beall-mezo input{font-family:inherit;font-size:.97rem;font-weight:500;color:var(--szoveg);
+  padding:9px 11px;border:1px solid #dde4ec;border-radius:9px;background:#fff;width:100%;
+  box-sizing:border-box}
+.beall-mezo input:focus{outline:none;border-color:#7bbd92;box-shadow:0 0 0 3px rgba(31,122,68,.10)}
+.beall-mezo.kicsi input{max-width:110px}
+.beall-mezo.szeles{grid-column:1/-1}
+
+/* --- összecsukható részek --- */
+details.beall-resz{margin:12px 0 0;border-top:1px solid #eef2f6;padding-top:10px}
+details.beall-resz>summary{cursor:pointer;list-style:none;font-weight:700;font-size:.94rem;
+  color:#43566a;display:flex;align-items:center;gap:7px;padding:2px 0;user-select:none}
+details.beall-resz>summary::-webkit-details-marker{display:none}
+details.beall-resz>summary::before{content:'▸';color:#93a5b6;font-size:.9rem;transition:.15s}
+details.beall-resz[open]>summary::before{content:'▾'}
+details.beall-resz>summary:hover{color:var(--zold)}
+.ossz-jel{margin-left:auto;font-weight:600;font-size:.82rem;color:#93a5b6}
+
+/* --- súgó buborék --- */
+.sugo-ikon{display:inline-flex;width:17px;height:17px;border-radius:50%;background:#e9eef5;
+  color:#5b6e83;font-size:.72rem;font-weight:800;align-items:center;justify-content:center;
+  cursor:help;position:relative;flex:0 0 auto;user-select:none}
+.sugo-ikon:hover,.sugo-ikon:focus{background:var(--zold);color:#fff;outline:none}
+.sugo-ikon::after{content:attr(data-sugo);position:absolute;left:50%;bottom:calc(100% + 9px);
+  transform:translateX(-50%) translateY(4px);background:#22303d;color:#fff;font-size:.83rem;
+  font-weight:500;line-height:1.4;padding:9px 12px;border-radius:9px;width:max-content;
+  max-width:330px;white-space:normal;text-align:left;box-shadow:0 8px 24px rgba(15,25,35,.28);
+  opacity:0;pointer-events:none;transition:.15s;z-index:200}
+.sugo-ikon::before{content:'';position:absolute;left:50%;bottom:calc(100% + 3px);transform:translateX(-50%);
+  border:6px solid transparent;border-top-color:#22303d;opacity:0;transition:.15s;z-index:200}
+.sugo-ikon:hover::after,.sugo-ikon:focus::after,
+.sugo-ikon:hover::before,.sugo-ikon:focus::before{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* --- mentés + teszt doboz --- */
+.mentes-sor{font-size:.85rem;color:#7b8a9c;margin:8px 0 0;display:flex;gap:6px;flex-wrap:wrap;
+  align-items:center}
+.teszt-doboz{margin-top:14px;border-top:1px dashed #e2e8ee;padding-top:12px}
+.teszt-fej{font-weight:700;font-size:.95rem;color:#43566a;display:flex;align-items:center;gap:4px}
+.teszt-sor{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:.9rem;
+  color:#6b7d90;margin-top:8px}
+.teszt-jel{color:#c58a00;font-size:.75rem}
+.teszt-jel.halvany{color:#b9c5d1}
+.veszely-sor{margin:12px 0 0}
+.halvany-gomb.veszely{color:#b23c3c;border-color:#efd5d5}
+.halvany-gomb.veszely:hover{background:#fdf3f3}
+
+/* --- beállítás: a címke és a súgó ikon egy sorban --- */
+.mezo-felirat{display:inline-flex;align-items:center;gap:5px;line-height:1.2}
+.beall-mezo.kicsi.beall-inline{align-items:center;flex-direction:row}
+.beall-mezo.kicsi.beall-inline .mezo-felirat{white-space:nowrap}
+
+/* kezdo-valasz-2 */
+.kezdo-valasz{display:flex;flex-direction:column;gap:2px;margin:14px 0 4px}
+.kezdo-valasz .kezdo-kerdes{margin:8px 0 6px}
+.kezdo-valasz .kezdo-kerdes:first-child{margin-top:0}
+.kezdo-valasz .valaszto-sor{margin:0}
+
+/* aktiv-asztal-szin */
+.asztal-gomb.aktiv{color:#fff;font-weight:800}
+.asztal-gomb.aktiv .pip{color:#fff}
