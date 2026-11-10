@@ -1619,6 +1619,7 @@
       return '<button class="masod-gomb kicsi" data-t="visszaallit" data-kulcs="' + esc(k) + '">' +
         esc(k.replace('mub-verseny-mentes-', '').slice(0, 16).replace('T', ' ')) + '</button>';
     }).join(' ');
+    var biztNyit = (S.biztNyitva !== false);
     var tesztKi = M.tesztBetolt();
     var tesztSor = tesztKi
       ? '<div class="teszt-sor"><span class="teszt-jel">●</span> ' + esc(sz('teszt_van')) +
@@ -1693,6 +1694,7 @@
         '<details class="beall-resz"><summary>' + esc(sz('torzs_cim')) + sugoIkon('torzs_szerk_sugo') +
           '<span class="ossz-jel">' + esc(sz('torzs_most', { n: torzsLista().filter(function (x) { return x[2]; }).length })) + '</span>' +
         '</summary>' +
+          '<p class="sugo torzs-csillag-sugo">' + esc(sz('torzs_csillag_sugo')) + '</p>' +
           '<div class="torzs-uj nevezes-sor">' +
             '<input id="torzs-uj-kod" class="mini-input" placeholder="' + esc(sz('th_kod')) + '">' +
             '<input id="torzs-uj-nev" class="kozepes-input" placeholder="' + esc(sz('th_nev')) + '">' +
@@ -1733,7 +1735,10 @@
 
       /* ---------- Biztonsági mentés (egy közös panel) ---------- */
       '<div class="kartya-blokk">' +
-        '<h2>' + esc(sz('mentes_bizt_cim')) + sugoIkon('mentes_bizt_sugo') + '</h2>' +
+        '<h2><button class="kartya-fej-gomb" data-t="bizt-nyit">' +
+          '<span class="kartya-nyil">' + (biztNyit ? '▾' : '▸') + '</span>' +
+          esc(sz('mentes_bizt_cim')) + '</button>' + sugoIkon('mentes_bizt_sugo') + '</h2>' +
+        '<div class="bizt-torzs' + (biztNyit ? '' : ' bizt-rejtve') + '">' +
         '<p class="sugo bizt-vezeto">' + szh('bizt_vezeto') + '</p>' +
 
         /* 1. felhő */
@@ -1742,8 +1747,9 @@
           '<div class="nevezes-sor">' +
             '<button class="fo-gomb" data-t="felho-ment">' + esc(sz('felho_gomb')) + '</button>' +
             '<button class="masod-gomb" data-t="felho-vissza">' + esc(sz('felho_vissza_gomb')) + '</button>' +
-            '<span class="sugo">' + esc(sz('felho_sugo_rovid')) + '</span>' +
           '</div>' +
+          '<p id="felho-allapot" class="felho-allapot' + (S.felhoTipus ? ' ' + S.felhoTipus : '') + '">' + esc(S.felhoAllapot || '') + '</p>' +
+          '<p class="sugo">' + esc(sz('felho_sugo_rovid')) + '</p>' +
         '</div>' +
 
         /* 2. Excel */
@@ -1796,6 +1802,7 @@
               ? megerositesSav(sz('teszt_kerdes2'), 'torles-2-igen', 'megerosites-nem')
               : '<p class="veszely-sor"><button class="halvany-gomb kicsi veszely" data-t="teljes-torles">' + esc(sz('teszt_gomb')) + '</button></p>')) +
         '</details>' +
+        '</div>' +
       '</div>' +
 
       /* ---------- weblap-feltöltés állapot ---------- */
@@ -1922,15 +1929,33 @@
      B = kártyakód, C = játékoskód, D = név,
      E–N = körönként (€, pont), O = Σ€, P = Σpont. */
   /* Teljes állapot a felhőbe (Firestore) – automatikus biztonsági mentés. */
+  function felhoJel(szoveg, tipus) {
+    S.felhoAllapot = szoveg || '';
+    S.felhoTipus = tipus || '';
+    var el = global.document && global.document.getElementById
+      ? global.document.getElementById('felho-allapot') : null;
+    if (el) { el.textContent = S.felhoAllapot; el.className = 'felho-allapot' + (tipus ? ' ' + tipus : ''); }
+  }
+
   function felhoMentes(csendes) {
     var a = S.allapot;
-    if (!a.esemenyId) { if (!csendes) { hiba(sz('felho_nincs_esemeny')); render(); } return; }
-    if (!global.BEKULDES || !global.BEKULDES.mentesMent) { if (!csendes) { hiba(sz('felho_hiba')); render(); } return; }
-    global.BEKULDES.mentesMent(a.esemenyId, { nev: a.beall.nev || '', datum: a.beall.datum || '', teljes: JSON.stringify(a) }, function (h) {
-      if (h) { if (!csendes) { hiba(sz('felho_hiba')); render(); } return; }
-      if (!csendes) { ok(sz('felho_kesz')); render(); }
-      else S.felhoIdo = Date.now();
-    });
+    if (!a.esemenyId) {
+      if (!csendes) { felhoJel(sz('felho_nincs_esemeny'), 'hiba'); hiba(sz('felho_nincs_esemeny')); render(); }
+      return;
+    }
+    if (!global.BEKULDES || !global.BEKULDES.mentesMent) {
+      if (!csendes) { felhoJel(sz('felho_hiba'), 'hiba'); hiba(sz('felho_hiba')); render(); }
+      return;
+    }
+    if (!csendes) felhoJel(sz('felho_kuld'), 'folyamat');
+    try { global.BEKULDES.mentesMent(a.esemenyId, { nev: a.beall.nev || '', datum: a.beall.datum || '', teljes: JSON.stringify(a) }, function (h) {
+      if (h) {
+        if (!csendes) { felhoJel(sz('felho_hiba'), 'hiba'); hiba(sz('felho_hiba')); render(); }
+        return;
+      }
+      S.felhoIdo = Date.now();
+      if (!csendes) { felhoJel(sz('felho_mentve', { ido: oraPerc2() }), 'ok'); ok(sz('felho_kesz')); render(); }
+    }); } catch (e) { if (!csendes) { felhoJel(sz('felho_hiba'), 'hiba'); } return; }
   }
 
   function felhoVissza() {
@@ -2714,6 +2739,7 @@
       return;
     }
     if (t === 'elo-feltolt') { eloFeltolt(); return; }
+    if (t === 'bizt-nyit') { S.biztNyitva = (S.biztNyitva === false); render(); return; }
     if (t === 'felho-ment') { felhoMentes(false); return; }
     if (t === 'felho-vissza') {
       if (!global.confirm || global.confirm(sz('felho_kerdes'))) felhoVissza();
@@ -3270,7 +3296,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.29';
+  V.VERZIO = '1.30';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
