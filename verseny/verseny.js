@@ -33,7 +33,7 @@
     sorsolasSeed: 1,          // ebből számol a sorsolás (visszakereshető!)
     tiebreak: 'pont,penz,otos,legjobbKor,kod',
     pontAuto: true,           // a pontot a pénz sorrendjéből számolja
-    kiemeltVedelem: true,     // az 1. körben a kiemeltek külön asztalra kerülnek
+    kiemeltVedelem: false,    // alapból a kiemeltek is ülhetnek együtt (a régi, teljesen véletlen sorsolás)
     nyelv: 'hu',              // a kezelő felület nyelve (alapból magyar)
     nyelvKivetites: 'mind',   // a kivetített/nyomtatott felületek nyelve (alapból magyar + szlovák)
     negyFosHely: 'vegen',     // a 4 fős asztal(ok) helye: vegen | elol | szetszorva
