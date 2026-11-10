@@ -357,27 +357,28 @@
           : sz('asztal_elosztas', { t: caps.length, a: caps.length - negyDb, alap: alapltSzam, b: negyDb, nagy: alapltSzam + 1 })))
       : '';
 
-    /* Nyelv: két kis zászló, rákattintva lenyílik a választás.
-       A zászló a jelenlegi beállítást mutatja. */
+    /* Nyelv: EGY kis zászló a fejlécben. Rákattintva lenyílik a menü, ahol
+       külön beállítható a kezelő (rendszer) és a kivetítés (megjelenítő) nyelve. */
     function zaszlo(mod) {
       if (mod === 'sk') return '<span class="zaszlo zaszlo-sk" aria-hidden="true"></span>';
       if (mod === 'hu') return '<span class="zaszlo zaszlo-hu" aria-hidden="true"></span>';
       return '<span class="zaszlo zaszlo-hu"></span><span class="zaszlo zaszlo-sk"></span>';
     }
-    function nyelvSor(mezo, ertek, tipus) {
-      var rovid = { hu: 'HU', sk: 'SK', mind: 'HU+SK' };
-      return '<details class="nyelv-lenyilo"><summary title="' + esc(sz(tipus)) + '">' +
-          zaszlo(ertek) + '<b>' + esc(rovid[ertek] || 'HU') + '</b></summary>' +
-        '<div class="nyelv-opciok">' +
-          ['hu', 'sk', 'mind'].map(function (mod) {
-            return '<button class="nyelv-opcio' + (ertek === mod ? ' aktiv' : '') + '" data-t="nyelv" data-mezo="' + mezo + '" data-mod="' + mod + '">' +
-              zaszlo(mod) + '<span>' + (mod === 'mind' ? 'HU + SK' : rovd(mod)) + '</span></button>';
-          }).join('') +
-        '</div></details>';
+    function nyelvGombsor(mezo, ertek) {
+      return ['hu', 'sk', 'mind'].map(function (mod) {
+        var cimke = mod === 'mind' ? 'HU+SK' : mod.toUpperCase();
+        return '<button class="nyelv-gomb' + (ertek === mod ? ' aktiv' : '') + '" data-t="nyelv" data-mezo="' + mezo + '" data-mod="' + mod + '">' + cimke + '</button>';
+      }).join('');
     }
-    function rovd(mod) { return mod === 'hu' ? 'Magyar' : (mod === 'sk' ? 'Slovenčina' : 'HU + SK'); }
-    var nyelvGombok = nyelvSor('nyelv', a.beall.nyelv, 'nyelv_kezelo') +
-      nyelvSor('nyelvKivetites', a.beall.nyelvKivetites, 'nyelv_kivetites');
+    var nyelvGombok = '<details class="nyelv-lenyilo">' +
+        '<summary title="' + esc(sz('nyelv')) + '">' + zaszlo(a.beall.nyelv) + '<i class="nyelv-nyil">▾</i></summary>' +
+        '<div class="nyelv-opciok">' +
+          '<div class="nyelv-csoport"><span class="nyelv-cim">' + esc(sz('nyelv_kezelo')) + '</span>' +
+            '<div class="nyelv-gombok">' + nyelvGombsor('nyelv', a.beall.nyelv) + '</div></div>' +
+          '<div class="nyelv-csoport"><span class="nyelv-cim">' + esc(sz('nyelv_kivetites')) + '</span>' +
+            '<div class="nyelv-gombok">' + nyelvGombsor('nyelvKivetites', a.beall.nyelvKivetites) + '</div></div>' +
+        '</div></details>';
+    /* a nyelvGombok már fentebb elkészült */
 
     return '' +
       '<header class="fej">' +
