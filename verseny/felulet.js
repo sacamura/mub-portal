@@ -66,6 +66,17 @@
   function mentes() {
     if (!Tarolo.ment(S.allapot)) hiba(sz('mentes_hiba'));
     try { gsMent(); } catch (e) { }
+    /* a legutóbbi verseny beállításai – „Ugyanaz mint legutóbb" gombhoz */
+    try {
+      var b2 = S.allapot.beall;
+      S.utolsoBeallitas = {
+        helyHu: b2.helyHu, helySk: b2.helySk, korok: b2.korok,
+        asztalLetszam: b2.asztalLetszam, jatekmod: b2.jatekmod,
+        helycsereKorok: b2.helycsereKorok, kiemeltVedelem: b2.kiemeltVedelem,
+        jatekokKoronkent: b2.jatekokKoronkent, penzJatekonkent: b2.penzJatekonkent
+      };
+      global.localStorage.setItem('mub-verseny-utolso-beall', JSON.stringify(S.utolsoBeallitas));
+    } catch (e) { }
   }
 
   function jatekos(id) {
@@ -1156,6 +1167,7 @@
             '</div>'
           : '<button class="masod-gomb kicsi veszely-gomb" data-t="lezar-ker">' + esc(sz('lezar_gomb')) + '</button>') +
         '<button class="masod-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
+        '<button class="masod-gomb kicsi" data-t="elo-feltolt" title="' + esc(sz('elo_tipp')) + '">' + esc(sz('elo_gomb')) + '</button>' +
                 '<span class="sugo">' + esc(sz('lezar_sugo')) + '</span>') +
           '</div>') +
       '<div class="nevezes-sor"><button class="' + (gorgetBe() ? 'fo-gomb' : 'masod-gomb') + ' kicsi" data-t="gorget">' +
@@ -1632,6 +1644,7 @@
             '<input class="mini-input" data-t="beall" data-mezo="asztalLetszam" value="' + esc(b.asztalLetszam) + '"></label>' +
         '</div>' +
         '<div id="hely-tippek" class="hely-tippek"></div>' +
+        '<div class="nevezes-sor"><button class="halvany-gomb kicsi" data-t="utolso-beall">' + esc(sz('utolso_gomb')) + '</button></div>' +
         '<details class="beall-resz"><summary>' + esc(sz('beall_halado')) + '</summary>' +
           '<div class="beall-racs">' +
             '<label class="beall-mezo kicsi"><span class="mezo-felirat">' + esc(sz('mezo_jatekok')) + sugoIkon('mezo_jatekok_tipp') + '</span>' +
@@ -1728,6 +1741,7 @@
             '<input data-t="beall" data-mezo="gsUrl" value="' + esc(b.gsUrl || '') + '" placeholder="https://script.google.com/macros/s/…/exec"></label>' +
           '<div class="nevezes-sor">' +
             '<button class="masod-gomb kicsi" data-t="gs-most">' + esc(sz('gs_most')) + '</button>' +
+            '<button class="masod-gomb kicsi" data-t="gs-vissza">' + esc(sz('gs_vissza_gomb')) + '</button>' +
             '<span id="gs-allapot" class="sugo">' + esc(S.gsAllapot || '') + '</span>' +
           '</div>' +
           '<p class="sugo">' + szh('gs_sugo') + '</p>' +
@@ -1868,7 +1882,9 @@
       fej1 + fej2 + torzs +
       '</table></body></html>';
 
-    letolt('verseny-eredmenyek-' + (a.beall.datum || '') + '.xls', html, 'application/vnd.ms-excel');
+    var fnNev = (a.beall.helyHu || a.beall.hely || 'verseny').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    letolt('eredmeny-' + fnNev + '-' + (a.beall.datum || '') + '.xls', html, 'application/vnd.ms-excel');
     ok(sz('excel_kesz'));
   }
 
@@ -1876,6 +1892,33 @@
   /* A megszokott „Szerkesztes" lap szerkezete:
      B = kártyakód, C = játékoskód, D = név,
      E–N = körönként (€, pont), O = Σ€, P = Σpont. */
+  /* Élő állás feltöltése a weblapra (a verseny napján mutatja). */
+  function eloFeltolt() {
+    var a = S.allapot;
+    if (!a.korok.length) { hiba(sz('elo_nincs_kor')); render(); return; }
+    if (!a.esemenyId) { hiba(sz('elo_nincs_esemeny')); render(); return; }
+    var lista = V.Motor.rangsor(a, a.aktualisKor || a.korok.length);
+    var sorok = lista.map(function (p, i) {
+      return { h: i + 1, nev: p.nev, pont: p.pont, penz: Math.round(p.penz * 100) / 100, kod: String(p.id) };
+    });
+    var csomag = {
+      nev: a.beall.nev || a.beall.helyHu || '',
+      hely: a.beall.helyHu || '',
+      datum: a.beall.datum || '',
+      kor: a.korok.length,
+      dijazott: szam(a.beall.dijazott, 0),
+      sorok: sorok
+    };
+    if (!global.BEKULDES || !global.BEKULDES.eloMent) { hiba(sz('elo_hiba')); render(); return; }
+    ok(sz('elo_kuld'));
+    global.BEKULDES.eloMent(a.esemenyId, csomag, function (h) {
+      if (h) { hiba(sz('elo_hiba')); render(); return; }
+      V.Tarolo.ment(a);
+      render();
+      ok(sz('elo_kesz'));
+    });
+  }
+
   function excelSorok() {
     var a = S.allapot;
     var korDb = a.korok.length;
@@ -1945,7 +1988,9 @@
   function excelBiztonsagiMentes() {
     var a = S.allapot;
     if (!(a.jatekosok || []).length) { hiba(sz('excel_nincs_jatekos')); render(); return; }
-    letolt('verseny-mentes-' + (a.beall.datum || '') + '.xls', excelBiztonsagiHtml(), 'application/vnd.ms-excel');
+    var fNev = (a.beall.helyHu || a.beall.hely || 'verseny').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    letolt('mentes-' + fNev + '-' + (a.beall.datum || '') + '.xls', excelBiztonsagiHtml(), 'application/vnd.ms-excel');
     ok(sz('excel_mentes_kesz'));
   }
 
@@ -1995,7 +2040,9 @@
         datum: a.beall.datum || '',
         kor: a.korok.length,
         dijazott: szam(a.beall.dijazott, 0),
-        sorok: excelSorok()
+        sorok: excelSorok(),
+        /* a TELJES állapot, hogy másik gépen vissza lehessen tölteni */
+        teljes: JSON.stringify(a)
       };
       global.fetch(url, {
         method: 'POST',
@@ -2014,6 +2061,35 @@
       S.gsAllapot = sz('gs_hiba');
     }
   }
+  /* Visszatöltés a Google-táblázatból (ha a gép megadta magát). */
+  function gsVissza(url) {
+    return new Promise(function (resolve) {
+      try {
+        if (!global.fetch) { hiba(sz('gs_nincs_fetch')); render(); return resolve(false); }
+        global.fetch(url, { method: 'GET' }).then(function (r) {
+          return r.text();
+        }).then(function (t) {
+          var a2 = null;
+          try { a2 = JSON.parse(t); } catch (e) { a2 = null; }
+          if (!a2 || !a2.beall) { hiba(sz('gs_vissza_hiba')); render(); return resolve(false); }
+          S.allapot = a2;
+          mentes();
+          render();
+          ok(sz('gs_vissza_kesz'));
+          resolve(true);
+        }).catch(function () {
+          hiba(sz('gs_vissza_hiba'));
+          render();
+          resolve(false);
+        });
+      } catch (e) {
+        hiba(sz('gs_vissza_hiba'));
+        render();
+        resolve(false);
+      }
+    });
+  }
+
   function oraPerc2() {
     var d = new Date();
     return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2);
@@ -2494,6 +2570,9 @@
       var elotteKor = S.allapot.korok.length;
       kovetkezoKor();
       if (S.allapot.korok.length > elotteKor) {
+        /* biztonsági mentés MAGÁTÓL: Google Sheets + helyi pillanatkép */
+        try { V.Tarolo.biztonsagiMentes(S.allapot); } catch (e) { }
+        try { if (S.allapot.beall.gsUrl) gsKuld(S.allapot.beall.gsUrl); } catch (e) { }
         S.nezet = 'vetites';
         S.vetites = 'asztalok';
         S.asztal = 1;
@@ -2548,9 +2627,26 @@
       ok(sz('teszt_vissza_kesz'));
       return;
     }
+    if (t === 'elo-feltolt') { eloFeltolt(); return; }
     if (t === 'excel') { excelExport(); render(); return; }
+    if (t === 'utolso-beall') {
+      var ub = null;
+      try { ub = JSON.parse(global.localStorage.getItem('mub-verseny-utolso-beall') || 'null'); } catch (e) { }
+      if (!ub) { hiba(sz('nincs_utolso')); render(); return; }
+      Object.keys(ub).forEach(function (k) { if (ub[k] !== undefined && ub[k] !== null) S.allapot.beall[k] = ub[k]; });
+      S.allapot.beall.nev = S.allapot.beall.helyHu || S.allapot.beall.nev;
+      mentes(); render();
+      ok(sz('utolso_kesz'));
+      return;
+    }
     if (t === 'excel-bizt') { excelBiztonsagiMentes(); return; }
     if (t === 'excel-vagolap') { excelVagolap(); return; }
+    if (t === 'gs-vissza') {
+      var urlV = String(S.allapot.beall.gsUrl || '').trim();
+      if (!urlV) { hiba(sz('gs_nincs_url')); render(); return; }
+      if (!global.confirm || global.confirm(sz('gs_vissza_kerdes'))) gsVissza(urlV);
+      return;
+    }
     if (t === 'gs-most') {
       var gsUrl2 = String(S.allapot.beall.gsUrl || '').trim();
       if (!gsUrl2) { hiba(sz('gs_nincs_url')); render(); return; }
@@ -3065,7 +3161,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.24';
+  V.VERZIO = '1.25';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
