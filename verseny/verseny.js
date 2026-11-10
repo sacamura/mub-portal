@@ -547,18 +547,15 @@
       ['Nagykapos', 'Veľké Kapušany'],
       ['Királyhelmec', 'Kráľovský Chlmec'],
       ['Bodrogszerdahely', 'Streda nad Bodrogom'],
-      ['Ruszka', 'Ruská'],
+      ['Dobóruszka', 'Ruská', 'Ruszka'],
       ['Kisgéres', 'Malý Horeš'],
-      ['Nagyszelmenc', 'Veľké Slemence'],
-      ['Szelmenc', 'Slemence'],
+      ['Nagyszelmenc', 'Veľké Slemence', 'Szelmenc'],
       ['Csicser', 'Čičarovce'],
       ['Zétény', 'Zatín'],
       ['Parchovany', 'Parchovany'],
-      ['Kelecseny', ''],
-      ['Véke', ''],
-      ['Dobóruszka', ''],
-      ['Szőlőske', ''],
-      ['Kaposkelecsény', '']
+      ['Kaposkelecsény', 'Kapušianske Kľačany', 'Kelecseny'],
+      ['Véke', 'Vojka'],
+      ['Szőlőske', 'Viničky']
     ],
 
     /* Név-egyeztető kulcs: ékezet és kis/nagybetű nem számít. */
