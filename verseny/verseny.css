@@ -824,3 +824,10 @@ tr.dijazott-sor td:first-child{box-shadow:inset 3px 0 0 #c8a13a}
   border-radius:9px;padding:10px 12px;margin:6px 0}
 .bizt-veszely>summary{color:#a2564f}
 .bizt-veszely[open]>summary{color:#b3261e}
+
+/* csillag-gomb */
+.csillag-gomb{background:none;border:none;cursor:pointer;font-size:1.05rem;line-height:1;
+  color:#c8d2dc;padding:2px 4px;border-radius:5px;flex:0 0 auto}
+.csillag-gomb:hover{background:#eef4f9;color:#e0a800}
+.csillag-gomb.be{color:#e0a800}
+torzs-lista .csillag-gomb{margin-right:2px}
