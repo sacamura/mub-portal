@@ -796,3 +796,7 @@ table.tabla tbody tr.rang-3 td{background:#fdeee0!important}
 table.tabla tbody tr.rang-1 td{font-weight:800}
 table.tabla tbody tr.rang-2 td{font-weight:700}
 table.tabla tbody tr.rang-3 td{font-weight:700}
+
+/* rangsor-gorgeto */
+.rangsor-gorgeto{max-height:calc(100vh - 330px);overflow:auto;border-radius:10px}
+.rangsor-gorgeto .tabla thead th{position:sticky;top:0;background:#fff;z-index:2}
