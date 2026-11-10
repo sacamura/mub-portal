@@ -370,14 +370,18 @@
         return '<button class="nyelv-gomb' + (ertek === mod ? ' aktiv' : '') + '" data-t="nyelv" data-mezo="' + mezo + '" data-mod="' + mod + '">' + cimke + '</button>';
       }).join('');
     }
-    var nyelvGombok = '<details class="nyelv-lenyilo">' +
-        '<summary title="' + esc(sz('nyelv')) + '">' + zaszlo(a.beall.nyelv) + '<i class="nyelv-nyil">▾</i></summary>' +
-        '<div class="nyelv-opciok">' +
-          '<div class="nyelv-csoport"><span class="nyelv-cim">' + esc(sz('nyelv_kezelo')) + '</span>' +
-            '<div class="nyelv-gombok">' + nyelvGombsor('nyelv', a.beall.nyelv) + '</div></div>' +
-          '<div class="nyelv-csoport"><span class="nyelv-cim">' + esc(sz('nyelv_kivetites')) + '</span>' +
-            '<div class="nyelv-gombok">' + nyelvGombsor('nyelvKivetites', a.beall.nyelvKivetites) + '</div></div>' +
-        '</div></details>';
+    var nyelvGombok = '<div class="nyelv-lenyilo">' +
+        '<button class="nyelv-fej' + (S.nyelvNyitva ? ' nyitva' : '') + '" data-t="nyelv-nyit" title="' + esc(sz('nyelv')) + '">' +
+          zaszlo(a.beall.nyelv) + '<i class="nyelv-nyil">▾</i></button>' +
+        (S.nyelvNyitva
+          ? '<div class="nyelv-opciok">' +
+              '<div class="nyelv-csoport"><span class="nyelv-cim">' + esc(sz('nyelv_kezelo')) + '</span>' +
+                '<div class="nyelv-gombok">' + nyelvGombsor('nyelv', a.beall.nyelv) + '</div></div>' +
+              '<div class="nyelv-csoport"><span class="nyelv-cim">' + esc(sz('nyelv_kivetites')) + '</span>' +
+                '<div class="nyelv-gombok">' + nyelvGombsor('nyelvKivetites', a.beall.nyelvKivetites) + '</div></div>' +
+            '</div>'
+          : '') +
+        '</div>';
     /* a nyelvGombok már fentebb elkészült */
 
     return '' +
@@ -1105,7 +1109,8 @@
         var kr = s.korok.filter(function (x) { return x.kor === k2 + 1; })[0];
         korok += '<td class="szam">' + (kr ? kr.pont : '·') + '</td><td class="szam halvany">' + (kr ? penz(kr.penz) : '·') + '</td>';
       }
-      return '<tr class="' + (s.kiemelt ? 'kiemelt-sor ' : '') + 'rang-' + Math.min(3, s.hely) + '">' +
+      return '<tr class="' + (s.kiemelt ? 'kiemelt-sor ' : '') + 'rang-' + Math.min(3, s.hely) +
+        (i % 2 ? ' paros-sor' : '') + '">' +
         '<td class="szam nagy">' + s.hely + '.</td>' +
         '<td>' + esc(s.nev) + (s.kiemelt ? ' <span class="cimke">' + esc(sz('cimke_kiemelt')) + '</span>' : '') +
           (M.kilepettE(jatekos(s.id), 999) ? ' <span class="cimke kilepett">' + esc(sz('cimke_kilepett', { kor: jatekos(s.id).kilepettKor })) + '</span>' : '') + '</td>' +
@@ -1136,7 +1141,9 @@
         : '<div class="nevezes-sor">' +
             (varE('lezar')
               ? megerositesSav(sz('lezar_biztos'), 'lezar-igen', 'megerosites-nem')
-              : '<button class="masod-gomb kicsi" data-t="lezar">' + esc(sz('lezar_gomb')) + '</button>' +
+              : (varE('lezar1')
+          ? megerositesSav(sz('lezar_kerdes'), 'lezar-igen', 'megerosites-nem')
+          : '<button class="masod-gomb kicsi veszely-gomb" data-t="lezar-ker">' + esc(sz('lezar_gomb')) + '</button>') +
         '<button class="masod-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
                 '<span class="sugo">' + esc(sz('lezar_sugo')) + '</span>') +
           '</div>') +
@@ -2110,6 +2117,7 @@
       render();
       return;
     }
+    if (t === 'nyelv-nyit') { S.nyelvNyitva = !S.nyelvNyitva; render(); return; }
     if (t === 'nyelv') {
       var mezo = cel.getAttribute('data-mezo') || 'nyelv';
       S.allapot.beall[mezo] = cel.getAttribute('data-mod');
@@ -2277,6 +2285,14 @@
     }
     if (t === 'sorsol') { sorsolElso(); return; }
     if (t === 'kovetkezokor') { kovetkezoKor(); return; }
+    if (t === 'lezar-ker') { S.megerosites = { t: 'lezar1' }; render(); return; }
+    if (t === 'lezar-igen') {
+      S.megerosites = null;
+      S.allapot.lezarva = true;
+      mentes(); render();
+      ok(sz('lezar_kesz'));
+      return;
+    }
     if (t === 'kor-lezar') {
       /* A kör lezárása: beosztjuk a következő kört, és rögtön a kivetítésre váltunk,
          hogy a játékosok lássák, ki hol ül. */
