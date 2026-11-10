@@ -1728,20 +1728,49 @@
         '</details>' +
       '</div>' +
 
-      /* ---------- Biztonsági mentés (Excel + Google Sheets) ---------- */
+      /* ---------- Biztonsági mentés (egy közös panel) ---------- */
       '<div class="kartya-blokk">' +
         '<h2>' + esc(sz('mentes_bizt_cim')) + sugoIkon('mentes_bizt_sugo') + '</h2>' +
-        '<div class="nevezes-sor">' +
-          '<button class="fo-gomb" data-t="excel-bizt">' + esc(sz('excel_bizt_gomb')) + '</button>' +
-          '<button class="masod-gomb" data-t="excel-vagolap">' + esc(sz('excel_vagolap_gomb')) + '</button>' +
+        '<p class="sugo bizt-vezeto">' + szh('bizt_vezeto') + '</p>' +
+
+        /* 1. felhő */
+        '<div class="bizt-blokk">' +
+          '<div class="bizt-fej">' + esc(sz('bizt_felho')) + '</div>' +
+          '<div class="nevezes-sor">' +
+            '<button class="fo-gomb" data-t="felho-ment">' + esc(sz('felho_gomb')) + '</button>' +
+            '<button class="masod-gomb" data-t="felho-vissza">' + esc(sz('felho_vissza_gomb')) + '</button>' +
+            '<span class="sugo">' + esc(sz('felho_sugo_rovid')) + '</span>' +
+          '</div>' +
         '</div>' +
-        '<div class="nevezes-sor" style="margin-top:8px">' +
-          '<button class="fo-gomb kicsi" data-t="felho-ment">' + esc(sz('felho_gomb')) + '</button>' +
-          '<button class="masod-gomb kicsi" data-t="felho-vissza">' + esc(sz('felho_vissza_gomb')) + '</button>' +
-          '<span class="sugo">' + esc(sz('felho_sugo_rovid')) + '</span>' +
+
+        /* 2. Excel */
+        '<div class="bizt-blokk">' +
+          '<div class="bizt-fej">' + esc(sz('bizt_excel')) + '</div>' +
+          '<div class="nevezes-sor">' +
+            '<button class="masod-gomb" data-t="excel-bizt">' + esc(sz('excel_bizt_gomb')) + '</button>' +
+            '<button class="masod-gomb" data-t="excel-vagolap">' + esc(sz('excel_vagolap_gomb')) + '</button>' +
+          '</div>' +
         '</div>' +
-        '<p class="sugo">' + szh('excel_bizt_sugo') + '</p>' +
-        '<div class="beall-resz gs-blokk"><div class="gs-fej">' + esc(sz('gs_cim')) + sugoIkon('gs_sugo') + '</div>' +
+
+        /* magyarázat – csak ha kéred */
+        '<details class="beall-resz bizt-magyarazat"><summary>' + esc(sz('bizt_hogyan')) + '</summary>' +
+          '<div class="bizt-szoveg">' + szh('bizt_hogyan_szoveg') + '</div>' +
+          '<p class="sugo">' + szh('excel_bizt_sugo') + '</p>' +
+        '</details>' +
+
+        /* 3. fájl */
+        '<details class="beall-resz"><summary>' + esc(sz('bizt_fajl')) + '</summary>' +
+          '<div class="nevezes-sor">' +
+            '<button class="masod-gomb" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
+            '<button class="masod-gomb" data-t="import">' + esc(sz('import_gomb')) + '</button>' +
+            '<button class="masod-gomb" data-t="csv">' + esc(sz('csv_gomb')) + '</button>' +
+            '<input type="file" id="import-fajl" accept=".json" style="display:none">' +
+          '</div>' +
+          (mentesek ? '<p class="mentes-sor">' + esc(sz('visszaallitas_cim')) + ': ' + mentesek + '</p>' : '') +
+        '</details>' +
+
+        /* 4. Google Sheets */
+        '<details class="beall-resz"><summary>' + esc(sz('bizt_gs')) + sugoIkon('gs_sugo') + '</summary>' +
           '<label class="beall-mezo szeles"><span class="mezo-felirat">' + esc(sz('gs_url')) + '</span>' +
             '<input data-t="beall" data-mezo="gsUrl" value="' + esc(b.gsUrl || '') + '" placeholder="https://script.google.com/macros/s/…/exec"></label>' +
           '<div class="nevezes-sor">' +
@@ -1750,28 +1779,20 @@
             '<span id="gs-allapot" class="sugo">' + esc(S.gsAllapot || '') + '</span>' +
           '</div>' +
           '<p class="sugo">' + szh('gs_sugo') + '</p>' +
-        '</div>' +
-      '</div>' +
-      /* ---------- Mentés, teszt ---------- */
-      '<div class="kartya-blokk">' +
-        '<h2>' + esc(sz('mentes_cim')) + sugoIkon('mentes_sugo') + '</h2>' +
-        '<div class="nevezes-sor">' +
-          '<button class="masod-gomb" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
-          '<button class="masod-gomb" data-t="import">' + esc(sz('import_gomb')) + '</button>' +
-          '<button class="masod-gomb" data-t="csv">' + esc(sz('csv_gomb')) + '</button>' +
-          '<input type="file" id="import-fajl" accept=".json" style="display:none">' +
-        '</div>' +
-        (mentesek ? '<p class="mentes-sor">' + esc(sz('visszaallitas_cim')) + ': ' + mentesek + '</p>' : '') +
-        '<div class="teszt-doboz">' +
-          '<div class="teszt-fej">' + esc(sz('teszt_cim')) + sugoIkon('teszt_sugo') + '</div>' +
-          tesztSor +
-          (b.kezdesKesz ? '<button class="halvany-gomb kicsi" data-t="kezdes-mutat">' + esc(sz('kezdes_vissza')) + '</button>' : '') +
-        '</div>' +
-        ((varE('torles1'))
-          ? megerositesSav(sz('teszt_kerdes1'), 'torles-1-igen', 'megerosites-nem')
-          : ((varE('torles2'))
-            ? megerositesSav(sz('teszt_kerdes2'), 'torles-2-igen', 'megerosites-nem')
-            : '<p class="veszely-sor"><button class="halvany-gomb kicsi veszely" data-t="teljes-torles">' + esc(sz('teszt_gomb')) + '</button></p>')) +
+        '</details>' +
+
+        /* 5. teszt és törlés */
+        '<details class="beall-resz bizt-veszely"><summary>' + esc(sz('bizt_teszt')) + sugoIkon('teszt_sugo') + '</summary>' +
+          '<div class="teszt-doboz">' +
+            tesztSor +
+            (b.kezdesKesz ? '<button class="halvany-gomb kicsi" data-t="kezdes-mutat" style="margin-top:8px">' + esc(sz('kezdes_vissza')) + '</button>' : '') +
+          '</div>' +
+          ((varE('torles1'))
+            ? megerositesSav(sz('teszt_kerdes1'), 'torles-1-igen', 'megerosites-nem')
+            : ((varE('torles2'))
+              ? megerositesSav(sz('teszt_kerdes2'), 'torles-2-igen', 'megerosites-nem')
+              : '<p class="veszely-sor"><button class="halvany-gomb kicsi veszely" data-t="teljes-torles">' + esc(sz('teszt_gomb')) + '</button></p>')) +
+        '</details>' +
       '</div>' +
 
       /* ---------- weblap-feltöltés állapot ---------- */
@@ -3233,7 +3254,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.27';
+  V.VERZIO = '1.28';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
