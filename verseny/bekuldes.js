@@ -95,6 +95,26 @@
       });
     },
 
+    /* ---- élő állás a weblapra (verseny_elo) ----
+       Egy dokumentum / verseny: mindig felülírja, tehát mindig a legutóbbi állás látszik. */
+    eloMent: function (azonosito, csomag, cb) {
+      keszul(function (h, db2) {
+        if (h) return cb(h);
+        csomag.ts = Date.now();
+        db2.collection('verseny_elo').doc(String(azonosito)).set(csomag)
+          .then(function () { cb(null); })
+          .catch(function (e) { cb(e); });
+      });
+    },
+    eloOlvas: function (azonosito, cb) {
+      keszul(function (h, db2) {
+        if (h) return cb(h);
+        db2.collection('verseny_elo').doc(String(azonosito)).get()
+          .then(function (d) { cb(null, d && d.exists ? d.data() : null); })
+          .catch(function (e) { cb(e); });
+      });
+    },
+
     /* ---- a weblap játékos-adatbázisa (players) ----
        Ugyanaz a Firebase-projekt, mint a weblapé. Mivel a program ugyanarról a
        címről (mub.sk) töltődik be, a weblapon bejelentkezett admin munkamenete
