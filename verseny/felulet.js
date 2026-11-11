@@ -1237,7 +1237,9 @@
       var korok = '';
       for (var k2 = 0; k2 < ig; k2++) {
         var kr = s.korok.filter(function (x) { return x.kor === k2 + 1; })[0];
-        korok += '<td class="szam">' + (kr ? kr.pont : '·') + '</td><td class="szam halvany">' + (kr ? penz(kr.penz) : '·') + '</td>';
+        /* a fejléc sorrendje: € (pénz), majd PONT – az adat is így menjen */
+        korok += '<td class="szam halvany">' + (kr ? penz(kr.penz) : '·') + '</td><td class="szam' +
+          (k2 + 1 < ig ? ' pont-utolso' : '') + '">' + (kr ? kr.pont : '·') + '</td>';
       }
       var dijDb = szam(a.beall.dijazott, 0);
       return '<tr class="' + (s.kiemelt ? 'kiemelt-sor ' : '') +
@@ -1257,7 +1259,7 @@
     var korFej = '', korFej2 = '';
     for (var k3 = 0; k3 < ig; k3++) {
       korFej += '<th colspan="2">' + esc(sz('th_kor', { kor: k3 + 1 })) + '</th>';
-      korFej2 += '<th class="rovid">' + esc(sz('th_penz')) + '</th><th class="rovid">' + esc(sz('vet_pont_rovid')) + '</th>';
+      korFej2 += '<th class="rovid penz-fej">' + esc(sz('th_penz')) + '</th><th class="rovid pont-fej">' + esc(sz('vet_pont_rovid')) + '</th>';
     }
 
     return '<div class="kartya-blokk">' +
@@ -1524,10 +1526,10 @@
       var max = (doboz.scrollHeight || 0) - (doboz.clientHeight || 0);
       if (max <= 2) return;
       var sz = doboz.scrollTop || 0;
-      if (b.gorgetIrany > 0 && sz >= max - 2) { b.gorgetIrany = -1; gorgetSzunet = 45; return; }
-      if (b.gorgetIrany < 0 && sz <= 2) { b.gorgetIrany = 1; gorgetSzunet = 45; return; }
-      doboz.scrollTop = sz + b.gorgetIrany * 2;
-    }, 40);
+      if (b.gorgetIrany > 0 && sz >= max - 2) { b.gorgetIrany = -1; gorgetSzunet = 70; return; }
+      if (b.gorgetIrany < 0 && sz <= 2) { b.gorgetIrany = 1; gorgetSzunet = 70; return; }
+      doboz.scrollTop = sz + b.gorgetIrany * 1;
+    }, 55);
   }
   /* A kivetített asztalok automatikus méretezése. Az alapméret a képernyő
      magasságából jön (lásd a CSS-t), és csak akkor csökkentünk, ha valami mégis
@@ -3662,7 +3664,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.46';
+  V.VERZIO = '1.47';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
@@ -3679,6 +3681,16 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._kovetkezoAsztal = function () { return kovetkezoHianyzoAsztal(); };
   V._kovetkezoKor = function () { return kovetkezoKor(); };
   V._korUresE = function (k) { return korUresE(k); };
+  V._korElvalasztoVan = function () {
+    var a3 = S.allapot;
+    var ig3 = a3.aktualisKor || a3.korok.length;
+    if (ig3 < 2) return false;
+    var ment = S.nezet; S.nezet = 'rangsor';
+    render();
+    var van = document.getElementById('app') && document.getElementById('app').innerHTML.indexOf('pont-utolso') >= 0;
+    S.nezet = ment; render();
+    return !!van;
+  };
   V._ujraoszt = function () { return ujraoszt(); };
   V._enterPenz = function (cel) {
     gombok({ key: 'Enter', preventDefault: function () { }, target: {
