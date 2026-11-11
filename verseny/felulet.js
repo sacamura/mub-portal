@@ -1800,6 +1800,25 @@
           '<p class="sugo">' + szh('gs_sugo') + '</p>' +
         '</details>' +
 
+        /* 4b. nyitott versenyek a felhőből */
+        '<details class="beall-resz" data-dk="nyitott"' + nyitott('nyitott') + '><summary>' + esc(sz('nyitott_cim')) + sugoIkon('nyitott_sugo') + '</summary>' +
+          '<p class="sugo">' + szh('nyitott_sugo') + '</p>' +
+          '<div class="nevezes-sor">' +
+            '<button class="masod-gomb kicsi" data-t="felho-lista">' + esc(sz('nyitott_frissit')) + '</button>' +
+            '<span class="sugo">' + esc(S.felhoListaAllapot || '') + '</span>' +
+          '</div>' +
+          ((S.felhoLista && S.felhoLista.length)
+            ? '<div class="felho-lista">' + S.felhoLista.map(function (x) {
+                var ido = x.ts ? new Date(x.ts) : null;
+                return '<div class="felho-elem">' +
+                  '<div class="felho-elem-szov"><b>' + esc(x.nev || sz('verseny_cim_hely')) + '</b>' +
+                    '<span>' + esc(x.datum || '') + (ido ? ' · ' + esc(sz('felho_mentve_rovid', { ido: ido.toLocaleString() })) : '') + '</span></div>' +
+                  '<button class="masod-gomb kicsi" data-t="felho-megnyit" data-id="' + esc(x.id) + '">' + esc(sz('nyitott_megnyit')) + '</button>' +
+                '</div>';
+              }).join('') + '</div>'
+            : '<p class="sugo">' + esc(sz('nyitott_nincs')) + '</p>') +
+        '</details>' +
+
         /* 5. teszt és törlés */
         '<details class="beall-resz bizt-veszely" data-dk="teszt"' + nyitott('teszt') + '><summary>' + esc(sz('bizt_teszt')) + sugoIkon('teszt_sugo') + '</summary>' +
           '<div class="teszt-doboz">' +
@@ -1966,6 +1985,34 @@
       S.felhoIdo = Date.now();
       if (!csendes) { felhoJel(sz('felho_mentve', { ido: oraPerc2() }), 'ok'); ok(sz('felho_kesz')); render(); }
     }); } catch (e) { if (!csendes) { felhoJel(sz('felho_hiba'), 'hiba'); } return; }
+  }
+
+  /* A felhőben lévő versenyek listájának frissítése. */
+  function felhoListaFrissit() {
+    if (!global.BEKULDES || !global.BEKULDES.mentesekLista) { return; }
+    S.felhoListaAllapot = sz('felho_lista_tolt');
+    S.felhoLista = S.felhoLista || [];
+    render();
+    global.BEKULDES.mentesekLista(function (h, lista) {
+      S.felhoListaAllapot = h ? sz('felho_lista_hiba') : '';
+      S.felhoLista = (h || !lista) ? [] : lista;
+      render();
+    });
+  }
+
+  /* egy felhő-verseny megnyitása ebben a böngészőben */
+  function felhoMegnyit(azonosito) {
+    if (!global.BEKULDES || !global.BEKULDES.mentesOlvas) { hiba(sz('felho_hiba')); render(); return; }
+    global.BEKULDES.mentesOlvas(azonosito, function (h, d) {
+      if (h || !d || !d.teljes) { hiba(sz('felho_vissza_hiba')); render(); return; }
+      var a2 = null;
+      try { a2 = JSON.parse(d.teljes); } catch (e) { a2 = null; }
+      if (!a2 || !a2.beall) { hiba(sz('felho_vissza_hiba')); render(); return; }
+      S.allapot = a2;
+      S.allapot.esemenyId = azonosito;
+      mentes(); render();
+      ok(sz('felho_megnyitva'));
+    });
   }
 
   function felhoVissza() {
@@ -2769,6 +2816,12 @@
     }
     if (t === 'elo-feltolt') { eloFeltolt(); return; }
     if (t === 'bizt-nyit') { S.biztNyitva = (S.biztNyitva !== true); render(); return; }
+    if (t === 'felho-lista') { felhoListaFrissit(); return; }
+    if (t === 'felho-megnyit') {
+      var megId = cel.getAttribute('data-id');
+      if (megId && (!global.confirm || global.confirm(sz('nyitott_kerdes')))) felhoMegnyit(megId);
+      return;
+    }
     if (t === 'felho-ment') { felhoMentes(false); return; }
     if (t === 'felho-vissza') {
       if (!global.confirm || global.confirm(sz('felho_kerdes'))) felhoVissza();
@@ -3334,7 +3387,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.32';
+  V.VERZIO = '1.33';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
@@ -3343,6 +3396,7 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._javaslatJel = function (asztal) { return javaslatJel(asztal); };
   V._jatekosFelvesz = function (id, nev, k) { return jatekosFelvesz(id, nev, k); };
   V._nyitottBeallit = function (k, v) { S.nyitottDetails = S.nyitottDetails || {}; S.nyitottDetails[k] = !!v; };
+  V._felhoListaBeallit = function (l) { S.felhoLista = l || []; };
   V._penzJavaslat = function (asztal) { return penzJavaslat(asztal); };
 
   V._ujJatekosBeall = function (id) { S.ujJatekos = id; };
