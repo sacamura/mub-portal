@@ -917,3 +917,14 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 .beir-fej{margin:0 0 8px!important;font-size:1.06rem}
 .beir-blokk .figyelem{margin:6px 0}
 .beir-blokk .figyelem + .figyelem{margin-top:4px}
+
+/* körválasztó: világos, kapszula alakú – jól megkülönböztethető az asztaloktól */
+.kor-valaszto{align-items:center}
+.kor-valaszto-felirat{font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:#8496a8;margin-right:2px}
+.kor-csempe{min-width:34px;height:30px;padding:0 10px;border-radius:999px;font-size:.86rem;
+  border:1.5px solid #d7e4ef;background:#fff;color:#5d7183}
+.kor-csempe{color:#5d7183}
+.kor-csempe.kesz{background:#fff;border-color:#b9d9c4;color:#2f7a4b}
+.kor-csempe.aktiv{background:#2b6a8f;border-color:#2b6a8f;color:#fff;box-shadow:0 2px 8px rgba(43,106,143,.22)}
+.kor-csempe.aktiv .pip{background:#fff;color:#2b6a8f}
