@@ -1098,12 +1098,12 @@
     return '' +
       '<div class="kartya-blokk beir-blokk">' +
         /* körválasztó – itt lehet visszamenni bármelyik kör eredményeihez */
-        '<div class="kor-valaszto">' +
+        '<div class="kor-valaszto"><span class="kor-valaszto-felirat">' + esc(sz('kor_valaszto_felirat')) + '</span>' +
           a.korok.map(function (k4) {
             var e4 = M.korKesz(a, a.korok.indexOf(k4));
             return '<button class="kor-csempe' + (k4.kor === kor.kor ? ' aktiv' : '') + (e4 ? ' kesz' : '') +
               '" data-t="korvalt" data-kor="' + k4.kor + '" title="' + esc(sz('kor_valasz_tipp', { kor: k4.kor })) + '">' +
-              k4.kor + (e4 ? '<span class="pip">✓</span>' : '') + '</button>';
+              k4.kor + '.' + (e4 ? '<span class="pip">✓</span>' : '') + '</button>';
           }).join('') +
         '</div>' +
         '<h2 class="beir-fej">' + esc(sz('beir_cim', { kor: kor.kor })) + '</h2>' +
@@ -1124,12 +1124,22 @@
         '<div class="asztal-gombok">' + gombok + '</div>' +
         (function () {
           if (hianyzo.length) return '';
-          var vanKov = a.korok.length < szam(a.beall.korok, 5);
+          var utolsoKor = a.korok.length;
+          var vanKov = utolsoKor < szam(a.beall.korok, 5);
+          /* Ha egy korábbi kört nézünk, ne zárjunk le semmit – csak ugorjunk vissza a legutolsóhoz. */
+          if (kor.kor < utolsoKor) {
+            return '<div class="kor-lezaras">' +
+              '<span class="ok-jel">' + esc(sz('kor_minden_kesz')) + '</span>' +
+              '<button class="masod-gomb kor-lezaras-gomb" data-t="korvalt" data-kor="' + utolsoKor + '">' +
+                esc(sz('ugras_utolso_korhoz', { kor: utolsoKor })) + '</button>' +
+              '</div>' +
+              '<p class="sugo">' + esc(sz('kor_javitas_utan_sugo')) + '</p>';
+          }
           return '<div class="kor-lezaras">' +
             '<span class="ok-jel">' + esc(sz('kor_minden_kesz')) + '</span>' +
             (vanKov
               ? '<button class="fo-gomb kor-lezaras-gomb" data-t="kor-lezar">' +
-                esc(sz('kor_lezar_gomb', { kor: a.korok.length + 1 })) + '</button>'
+                esc(sz('kor_lezar_gomb', { kor: utolsoKor + 1 })) + '</button>'
               : '<button class="fo-gomb kor-lezaras-gomb" data-t="lezar">' + esc(sz('lezar_gomb_utolso')) + '</button>') +
             '</div>' +
             '<p class="sugo">' + esc(vanKov ? kovetkezoModSzoveg() : sz('utolso_kor_sugo')) + '</p>';
@@ -3652,7 +3662,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.45';
+  V.VERZIO = '1.46';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
