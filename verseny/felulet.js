@@ -1743,95 +1743,98 @@
         '</details>' +
       '</div>' +
 
-      /* ---------- Biztonsági mentés (egy közös panel) ---------- */
+      /* ---------- Biztonsági mentés – három világos csoport ---------- */
       '<div class="kartya-blokk">' +
         '<h2><button class="kartya-fej-gomb" data-t="bizt-nyit">' +
           '<span class="kartya-nyil">' + (biztNyit ? '▾' : '▸') + '</span>' +
           esc(sz('mentes_bizt_cim')) + '</button>' + sugoIkon('mentes_bizt_sugo') + '</h2>' +
-        '<div class="bizt-torzs' + (biztNyit ? '' : ' bizt-rejtve') + '">' +
-        '<p class="sugo bizt-vezeto">' + szh('bizt_vezeto') + '</p>' +
+        (biztNyit
+          ? '<div class="bizt-torzs">' +
 
-        /* 1. felhő */
-        '<div class="bizt-blokk">' +
-          '<div class="bizt-fej">' + esc(sz('bizt_felho')) + '</div>' +
-          '<div class="nevezes-sor">' +
-            '<button class="fo-gomb" data-t="felho-ment">' + esc(sz('felho_gomb')) + '</button>' +
-            '<button class="masod-gomb" data-t="felho-vissza">' + esc(sz('felho_vissza_gomb')) + '</button>' +
-          '</div>' +
-          '<p id="felho-allapot" class="felho-allapot' + (S.felhoTipus ? ' ' + S.felhoTipus : '') + '">' + esc(S.felhoAllapot || '') + '</p>' +
-          '<p class="sugo">' + esc(sz('felho_sugo_rovid')) + '</p>' +
-        '</div>' +
+              /* ---------- 1. mentés ---------- */
+              '<div class="bizt-blokk">' +
+                '<div class="bizt-fej">' + esc(sz('b1_cim')) + '</div>' +
+                '<p class="bizt-magyar">' + esc(sz('b1_magyar')) + '</p>' +
+                '<div class="nevezes-sor">' +
+                  '<button class="fo-gomb" data-t="felho-ment">' + esc(sz('b1_gomb')) + '</button>' +
+                  '<button class="masod-gomb" data-t="excel-bizt">' + esc(sz('b3_gomb')) + '</button>' +
+                '</div>' +
+                '<p id="felho-allapot" class="felho-allapot' + (S.felhoTipus ? ' ' + S.felhoTipus : '') + '">' + esc(S.felhoAllapot || '') + '</p>' +
+              '</div>' +
 
-        /* 2. Excel */
-        '<div class="bizt-blokk">' +
-          '<div class="bizt-fej">' + esc(sz('bizt_excel')) + '</div>' +
-          '<div class="nevezes-sor">' +
-            '<button class="masod-gomb" data-t="excel-bizt">' + esc(sz('excel_bizt_gomb')) + '</button>' +
-            '<button class="masod-gomb" data-t="excel-vagolap">' + esc(sz('excel_vagolap_gomb')) + '</button>' +
-          '</div>' +
-        '</div>' +
+              /* ---------- 2. visszaállítás ---------- */
+              '<div class="bizt-blokk">' +
+                '<div class="bizt-fej">' + esc(sz('b2_cim')) + '</div>' +
+                '<p class="bizt-magyar">' + esc(sz('b2_magyar')) + '</p>' +
+                '<div class="nevezes-sor">' +
+                  '<button class="masod-gomb kicsi" data-t="felho-lista">' + esc(sz('nyitott_frissit')) + '</button>' +
+                  '<button class="masod-gomb kicsi" data-t="felho-vissza">' + esc(sz('b2_vissza')) + '</button>' +
+                  '<span class="sugo">' + esc(S.felhoListaAllapot || '') + '</span>' +
+                '</div>' +
+                ((S.felhoLista && S.felhoLista.length)
+                  ? '<div class="felho-lista">' + S.felhoLista.map(function (x) {
+                      var ido = x.ts ? new Date(x.ts) : null;
+                      return '<div class="felho-elem">' +
+                        '<div class="felho-elem-szov"><b>' + esc(x.nev || sz('verseny_cim_hely')) + '</b>' +
+                          '<span>' + esc(x.datum || '') + (ido ? ' · ' + esc(sz('felho_mentve_rovid', { ido: ido.toLocaleString() })) : '') + '</span></div>' +
+                        '<button class="masod-gomb kicsi" data-t="felho-megnyit" data-id="' + esc(x.id) + '">' + esc(sz('nyitott_megnyit')) + '</button>' +
+                      '</div>';
+                    }).join('') + '</div>'
+                  : '') +
+              '</div>' +
 
-        /* magyarázat – csak ha kéred */
-        '<details class="beall-resz bizt-magyarazat" data-dk="hogyan"' + nyitott('hogyan') + '><summary>' + esc(sz('bizt_hogyan')) + '</summary>' +
-          '<div class="bizt-szoveg">' + szh('bizt_hogyan_szoveg') + '</div>' +
-          '<p class="sugo">' + szh('excel_bizt_sugo') + '</p>' +
-        '</details>' +
+              /* ---------- 3. Excel ---------- */
+              '<div class="bizt-blokk">' +
+                '<div class="bizt-fej">' + esc(sz('b3_cim')) + '</div>' +
+                '<p class="bizt-magyar">' + esc(sz('b3_magyar')) + '</p>' +
+                '<div class="nevezes-sor">' +
+                  '<button class="masod-gomb" data-t="excel-bizt">' + esc(sz('excel_bizt_gomb')) + '</button>' +
+                  '<button class="masod-gomb" data-t="excel-vagolap">' + esc(sz('excel_vagolap_gomb')) + '</button>' +
+                '</div>' +
+              '</div>' +
 
-        /* 3. fájl */
-        '<details class="beall-resz" data-dk="fajl"' + nyitott('fajl') + '><summary>' + esc(sz('bizt_fajl')) + '</summary>' +
-          '<div class="nevezes-sor">' +
-            '<button class="masod-gomb" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
-            '<button class="masod-gomb" data-t="import">' + esc(sz('import_gomb')) + '</button>' +
-            '<button class="masod-gomb" data-t="csv">' + esc(sz('csv_gomb')) + '</button>' +
-            '<input type="file" id="import-fajl" accept=".json" style="display:none">' +
-          '</div>' +
-          (mentesek ? '<p class="mentes-sor">' + esc(sz('visszaallitas_cim')) + ': ' + mentesek + '</p>' : '') +
-        '</details>' +
+              /* ---------- egyéb ---------- */
+              '<details class="beall-resz" data-dk="egyeb"' + nyitott('egyeb') + '><summary>' + esc(sz('b4_cim')) + '</summary>' +
 
-        /* 4. Google Sheets */
-        '<details class="beall-resz" data-dk="gs"' + nyitott('gs') + '><summary>' + esc(sz('bizt_gs')) + sugoIkon('gs_sugo') + '</summary>' +
-          '<label class="beall-mezo szeles"><span class="mezo-felirat">' + esc(sz('gs_url')) + '</span>' +
-            '<input data-t="beall" data-mezo="gsUrl" value="' + esc(b.gsUrl || '') + '" placeholder="https://script.google.com/macros/s/…/exec"></label>' +
-          '<div class="nevezes-sor">' +
-            '<button class="masod-gomb kicsi" data-t="gs-most">' + esc(sz('gs_most')) + '</button>' +
-            '<button class="masod-gomb kicsi" data-t="gs-vissza">' + esc(sz('gs_vissza_gomb')) + '</button>' +
-            '<span id="gs-allapot" class="sugo">' + esc(S.gsAllapot || '') + '</span>' +
-          '</div>' +
-          '<p class="sugo">' + szh('gs_sugo') + '</p>' +
-        '</details>' +
+                '<div class="bizt-al">' +
+                  '<div class="bizt-fej">' + esc(sz('b4_fajl')) + '</div>' +
+                  '<p class="bizt-magyar">' + esc(sz('b4_fajl_magyar')) + '</p>' +
+                  '<div class="nevezes-sor">' +
+                    '<button class="masod-gomb kicsi" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
+                    '<button class="masod-gomb kicsi" data-t="import">' + esc(sz('import_gomb')) + '</button>' +
+                    '<button class="masod-gomb kicsi" data-t="csv">' + esc(sz('csv_gomb')) + '</button>' +
+                    '<input type="file" id="import-fajl" accept=".json" style="display:none">' +
+                  '</div>' +
+                  (mentesek ? '<p class="mentes-sor">' + esc(sz('visszaallitas_cim')) + ': ' + mentesek + '</p>' : '') +
+                '</div>' +
 
-        /* 4b. nyitott versenyek a felhőből */
-        '<details class="beall-resz" data-dk="nyitott"' + nyitott('nyitott') + '><summary>' + esc(sz('nyitott_cim')) + sugoIkon('nyitott_sugo') + '</summary>' +
-          '<p class="sugo">' + szh('nyitott_sugo') + '</p>' +
-          '<div class="nevezes-sor">' +
-            '<button class="masod-gomb kicsi" data-t="felho-lista">' + esc(sz('nyitott_frissit')) + '</button>' +
-            '<span class="sugo">' + esc(S.felhoListaAllapot || '') + '</span>' +
-          '</div>' +
-          ((S.felhoLista && S.felhoLista.length)
-            ? '<div class="felho-lista">' + S.felhoLista.map(function (x) {
-                var ido = x.ts ? new Date(x.ts) : null;
-                return '<div class="felho-elem">' +
-                  '<div class="felho-elem-szov"><b>' + esc(x.nev || sz('verseny_cim_hely')) + '</b>' +
-                    '<span>' + esc(x.datum || '') + (ido ? ' · ' + esc(sz('felho_mentve_rovid', { ido: ido.toLocaleString() })) : '') + '</span></div>' +
-                  '<button class="masod-gomb kicsi" data-t="felho-megnyit" data-id="' + esc(x.id) + '">' + esc(sz('nyitott_megnyit')) + '</button>' +
-                '</div>';
-              }).join('') + '</div>'
-            : '<p class="sugo">' + esc(sz('nyitott_nincs')) + '</p>') +
-        '</details>' +
+                '<div class="bizt-al">' +
+                  '<div class="bizt-fej">' + esc(sz('b4_gs')) + '</div>' +
+                  '<p class="bizt-magyar">' + esc(sz('b4_gs_magyar')) + '</p>' +
+                  '<label class="beall-mezo szeles"><span class="mezo-felirat">' + esc(sz('gs_url')) + '</span>' +
+                    '<input data-t="beall" data-mezo="gsUrl" value="' + esc(b.gsUrl || '') + '" placeholder="https://script.google.com/macros/s/…/exec"></label>' +
+                  '<div class="nevezes-sor">' +
+                    '<button class="masod-gomb kicsi" data-t="gs-most">' + esc(sz('gs_most')) + '</button>' +
+                    '<button class="masod-gomb kicsi" data-t="gs-vissza">' + esc(sz('gs_vissza_gomb')) + '</button>' +
+                    '<span id="gs-allapot" class="sugo">' + esc(S.gsAllapot || '') + '</span>' +
+                  '</div>' +
+                '</div>' +
 
-        /* 5. teszt és törlés */
-        '<details class="beall-resz bizt-veszely" data-dk="teszt"' + nyitott('teszt') + '><summary>' + esc(sz('bizt_teszt')) + sugoIkon('teszt_sugo') + '</summary>' +
-          '<div class="teszt-doboz">' +
-            tesztSor +
-            (b.kezdesKesz ? '<button class="halvany-gomb kicsi" data-t="kezdes-mutat" style="margin-top:8px">' + esc(sz('kezdes_vissza')) + '</button>' : '') +
-          '</div>' +
-          ((varE('torles1'))
-            ? megerositesSav(sz('teszt_kerdes1'), 'torles-1-igen', 'megerosites-nem')
-            : ((varE('torles2'))
-              ? megerositesSav(sz('teszt_kerdes2'), 'torles-2-igen', 'megerosites-nem')
-              : '<p class="veszely-sor"><button class="halvany-gomb kicsi veszely" data-t="teljes-torles">' + esc(sz('teszt_gomb')) + '</button></p>')) +
-        '</details>' +
-        '</div>' +
+                '<div class="bizt-al bizt-veszely">' +
+                  '<div class="bizt-fej">' + esc(sz('b4_teszt')) + '</div>' +
+                  '<p class="bizt-magyar">' + esc(sz('b4_teszt_magyar')) + '</p>' +
+                  '<div class="teszt-doboz">' + tesztSor + '</div>' +
+                  (b.kezdesKesz ? '<button class="halvany-gomb kicsi" data-t="kezdes-mutat">' + esc(sz('kezdes_vissza')) + '</button>' : '') +
+                  ((varE('torles1'))
+                    ? megerositesSav(sz('teszt_kerdes1'), 'torles-1-igen', 'megerosites-nem')
+                    : ((varE('torles2'))
+                      ? megerositesSav(sz('teszt_kerdes2'), 'torles-2-igen', 'megerosites-nem')
+                      : '<p class="veszely-sor"><button class="halvany-gomb kicsi veszely" data-t="teljes-torles">' + esc(sz('teszt_gomb')) + '</button></p>')) +
+                '</div>' +
+
+              '</details>' +
+            '</div>'
+          : '<p class="sugo bizt-vezeto">' + esc(sz('b_csukva')) + '</p>') +
       '</div>' +
 
       /* ---------- weblap-feltöltés állapot ---------- */
@@ -3387,7 +3390,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.33';
+  V.VERZIO = '1.34';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
@@ -3397,6 +3400,7 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._jatekosFelvesz = function (id, nev, k) { return jatekosFelvesz(id, nev, k); };
   V._nyitottBeallit = function (k, v) { S.nyitottDetails = S.nyitottDetails || {}; S.nyitottDetails[k] = !!v; };
   V._felhoListaBeallit = function (l) { S.felhoLista = l || []; };
+  V._biztNyit = function (v) { S.biztNyitva = !!v; };
   V._penzJavaslat = function (asztal) { return penzJavaslat(asztal); };
 
   V._ujJatekosBeall = function (id) { S.ujJatekos = id; };
