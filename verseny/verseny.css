@@ -899,3 +899,7 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 /* archívum */
 .teszt-cimke{background:#fff1f0;border:1px solid #e6b3ae;color:#b3261e;font-weight:800}
 .cimke.teszt-cimke{font-size:.68rem;letter-spacing:.04em}
+
+/* ujraoszt-sav */
+.ujraoszt-sav{background:#eef6ff;border:1px solid #cfe3f5;border-radius:9px;padding:8px 11px;
+  font-size:.88rem;color:#2c5b85}
