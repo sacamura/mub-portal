@@ -878,24 +878,70 @@
     render();
   }
 
-  function kovetkezoKor() {
+  /* A következő kör beosztásának kiszámítása (a mostani állásból). */
+  function beosztasSzamit() {
     var a = S.allapot;
-    if (!M.korKesz(a, a.korok.length - 1)) { hiba(sz('kor_nem_kesz')); return; }
     var helycsere = helycsereVan() && a.korok.length > 0;
     var e;
     if (helycsere) {
       var aktiv = M.aktivJatekosok(a, a.korok.length + 1);
-      if (aktiv.length < 3) { hiba(sz('keves_aktiv')); return; }
+      if (aktiv.length < 3) return { hiba: 'keves_aktiv' };
       e = M.helycsereKovetkezo(a.korok[a.korok.length - 1], aktiv.map(function (j) { return j.id; }),
         szam(a.beall.asztalLetszam, 3));
     } else {
       var rangsor = M.rangsor(a, a.korok.length).filter(function (s) {
         return !M.kilepettE(jatekos(s.id), a.korok.length + 1);
       });
-      if (rangsor.length < 3) { hiba(sz('keves_aktiv')); return; }
+      if (rangsor.length < 3) return { hiba: 'keves_aktiv' };
       var caps = M.asztalLetszamok(rangsor.length, szam(a.beall.asztalLetszam, 3), 'vegen');
       e = M.sorsolKovetkezo(rangsor.map(function (s) { return s.id; }), caps);
     }
+    return { e: e, helycsere: helycsere };
+  }
+
+  /* Egy kör üres-e (még nincs benne egyetlen eredmény sem). */
+  function korUresE(kor) {
+    return (kor.asztalok || []).every(function (a2) {
+      var e2 = a2.eredmenyek || {};
+      return Object.keys(e2).every(function (k) {
+        return !vanErtek(e2[k].penz) && !vanErtek(e2[k].pont);
+      });
+    });
+  }
+
+  /* A legutolsó (még el nem kezdett) kör ÚJRAOSZTÁSA a javított állás szerint. */
+  function ujraoszt() {
+    var a = S.allapot;
+    if (!a.korok.length) { hiba(sz('nincs_sorsolas')); render(); return; }
+    if (a.korok.length < 2) { hiba(sz('ujraoszt_elso')); render(); return; }
+    var utolso = a.korok[a.korok.length - 1];
+    if (!korUresE(utolso)) { hiba(sz('ujraoszt_nem_lehet')); render(); return; }
+    var regiKor = utolso.kor;
+    a.korok.pop();                       /* ideiglenesen kivesszük */
+    var szamitott = beosztasSzamit();
+    if (szamitott.hiba) {
+      a.korok.push(utolso);              /* visszatesszük, ha nem sikerült */
+      hiba(sz(szamitott.hiba));
+      render();
+      return;
+    }
+    var ujKor = V.korLetrehoz(a, szamitott.e.szekek, '');
+    ujKor.kor = regiKor;
+    a.korok.push(ujKor);
+    a.aktualisKor = a.korok.length;
+    mentes();
+    Tarolo.biztonsagiMentes(a);
+    S.nezet = 'beiras'; S.asztal = 1;
+    render();
+    ok(sz('ujraoszt_kesz', { kor: regiKor }));
+  }
+
+  function kovetkezoKor() {
+    var a = S.allapot;
+    if (!M.korKesz(a, a.korok.length - 1)) { hiba(sz('kor_nem_kesz')); return; }
+    var szamit = beosztasSzamit();
+    if (szamit.hiba) { hiba(sz(szamit.hiba)); return; }
+    var e = szamit.e, helycsere = szamit.helycsere;
     a.korok.push(V.korLetrehoz(a, e.szekek, ''));
     a.aktualisKor = a.korok.length;
     mentes();
@@ -1062,6 +1108,10 @@
           : '') +
         ((kor.kor || 0) < (a.korok.length || 0)
           ? '<p class="figyelem">' + esc(sz('kor_javitas_figyelem', { kor: kor.kor })) + '</p>'
+          : '') +
+        ((a.korok.length > 1 && korUresE(a.korok[a.korok.length - 1]))
+          ? '<p class="figyelem ujraoszt-sav">' + esc(sz('ujraoszt_sugo')) + ' ' +
+            '<button class="masod-gomb kicsi" data-t="ujraoszt">' + esc(sz('ujraoszt_gomb')) + '</button></p>'
           : '') +
         '<p class="haladas">' + esc(sz('haladas', { kesz: asztalok.length - hianyzo.length, ossz: asztalok.length })) +
           (hianyzo.length ? ' · <b class="hianyzo-szoveg">' + esc(sz('hianyzo_asztalok', { lista: hianyzo.join(', ') })) + '</b>' : '') +
@@ -2924,6 +2974,7 @@
       ok(sz('ujranyitva'));
       return;
     }
+    if (t === 'ujraoszt') { ujraoszt(); return; }
     if (t === 'kor-lezar') {
       /* A kör lezárása: beosztjuk a következő kört, és rögtön a kivetítésre váltunk,
          hogy a játékosok lássák, ki hol ül. */
@@ -3592,7 +3643,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.43';
+  V.VERZIO = '1.44';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
@@ -3608,6 +3659,8 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._asztaBeallit = function (n) { S.asztal = n; };
   V._kovetkezoAsztal = function () { return kovetkezoHianyzoAsztal(); };
   V._kovetkezoKor = function () { return kovetkezoKor(); };
+  V._korUresE = function (k) { return korUresE(k); };
+  V._ujraoszt = function () { return ujraoszt(); };
   V._enterPenz = function (cel) {
     gombok({ key: 'Enter', preventDefault: function () { }, target: {
       classList: { contains: function (c) { return c === 'penz-input'; } },
