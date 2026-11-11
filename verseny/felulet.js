@@ -1551,8 +1551,14 @@
         }
       }
       var doboz = document.querySelector('.ora');
-      if (doboz) doboz.className = 'ora' + (o.fut && maradek <= 0 ? ' ora-lejart' : '') +
-        (S.allapot.beall.oraVilagos ? ' ora-vilagos' : '');
+      if (doboz) {
+        /* a szünet osztályt is meg kell tartani, különben a kiemelés eltűnik */
+        var szunetE2 = (o.mod === 'szunet');
+        doboz.className = 'ora' +
+          (o.fut && maradek <= 0 ? ' ora-lejart' : '') +
+          (S.allapot.beall.oraVilagos ? ' ora-vilagos' : '') +
+          (szunetE2 ? ' ora-szunet-mod' : '');
+      }
     }, 1000);
   }
 
@@ -3487,7 +3493,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.40';
+  V.VERZIO = '1.41';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
