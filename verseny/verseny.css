@@ -849,3 +849,12 @@ torzs-lista .csillag-gomb{margin-right:2px}
 .csillag-gomb{font-size:1.25rem!important;color:#c3ceda;padding:1px 6px}
 .csillag-gomb:hover{color:#e0a800;background:#fff8e6}
 .csillag-gomb.be{color:#e0a800}
+
+/* ora-mod */
+.ora-mod-valto{display:flex;gap:6px;justify-content:center;margin:18px 0 6px}
+.ora-mod-gomb{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);color:#cfd8e2;
+  border-radius:999px;padding:5px 16px;font-size:.85rem;font-weight:700;cursor:pointer}
+.ora-mod-gomb:hover{background:rgba(255,255,255,.16)}
+.ora-mod-gomb.aktiv{background:#1f7a44;border-color:#1f7a44;color:#fff}
+.ora-vilagos .ora-mod-gomb{background:#eef2f6;border-color:#dbe3ea;color:#4a5b6b}
+.ora-vilagos .ora-mod-gomb.aktiv{background:#1f7a44;border-color:#1f7a44;color:#fff}
