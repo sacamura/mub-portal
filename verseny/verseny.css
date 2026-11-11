@@ -895,3 +895,7 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 .ora-vilagos.ora-szunet-mod .ora-kor,.ora-vilagos.ora-szunet-mod .ora-vege{color:#8a7548}
 .ora-szunet-mod.ora-lejart .ora-szam{color:#ff5252!important}
 .ora-vilagos.ora-szunet-mod.ora-lejart .ora-szam{color:#c62828!important}
+
+/* archívum */
+.teszt-cimke{background:#fff1f0;border:1px solid #e6b3ae;color:#b3261e;font-weight:800}
+.cimke.teszt-cimke{font-size:.68rem;letter-spacing:.04em}
