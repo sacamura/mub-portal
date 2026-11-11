@@ -1096,35 +1096,44 @@
     }).join('');
 
     return '' +
-      '<div class="kartya-blokk">' +
-        '<h2>' + esc(sz('beir_cim', { kor: kor.kor })) + '</h2>' +
-        (kor.kor < a.korok.length
-          ? '<p class="figyelem">' + szh('kor_javitas_figyelem', { kor: kor.kor, kov: a.korok.length }) + '</p>'
-          : '') +
-        '<p class="sugo">' + szh('beir_sugo') + '</p>' +
-        (a.lezarva
-          ? '<p class="figyelem">' + esc(sz('lezarva_ujranyitas_sugo')) + ' ' +
-            '<button class="masod-gomb kicsi" data-t="ujranyit">' + esc(sz('lezarva_ujranyitas')) + '</button></p>'
-          : '') +
-        ((kor.kor || 0) < (a.korok.length || 0)
-          ? '<p class="figyelem">' + esc(sz('kor_javitas_figyelem', { kor: kor.kor })) + '</p>'
-          : '') +
-        ((a.korok.length > 1 && korUresE(a.korok[a.korok.length - 1]))
-          ? '<p class="figyelem ujraoszt-sav">' + esc(sz('ujraoszt_sugo')) + ' ' +
-            '<button class="masod-gomb kicsi" data-t="ujraoszt">' + esc(sz('ujraoszt_gomb')) + '</button></p>'
-          : '') +
+      '<div class="kartya-blokk beir-blokk">' +
+        /* körválasztó – itt lehet visszamenni bármelyik kör eredményeihez */
+        '<div class="kor-valaszto">' +
+          a.korok.map(function (k4) {
+            var e4 = M.korKesz(a, a.korok.indexOf(k4));
+            return '<button class="kor-csempe' + (k4.kor === kor.kor ? ' aktiv' : '') + (e4 ? ' kesz' : '') +
+              '" data-t="korvalt" data-kor="' + k4.kor + '" title="' + esc(sz('kor_valasz_tipp', { kor: k4.kor })) + '">' +
+              k4.kor + (e4 ? '<span class="pip">✓</span>' : '') + '</button>';
+          }).join('') +
+        '</div>' +
+        '<h2 class="beir-fej">' + esc(sz('beir_cim', { kor: kor.kor })) + '</h2>' +
+        /* egyetlen, tömör sor a tudnivalókkal */
+        (function () {
+          var savok = [];
+          if (a.lezarva) savok.push('<p class="figyelem">' + esc(sz('lezarva_ujranyitas_sugo')) + ' ' +
+            '<button class="masod-gomb kicsi" data-t="ujranyit">' + esc(sz('lezarva_ujranyitas')) + '</button></p>');
+          if ((kor.kor || 0) < (a.korok.length || 0)) savok.push('<p class="figyelem">' +
+            esc(sz('kor_javitas_figyelem', { kor: kor.kor, kov: a.korok.length })) + '</p>');
+          if (a.korok.length > 1 && korUresE(a.korok[a.korok.length - 1])) savok.push('<p class="figyelem ujraoszt-sav">' +
+            esc(sz('ujraoszt_sugo')) + ' <button class="masod-gomb kicsi" data-t="ujraoszt">' + esc(sz('ujraoszt_gomb')) + '</button></p>');
+          return savok.join('');
+        })() +
         '<p class="haladas">' + esc(sz('haladas', { kesz: asztalok.length - hianyzo.length, ossz: asztalok.length })) +
           (hianyzo.length ? ' · <b class="hianyzo-szoveg">' + esc(sz('hianyzo_asztalok', { lista: hianyzo.join(', ') })) + '</b>' : '') +
         '</p>' +
         '<div class="asztal-gombok">' + gombok + '</div>' +
-        (hianyzo.length
-          ? ''
-          : '<div class="kor-lezaras">' +
-              '<span class="ok-jel">' + esc(sz('kor_minden_kesz')) + '</span>' +
-              '<button class="fo-gomb kor-lezaras-gomb" data-t="kor-lezar">' +
-                esc(sz('kor_lezar_gomb', { kor: (a.korok.length || (kor.kor || 1)) + 1 })) + '</button>' +
-            '</div>') +
-        '<p class="sugo">' + esc(kovetkezoModSzoveg()) + '</p>' +
+        (function () {
+          if (hianyzo.length) return '';
+          var vanKov = a.korok.length < szam(a.beall.korok, 5);
+          return '<div class="kor-lezaras">' +
+            '<span class="ok-jel">' + esc(sz('kor_minden_kesz')) + '</span>' +
+            (vanKov
+              ? '<button class="fo-gomb kor-lezaras-gomb" data-t="kor-lezar">' +
+                esc(sz('kor_lezar_gomb', { kor: a.korok.length + 1 })) + '</button>'
+              : '<button class="fo-gomb kor-lezaras-gomb" data-t="lezar">' + esc(sz('lezar_gomb_utolso')) + '</button>') +
+            '</div>' +
+            '<p class="sugo">' + esc(vanKov ? kovetkezoModSzoveg() : sz('utolso_kor_sugo')) + '</p>';
+        })() +
       '</div>' +
       (S.allapot.beall.webcim
         ? '<div class="kartya-blokk"><h3>' + esc(sz('bekuld_cim_szervezo')) +
@@ -3643,7 +3652,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.44';
+  V.VERZIO = '1.45';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
