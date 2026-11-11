@@ -941,3 +941,7 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 .rangsor td.pont-utolso{border-right:2px solid #e3eaf1}
 /* a NÉV után is legyen határ */
 .rangsor th:nth-child(2),.rangsor td:nth-child(2){border-right:1px solid #e3eaf1}
+
+/* vet-gorgeto: a kivetített rangsor görgethető része */
+.vet-gorgeto{max-height:calc(100vh - 200px)!important;overflow:auto;border-radius:10px}
+.vet-rangsor{display:flex;flex-direction:column;min-height:0}
