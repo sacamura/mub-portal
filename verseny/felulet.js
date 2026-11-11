@@ -1339,6 +1339,7 @@
       }).join('');
       return gombok + '<div class="vetites vet-rangsor">' +
         '<div class="vet-nevlista-fej">' +
+      '<div class="rangsor-gorgeto vet-gorgeto" id="rangsor-gorgeto">' +
           '<h1>' + esc(sz('nevlista_cim')) + '</h1>' +
           '<span class="vet-szamlalo">' + esc(sz('nevlista_db', { n: jk2.length, t: caps2.length })) + '</span>' +
           (utolso ? '<span class="vet-most">' + esc(sz('vet_most', { nev: utolso.nev, kod: utolso.id })) + '</span>' : '') +
@@ -1372,12 +1373,14 @@
       }
       return gombok + '<div class="vetites vet-rangsor">' +
         '<h1>' + esc(ig ? sz('vet_allas', { kor: ig }) : sz('vet_rangsor')) + '</h1>' +
+      '<div class="rangsor-gorgeto vet-gorgeto" id="rangsor-gorgeto">' +
         '<table class="tabla vet-tabla"><thead>' +
           '<tr><th rowspan="2">#</th><th rowspan="2">' + esc(sz('th_nev')) + '</th>' +
             fej1 +
             '<th rowspan="2" class="ossz-fej">' + esc(sz('th_ossz_pont')) + '</th>' +
             '<th rowspan="2" class="ossz-fej">' + esc(sz('th_ossz_penz')) + '</th></tr><tr>' + fej2 + '</tr>' +
         '</thead><tbody>' + sorok + '</tbody></table>' +
+      '</div>' +
         (szam(a.beall.dijazott, 0) > 0
           ? '<p class="dij-lablec vet-dij">🎁 ' + esc(sz('dij_lablec', { n: szam(a.beall.dijazott, 0) })) + '</p>'
           : '') +
@@ -1518,9 +1521,12 @@
       if (gorgetSzunet > 0) { gorgetSzunet--; return; }
       /* Csak a RANGSOR TÁBLÁZATÁN belül görgetünk (nem az egész lapot),
          így a menü és a fejléc helyben marad. */
-      var doboz = (global.document && global.document.getElementById)
-        ? global.document.getElementById('rangsor-gorgeto') : null;
-      if (!doboz) return;
+      var doboz = null;
+      if (global.document) {
+        doboz = global.document.getElementById('rangsor-gorgeto') ||
+          (global.document.querySelector ? global.document.querySelector('.rangsor-gorgeto') : null);
+      }
+      if (!doboz || !doboz.scrollHeight) return;
       var b = S.allapot.beall;
       if (b.gorgetIrany === undefined) b.gorgetIrany = 1;
       var max = (doboz.scrollHeight || 0) - (doboz.clientHeight || 0);
@@ -2571,6 +2577,10 @@
     var lab = document.getElementById('app-verzio');
     if (lab) lab.textContent = 'v' + V.VERZIO + ' · ' + sz('verzio_szo');
     if (S.nezet === 'vetites' && S.vetites === 'asztalok') vetitesIlleszt();
+    /* a rangsor automatikus görgetése a kivetítőn is induljon el */
+    if (S.nezet === 'rangsor' || (S.nezet === 'vetites' && S.vetites === 'rangsor')) {
+      try { gorgetoIndit(); } catch (e) { }
+    }
     if (S.nezet === 'vetites' && S.vetites === 'nevlista' && S.ujJatekos) {
       var mostSor = document.querySelector ? document.querySelector('.most-sor') : null;
       if (mostSor && mostSor.scrollIntoView) {
@@ -3664,7 +3674,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.47';
+  V.VERZIO = '1.48';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
