@@ -117,6 +117,23 @@
           .catch(function (e) { cb(e); });
       });
     },
+    /* A felhőben mentett versenyek listája (név, dátum, mikor mentve). */
+    mentesekLista: function (cb) {
+      keszul(function (h, db2) {
+        if (h) return cb(h);
+        db2.collection('verseny_mentes').limit(50).get()
+          .then(function (snap) {
+            var ki = [];
+            snap.forEach(function (d) {
+              var x = d.data() || {};
+              ki.push({ id: d.id, nev: x.nev || '', datum: x.datum || '', ts: x.ts || 0 });
+            });
+            ki.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+            cb(null, ki);
+          })
+          .catch(function (e) { cb(e); });
+      });
+    },
     mentesOlvas: function (azonosito, cb) {
       keszul(function (h, db2) {
         if (h) return cb(h);
