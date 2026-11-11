@@ -931,6 +931,59 @@
 
   /* ======================= eredménybeírás =============================== */
 
+  /* ============ Törzslista felhő-szinkron ============ */
+  var torzsIdo = null;
+  /* Két lista egyesítése kód szerint (a felhő a hiteles, de ami csak helyben van, az is marad). */
+  function torzsEgyesit(helyi, felho) {
+    var map = {};
+    (helyi || []).forEach(function (x) {
+      if (!x || !x[2]) return;
+      map[String(x[0])] = [Number(x[0]), x[1] || '', x[2]];
+    });
+    (felho || []).forEach(function (x) {
+      if (!x || !x[2]) return;
+      map[String(x[0])] = [Number(x[0]), x[1] || '', x[2]];
+    });
+    return Object.keys(map).map(function (k) { return map[k]; })
+      .sort(function (a, b) { return a[0] - b[0]; });
+  }
+
+  /* Bármilyen törzslista-változás után feltölti a felhőbe (kis késleltetéssel). */
+  function torzsFelhoMent(azonnal) {
+    if (!global.BEKULDES || !global.BEKULDES.torzsMent) return;
+    if (torzsIdo) global.clearTimeout(torzsIdo);
+    var kuld = function () {
+      S.torzsAllapot = sz('torzs_kuld');
+      global.BEKULDES.torzsMent(torzsLista().map(function (x) {
+        return [Number(x[0]), x[1] || '', x[2] || ''];
+      }), function (h) {
+        S.torzsAllapot = h ? sz('torzs_hiba') : sz('torzs_mentve', { ido: oraPerc2() });
+        var el = global.document && global.document.getElementById ? global.document.getElementById('torzs-allapot') : null;
+        if (el) el.textContent = S.torzsAllapot;
+      });
+    };
+    if (azonnal) kuld();
+    else torzsIdo = global.setTimeout(kuld, 1500);
+  }
+
+  /* Indításkor: a felhőben lévő törzslista beolvasztása. */
+  function torzsFelhoBetolt() {
+    if (!global.BEKULDES || !global.BEKULDES.torzsOlvas) return;
+    global.BEKULDES.torzsOlvas(function (h, d) {
+      if (h || !d || !d.sorok || !d.sorok.length) return;
+      var egyesitett = torzsEgyesit(torzsLista(), d.sorok);
+      if (egyesitett.length === torzsLista().length) {
+        /* ugyanannyi elem – csak akkor írjuk felül, ha tényleg más */
+        var azonos = JSON.stringify(egyesitett) === JSON.stringify(torzsLista().map(function (x) { return [Number(x[0]), x[1] || '', x[2] || '']; }));
+        if (azonos) { S.torzsAllapot = sz('torzs_mentve', { ido: new Date(d.ts || Date.now()).toLocaleTimeString() }); return; }
+      }
+      S.allapot.torzslista = egyesitett;
+      mentes();
+      S.torzsAllapot = sz('torzs_betoltve', { n: egyesitett.length });
+      render();
+    });
+  }
+
   /* A hiányzó összeg: ha már csak egy játékos pénze hiányzik, kiszámoljuk.
      Egy asztalon ugyanis mindig 5 € × játékosszám az összeg (3 főnél 15 €).
      Visszaad: { id, ertek } vagy null. */
@@ -1666,6 +1719,7 @@
               '<input data-t="beall" data-mezo="webcim" value="' + esc(b.webcim || '') + '" placeholder="' + esc(sz('webcim_hely')) + '"></label>' +
           '</div>' +
           '<label class="kapcsolo"><input type="checkbox" data-t="beall" data-mezo="qrBe"' + (b.qrBe ? ' checked' : '') + '> ' + esc(sz('qr_be_rovid')) + '</label>' +
+          '<label class="kapcsolo teszt-kapcsolo"><input type="checkbox" data-t="beall" data-mezo="tesztVerseny"' + (b.tesztVerseny ? ' checked' : '') + '> ' + esc(sz('teszt_verseny_kapcsolo')) + sugoIkon('teszt_verseny_sugo') + '</label>' +
           '<label class="kapcsolo"><input type="checkbox" data-t="beall" data-mezo="kiemeltVedelem"' + (b.kiemeltVedelem ? ' checked' : '') + '> ' + esc(sz('kiemelt_vedelem')) + '</label>' +
         '</details>' +
       '</div>' +
@@ -1705,6 +1759,7 @@
           '<span class="ossz-jel">' + esc(sz('torzs_most', { n: torzsLista().filter(function (x) { return x[2]; }).length })) + '</span>' +
         '</summary>' +
           '<p class="sugo torzs-csillag-sugo">' + esc(sz('torzs_csillag_sugo')) + '</p>' +
+          '<p id="torzs-allapot" class="sugo torzs-allapot">' + esc(S.torzsAllapot || '') + '</p>' +
           '<div class="torzs-uj nevezes-sor">' +
             '<input id="torzs-uj-kod" class="mini-input" placeholder="' + esc(sz('th_kod')) + '">' +
             '<input id="torzs-uj-nev" class="kozepes-input" placeholder="' + esc(sz('th_nev')) + '">' +
@@ -1969,7 +2024,16 @@
     if (el) { el.textContent = S.felhoAllapot; el.className = 'felho-allapot' + (tipus ? ' ' + tipus : ''); }
   }
 
+  function tesztBlokk(csendes) {
+    if (S.allapot && S.allapot.beall && S.allapot.beall.tesztVerseny) {
+      if (!csendes) { hiba(sz('teszt_nincs_tovabbitas')); render(); }
+      return true;
+    }
+    return false;
+  }
+
   function felhoMentes(csendes) {
+    if (tesztBlokk(csendes)) return;
     var a = S.allapot;
     if (!a.esemenyId) {
       if (!csendes) { felhoJel(sz('felho_nincs_esemeny'), 'hiba'); hiba(sz('felho_nincs_esemeny')); render(); }
@@ -2035,6 +2099,7 @@
 
   /* Élő állás feltöltése a weblapra (a verseny napján mutatja). */
   function eloFeltolt() {
+    if (tesztBlokk(false)) return;
     var a = S.allapot;
     if (!a.korok.length) { hiba(sz('elo_nincs_kor')); render(); return; }
     if (!a.esemenyId) { hiba(sz('elo_nincs_esemeny')); render(); return; }
@@ -2062,6 +2127,7 @@
 
   /* Élő állás feltöltése üzenet nélkül (kör végén, magától). */
   function eloFeltoltCsendes() {
+    if (S.allapot && S.allapot.beall && S.allapot.beall.tesztVerseny) return;
     var a = S.allapot;
     if (!a.esemenyId || !a.korok.length) return;
     if (!global.BEKULDES || !global.BEKULDES.eloMent) return;
@@ -2191,6 +2257,7 @@
     }, 3000);
   }
   function gsKuld(url) {
+    if (S.allapot && S.allapot.beall && S.allapot.beall.tesztVerseny) { S.gsAllapot = sz('teszt_nincs_tovabbitas'); gsJel(); return; }
     try {
       if (!global.fetch) { S.gsAllapot = sz('gs_nincs_fetch'); return; }
       var a = S.allapot;
@@ -2290,6 +2357,12 @@
 
   /* ======================= renderelés =================================== */
 
+  /* Teszt verseny: szolid piros jelző minden nézeten. */
+  function tesztJelzo() {
+    if (!S.allapot || !S.allapot.beall || !S.allapot.beall.tesztVerseny) return '';
+    return '<div class="teszt-jelzo">' + esc(sz('teszt_verseny_jelzo')) + '</div>';
+  }
+
   function render() {
     var c = document.getElementById('nezet');
     if (!c || !S.allapot) return;
@@ -2325,7 +2398,7 @@
       torzs = '<div class="uzenet ok folytatas">' + esc(S.folytatasUzenet) + '</div>' + torzs;
       S.folytatasUzenet = '';
     }
-    c.innerHTML = fej + lepes + torzs +
+    c.innerHTML = tesztJelzo() + fej + lepes + torzs +
       (S.uzenet ? '<div class="uzenet ' + S.uzenetTipus + '">' + esc(S.uzenet) + '</div>' : '');
 
     var nyomtatTerulet = document.getElementById('nyomtat-terulet');
@@ -2981,6 +3054,7 @@
       }
       if (torzsLista().some(function (s2) { return Number(s2[0]) === ujKod; })) { hiba(sz('torzs_kod_foglalt', { kod: ujKod })); render(); return; }
       S.allapot.torzslista = torzsLista().concat([[ujKod, ujKartya, ujNev]]);
+      torzsFelhoMent();
       S.torzsValtozott = (S.torzsValtozott || []).concat([ujKod]);
       mentes(); render();
       ok(sz('torzs_hozzaadva', { nev: ujNev, kod: ujKod }));
@@ -3002,6 +3076,7 @@
     if (t === 'torzs-torol') {
       var ttId = parseInt(cel.getAttribute('data-id'), 10);
       S.allapot.torzslista = torzsLista().filter(function (s2) { return Number(s2[0]) !== ttId; });
+      torzsFelhoMent();
       S.torzsToroltek = (S.torzsToroltek || []);
       if (S.torzsToroltek.indexOf(ttId) < 0) S.torzsToroltek.push(ttId);
       mentes(); render();
@@ -3177,6 +3252,7 @@
         else uj3[1] = cel.value.replace(/[^0-9]/g, '');
         return uj3;
       });
+      torzsFelhoMent();
       S.torzsValtozott = (S.torzsValtozott || []);
       if (S.torzsValtozott.indexOf(tkId) < 0) S.torzsValtozott.push(tkId);
       mentes();
@@ -3245,6 +3321,8 @@
     /* A weblapról indított verseny átvétele (a weblap a böngésző tárolójába írja). */
     S.fuggobenImport = null;
     S.kiemeltLista = V.Motor.kiemeltekBetolt();
+    /* a törzslista a felhőből is (ha van internet) */
+    try { torzsFelhoBetolt(); } catch (e) { }
     /* Külön ablak (kivetítő): a vezérlők lebegő sávban vannak, ami egérre vagy
        érintésre előjön, majd pár másodperc után eltűnik – így a kivetítés tiszta
        marad, de a vissza gomb és az óra vezérlői bármikor kézre esnek. */
@@ -3390,7 +3468,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.35';
+  V.VERZIO = '1.36';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
@@ -3401,6 +3479,7 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._nyitottBeallit = function (k, v) { S.nyitottDetails = S.nyitottDetails || {}; S.nyitottDetails[k] = !!v; };
   V._felhoListaBeallit = function (l) { S.felhoLista = l || []; };
   V._biztNyit = function (v) { S.biztNyitva = !!v; };
+  V._torzsEgyesit = function (a, b) { return torzsEgyesit(a, b); };
   V._penzJavaslat = function (asztal) { return penzJavaslat(asztal); };
 
   V._ujJatekosBeall = function (id) { S.ujJatekos = id; };
