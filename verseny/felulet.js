@@ -2393,6 +2393,17 @@
     var nyomtatTerulet = document.getElementById('nyomtat-terulet');
     if (nyomtatTerulet) nyomtatTerulet.innerHTML = (S.nezet === 'nyomtat' && nyomtatKor()) ? cedulaHtml(nyomtatKor()) : '';
 
+    /* Eredménybeírásnál a kurzor rögtön az első összeg mezőben legyen,
+       hogy lehessen azonnal írni (asztalváltás után is). */
+    if (S.nezet === 'beiras' && document.querySelector) {
+      var fok = document.activeElement;
+      var marPenz = fok && fok.classList && fok.classList.contains('penz-input');
+      if (!marPenz) {
+        var elsoPenz = document.querySelector('.penz-input');
+        if (elsoPenz && elsoPenz.focus) { try { elsoPenz.focus(); } catch (e) { } }
+      }
+    }
+
     rajzolasFut = false;
     /* apró verzió-lábjegyzet minden nézeten */
     var lab = document.getElementById('app-verzio');
@@ -3475,7 +3486,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.38';
+  V.VERZIO = '1.39';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
@@ -3488,6 +3499,7 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._biztNyit = function (v) { S.biztNyitva = !!v; };
   V._torzsEgyesit = function (a, b) { return torzsEgyesit(a, b); };
   V._asztaBeallit = function (n) { S.asztal = n; };
+  V._kovetkezoAsztal = function () { return kovetkezoHianyzoAsztal(); };
   V._enterPenz = function (cel) {
     gombok({ key: 'Enter', preventDefault: function () { }, target: {
       classList: { contains: function (c) { return c === 'penz-input'; } },
