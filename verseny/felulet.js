@@ -1060,6 +1060,9 @@
           ? '<p class="figyelem">' + esc(sz('lezarva_ujranyitas_sugo')) + ' ' +
             '<button class="masod-gomb kicsi" data-t="ujranyit">' + esc(sz('lezarva_ujranyitas')) + '</button></p>'
           : '') +
+        ((kor.kor || 0) < (a.korok.length || 0)
+          ? '<p class="figyelem">' + esc(sz('kor_javitas_figyelem', { kor: kor.kor })) + '</p>'
+          : '') +
         '<p class="haladas">' + esc(sz('haladas', { kesz: asztalok.length - hianyzo.length, ossz: asztalok.length })) +
           (hianyzo.length ? ' · <b class="hianyzo-szoveg">' + esc(sz('hianyzo_asztalok', { lista: hianyzo.join(', ') })) + '</b>' : '') +
         '</p>' +
@@ -1069,7 +1072,7 @@
           : '<div class="kor-lezaras">' +
               '<span class="ok-jel">' + esc(sz('kor_minden_kesz')) + '</span>' +
               '<button class="fo-gomb kor-lezaras-gomb" data-t="kor-lezar">' +
-                esc(sz('kor_lezar_gomb', { kor: (kor.kor || 1) + 1 })) + '</button>' +
+                esc(sz('kor_lezar_gomb', { kor: (a.korok.length || (kor.kor || 1)) + 1 })) + '</button>' +
             '</div>') +
         '<p class="sugo">' + esc(kovetkezoModSzoveg()) + '</p>' +
       '</div>' +
@@ -3589,7 +3592,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.42';
+  V.VERZIO = '1.43';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
@@ -3604,6 +3607,7 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._archivListaBeallit = function (l) { S.archivLista = l || []; };
   V._asztaBeallit = function (n) { S.asztal = n; };
   V._kovetkezoAsztal = function () { return kovetkezoHianyzoAsztal(); };
+  V._kovetkezoKor = function () { return kovetkezoKor(); };
   V._enterPenz = function (cel) {
     gombok({ key: 'Enter', preventDefault: function () { }, target: {
       classList: { contains: function (c) { return c === 'penz-input'; } },
