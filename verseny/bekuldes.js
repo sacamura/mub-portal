@@ -106,6 +106,24 @@
           .catch(function (e) { cb(e); });
       });
     },
+    /* ---- törzslista a felhőben (versenyektől független) ---- */
+    torzsMent: function (sorok, cb) {
+      keszul(function (h, db2) {
+        if (h) return cb(h);
+        db2.collection('verseny_torzs').doc('lista').set({ sorok: sorok || [], ts: Date.now() })
+          .then(function () { cb(null); })
+          .catch(function (e) { cb(e); });
+      });
+    },
+    torzsOlvas: function (cb) {
+      keszul(function (h, db2) {
+        if (h) return cb(h);
+        db2.collection('verseny_torzs').doc('lista').get()
+          .then(function (d) { cb(null, d && d.exists ? (d.data() || {}) : null); })
+          .catch(function (e) { cb(e); });
+      });
+    },
+
     /* Teljes állapot mentése a felhőbe – a weblap Firebase-ében, külön gyűjteményben.
        Ez nem igényel semmilyen beállítást: ugyanaz a projekt, mint a weblapé. */
     mentesMent: function (azonosito, csomag, cb) {
