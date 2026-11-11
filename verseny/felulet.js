@@ -3298,6 +3298,21 @@
     if (e.target.id === 'kod-be' || e.target.id === 'nev-be') { e.preventDefault(); jatekosHozzaad(); return; }
     if (e.target.classList && e.target.classList.contains('penz-input')) {
       e.preventDefault();
+      /* Ha üres a mező, de a program felkínált egy összeget, az Enter azt elfogadja. */
+      var javE = e.target.getAttribute && e.target.getAttribute('data-javaslat');
+      if (javE && !String(e.target.value || '').trim()) {
+        e.target.value = javE;
+        var korE = aktualisKor();
+        if (korE) {
+          var aszE = korE.asztalok[S.asztal - 1];
+          var idE = parseInt(e.target.getAttribute('data-id'), 10);
+          if (aszE) {
+            if (!aszE.eredmenyek[idE]) aszE.eredmenyek[idE] = {};
+            aszE.eredmenyek[idE].penz = e.target.value;
+            mentes(); beirasFrissit();
+          }
+        }
+      }
       var bemenetek = Array.prototype.slice.call(document.querySelectorAll('.penz-input'));
       var i = bemenetek.indexOf(e.target);
       if (i >= 0 && i + 1 < bemenetek.length) { bemenetek[i + 1].focus(); bemenetek[i + 1].select(); }
@@ -3460,7 +3475,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.37';
+  V.VERZIO = '1.38';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
@@ -3472,6 +3487,13 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._felhoListaBeallit = function (l) { S.felhoLista = l || []; };
   V._biztNyit = function (v) { S.biztNyitva = !!v; };
   V._torzsEgyesit = function (a, b) { return torzsEgyesit(a, b); };
+  V._asztaBeallit = function (n) { S.asztal = n; };
+  V._enterPenz = function (cel) {
+    gombok({ key: 'Enter', preventDefault: function () { }, target: {
+      classList: { contains: function (c) { return c === 'penz-input'; } },
+      getAttribute: function (n) { return cel[n] === undefined ? null : String(cel[n]); },
+      value: cel.value, id: '', focus: function () { }, select: function () { } } });
+  };
   V._penzJavaslat = function (asztal) { return penzJavaslat(asztal); };
 
   V._ujJatekosBeall = function (id) { S.ujJatekos = id; };
