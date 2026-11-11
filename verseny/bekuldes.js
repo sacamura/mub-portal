@@ -106,6 +106,46 @@
           .catch(function (e) { cb(e); });
       });
     },
+    /* ---- verseny-archívum (minden lezárt/mentett verseny) ---- */
+    archivMent: function (csomag, cb) {
+      keszul(function (h, db2) {
+        if (h) return cb(h);
+        var id = String(csomag.esemeny || csomag.esemenyId || 'verseny') + '-' + Date.now();
+        csomag.ts = Date.now();
+        db2.collection('verseny_archiv').doc(id).set(csomag)
+          .then(function () { cb(null, id); })
+          .catch(function (e) { cb(e); });
+      });
+    },
+    archivLista: function (cb) {
+      keszul(function (h, db2) {
+        if (h) return cb(h);
+        db2.collection('verseny_archiv').limit(100).get()
+          .then(function (snap) {
+            var ki = [];
+            snap.forEach(function (d) {
+              var x = d.data() || {};
+              ki.push({
+                id: d.id, esemeny: x.esemeny || '', nev: x.nev || '', hely: x.hely || '',
+                datum: x.datum || '', korDb: x.korDb || 0, jatekDb: x.jatekDb || 0,
+                teszt: !!x.teszt, lezarva: !!x.lezarva, ts: x.ts || 0
+              });
+            });
+            ki.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+            cb(null, ki);
+          })
+          .catch(function (e) { cb(e); });
+      });
+    },
+    archivOlvas: function (id, cb) {
+      keszul(function (h, db2) {
+        if (h) return cb(h);
+        db2.collection('verseny_archiv').doc(String(id)).get()
+          .then(function (d) { cb(null, d && d.exists ? d.data() : null); })
+          .catch(function (e) { cb(e); });
+      });
+    },
+
     /* ---- törzslista a felhőben (versenyektől független) ---- */
     torzsMent: function (sorok, cb) {
       keszul(function (h, db2) {
