@@ -1570,7 +1570,8 @@
       : (o.maradek
         ? '<button class="fo-gomb nagy-gomb-2" data-t="ora-folytat">' + esc(sz('ora_folytat')) + '</button>'
         : '<button class="fo-gomb nagy-gomb-2" data-t="ora-indit">' + esc(sz('ora_indit')) + '</button>');
-    return '<div class="ora' + (lejart ? ' ora-lejart' : '') + (a.beall.oraVilagos ? ' ora-vilagos' : '') + '">' +
+    return '<div class="ora' + (lejart ? ' ora-lejart' : '') + (a.beall.oraVilagos ? ' ora-vilagos' : '') +
+      (szunetMod ? ' ora-szunet-mod' : '') + '">' +
       '<button class="masod-gomb kicsi ora-vissza" data-t="vissza">← ' + esc(sz('vissza')) + '</button>' +
       '<div class="ora-fej">' +
         '<span class="ora-kor">' + esc(kor ? sz('ora_kor', { kor: kor.kor, osszes: a.beall.korok }) : sz('nincs_sorsolas')) + '</span>' +
@@ -3486,7 +3487,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.39';
+  V.VERZIO = '1.40';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
