@@ -1056,6 +1056,10 @@
           ? '<p class="figyelem">' + szh('kor_javitas_figyelem', { kor: kor.kor, kov: a.korok.length }) + '</p>'
           : '') +
         '<p class="sugo">' + szh('beir_sugo') + '</p>' +
+        (a.lezarva
+          ? '<p class="figyelem">' + esc(sz('lezarva_ujranyitas_sugo')) + ' ' +
+            '<button class="masod-gomb kicsi" data-t="ujranyit">' + esc(sz('lezarva_ujranyitas')) + '</button></p>'
+          : '') +
         '<p class="haladas">' + esc(sz('haladas', { kesz: asztalok.length - hianyzo.length, ossz: asztalok.length })) +
           (hianyzo.length ? ' · <b class="hianyzo-szoveg">' + esc(sz('hianyzo_asztalok', { lista: hianyzo.join(', ') })) + '</b>' : '') +
         '</p>' +
@@ -1834,6 +1838,32 @@
                   : '') +
               '</div>' +
 
+              /* ---------- 2b. archívum ---------- */
+              '<div class="bizt-blokk">' +
+                '<div class="bizt-fej">' + esc(sz('archiv_cim')) + sugoIkon('archiv_sugo') + '</div>' +
+                '<p class="bizt-magyar">' + esc(sz('archiv_magyar')) + '</p>' +
+                '<div class="nevezes-sor">' +
+                  '<button class="masod-gomb kicsi" data-t="archiv-frissit">' + esc(sz('nyitott_frissit')) + '</button>' +
+                  '<button class="masod-gomb kicsi" data-t="archiv-ment">' + esc(sz('archiv_ment_gomb')) + '</button>' +
+                  '<span class="sugo">' + esc(S.archivAllapot || '') + '</span>' +
+                '</div>' +
+                ((S.archivLista && S.archivLista.length)
+                  ? '<div class="felho-lista">' + S.archivLista.map(function (x) {
+                      var ido = x.ts ? new Date(x.ts) : null;
+                      return '<div class="felho-elem">' +
+                        '<div class="felho-elem-szov"><b>' + esc(x.hely || x.nev || sz('verseny_cim_hely')) +
+                          (x.teszt ? ' <span class="cimke teszt-cimke">' + esc(sz('archiv_teszt')) + '</span>' : '') +
+                          (x.lezarva ? ' <span class="cimke">' + esc(sz('archiv_lezart')) + '</span>' : ' <span class="cimke kilepett">' + esc(sz('archiv_felbe')) + '</span>') +
+                        '</b>' +
+                          '<span>' + esc(x.datum || '') + ' · ' + x.korDb + ' ' + esc(sz('archiv_kor')) + ' · ' + x.jatekDb + ' ' + esc(sz('archiv_jatekos')) +
+                          (ido ? ' · ' + esc(ido.toLocaleString()) : '') + '</span></div>' +
+                        '<button class="masod-gomb kicsi" data-t="archiv-nez" data-id="' + esc(x.id) + '">' + esc(sz('archiv_nez')) + '</button>' +
+                        '<button class="masod-gomb kicsi" data-t="archiv-javit" data-id="' + esc(x.id) + '">' + esc(sz('archiv_javit')) + '</button>' +
+                      '</div>';
+                    }).join('') + '</div>'
+                  : '') +
+              '</div>' +
+
               /* ---------- 3. Excel ---------- */
               '<div class="bizt-blokk">' +
                 '<div class="bizt-fej">' + esc(sz('b3_cim')) + '</div>' +
@@ -2075,6 +2105,57 @@
       S.allapot.esemenyId = azonosito;
       mentes(); render();
       ok(sz('felho_megnyitva'));
+    });
+  }
+
+  /* A mostani verseny mentése az archívumba (dátummal, hellyel, teszt/éles jelzéssel). */
+  function archivMent(csendes) {
+    var a = S.allapot;
+    if (!global.BEKULDES || !global.BEKULDES.archivMent) { if (!csendes) { hiba(sz('felho_hiba')); render(); } return; }
+    var csomag = {
+      esemeny: a.esemenyId || '',
+      nev: a.beall.nev || a.beall.helyHu || '',
+      hely: a.beall.helyHu || a.beall.hely || '',
+      datum: a.beall.datum || '',
+      korDb: (a.korok || []).length,
+      jatekDb: (a.jatekosok || []).length,
+      teszt: !!a.beall.tesztVerseny,
+      lezarva: !!a.lezarva,
+      teljes: JSON.stringify(a)
+    };
+    global.BEKULDES.archivMent(csomag, function (h) {
+      if (h) { if (!csendes) { hiba(sz('archiv_hiba')); render(); } return; }
+      if (!csendes) { S.archivAllapot = sz('archiv_mentve', { ido: oraPerc2() }); ok(sz('archiv_mentve', { ido: oraPerc2() })); render(); }
+    });
+  }
+
+  /* az archívum listájának betöltése */
+  function archivFrissit() {
+    if (!global.BEKULDES || !global.BEKULDES.archivLista) { return; }
+    S.archivAllapot = sz('felho_lista_tolt');
+    render();
+    global.BEKULDES.archivLista(function (h, lista) {
+      S.archivAllapot = h ? sz('felho_lista_hiba') : '';
+      S.archivLista = (h || !lista) ? [] : lista;
+      render();
+    });
+  }
+
+  /* egy archív verseny megnyitása */
+  function archivMegnyit(id, javitas) {
+    if (!global.BEKULDES || !global.BEKULDES.archivOlvas) { hiba(sz('felho_hiba')); render(); return; }
+    global.BEKULDES.archivOlvas(id, function (h, d) {
+      if (h || !d || !d.teljes) { hiba(sz('archiv_hiba')); render(); return; }
+      var a2 = null;
+      try { a2 = JSON.parse(d.teljes); } catch (e) { a2 = null; }
+      if (!a2 || !a2.beall) { hiba(sz('archiv_hiba')); render(); return; }
+      S.allapot = a2;
+      if (javitas) S.allapot.lezarva = false;      /* javításhoz újranyitjuk */
+      if (!S.allapot.esemenyId && d.esemeny) S.allapot.esemenyId = d.esemeny;
+      mentes();
+      S.nezet = javitas ? 'beiras' : 'rangsor';
+      render();
+      ok(javitas ? sz('archiv_javitas_kesz') : sz('archiv_megnyitva'));
     });
   }
 
@@ -2828,8 +2909,16 @@
       var dijBe = document.getElementById('dijazott-be');
       S.allapot.beall.dijazott = Math.max(0, Math.min(500, szam(dijBe ? dijBe.value : 0, 0)));
       S.allapot.lezarva = true;
-      mentes(); render();
+      mentes();
+      try { archivMent(true); } catch (e) { }
+      render();
       ok(sz('lezar_kesz'));
+      return;
+    }
+    if (t === 'ujranyit') {
+      S.allapot.lezarva = false;
+      mentes(); render();
+      ok(sz('ujranyitva'));
       return;
     }
     if (t === 'kor-lezar') {
@@ -2899,6 +2988,13 @@
     }
     if (t === 'elo-feltolt') { eloFeltolt(); return; }
     if (t === 'bizt-nyit') { S.biztNyitva = (S.biztNyitva !== true); render(); return; }
+    if (t === 'archiv-frissit') { archivFrissit(); return; }
+    if (t === 'archiv-ment') { archivMent(false); return; }
+    if (t === 'archiv-nez') { archivMegnyit(cel.getAttribute('data-id'), false); return; }
+    if (t === 'archiv-javit') {
+      if (!global.confirm || global.confirm(sz('archiv_javit_kerdes'))) archivMegnyit(cel.getAttribute('data-id'), true);
+      return;
+    }
     if (t === 'felho-lista') { felhoListaFrissit(); return; }
     if (t === 'felho-megnyit') {
       var megId = cel.getAttribute('data-id');
@@ -3493,7 +3589,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.41';
+  V.VERZIO = '1.42';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
@@ -3505,6 +3601,7 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._felhoListaBeallit = function (l) { S.felhoLista = l || []; };
   V._biztNyit = function (v) { S.biztNyitva = !!v; };
   V._torzsEgyesit = function (a, b) { return torzsEgyesit(a, b); };
+  V._archivListaBeallit = function (l) { S.archivLista = l || []; };
   V._asztaBeallit = function (n) { S.asztal = n; };
   V._kovetkezoAsztal = function () { return kovetkezoHianyzoAsztal(); };
   V._enterPenz = function (cel) {
