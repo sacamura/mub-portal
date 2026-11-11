@@ -877,3 +877,21 @@ torzs-lista .csillag-gomb{margin-right:2px}
 
 /* torzs-allapot */
 .torzs-allapot{margin:0 0 8px;font-size:.85rem;color:#5b7a63;font-weight:600}
+
+/* ora-szunet-hangsuly */
+.ora-szunet-mod .ora-cim{
+  font-size:clamp(1.5rem,3.6vw,3.2rem)!important;
+  font-weight:900;letter-spacing:.14em;color:#ffd166!important;
+  background:rgba(255,209,102,.14);border:2.5px solid rgba(255,209,102,.45);
+  padding:.14em .7em;border-radius:16px;display:inline-block;
+  text-shadow:0 0 18px rgba(255,209,102,.35)}
+.ora-szunet-mod .ora-kor{color:#e6c78a}
+.ora-szunet-mod .ora-szam{color:#ffd166!important;text-shadow:0 0 40px rgba(255,209,102,.35)}
+.ora-szunet-mod .ora-vege{color:#c9b183}
+body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
+.ora-vilagos.ora-szunet-mod .ora-cim{color:#a06c00!important;background:#fff6e0;border-color:#e8cf8a;
+  text-shadow:none}
+.ora-vilagos.ora-szunet-mod .ora-szam{color:#a06c00!important;text-shadow:none}
+.ora-vilagos.ora-szunet-mod .ora-kor,.ora-vilagos.ora-szunet-mod .ora-vege{color:#8a7548}
+.ora-szunet-mod.ora-lejart .ora-szam{color:#ff5252!important}
+.ora-vilagos.ora-szunet-mod.ora-lejart .ora-szam{color:#c62828!important}
