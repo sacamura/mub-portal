@@ -1522,6 +1522,7 @@
     var maradek = M.oraMaradek(a, Date.now());
     var vege = M.oraVegIdo(a);
     var lejart = o.fut && maradek <= 0;
+    var szunetMod = (o.mod === 'szunet');
     var gomb = o.fut
       ? '<button class="masod-gomb nagy-gomb-2" data-t="ora-szunet">' + esc(sz('ora_szunet')) + '</button>'
       : (o.maradek
@@ -1531,14 +1532,19 @@
       '<button class="masod-gomb kicsi ora-vissza" data-t="vissza">← ' + esc(sz('vissza')) + '</button>' +
       '<div class="ora-fej">' +
         '<span class="ora-kor">' + esc(kor ? sz('ora_kor', { kor: kor.kor, osszes: a.beall.korok }) : sz('nincs_sorsolas')) + '</span>' +
-        '<span class="ora-cim">' + esc(sz('ora_cim')) + '</span>' +
+        '<span class="ora-cim">' + esc(szunetMod ? sz('ora_szunet_cim') : sz('ora_cim')) + '</span>' +
       '</div>' +
       '<div class="ora-szam" id="ora-szam">' + M.oraSzoveg(maradek) + '</div>' +
       '<div class="ora-vege" id="ora-vege">' +
         (lejart ? esc(sz('ora_lejart')) : (vege ? esc(sz('ora_vege', { ido: M.oraIdoSzoveg(vege) })) : esc(sz('ora_nincs')))) +
       '</div>' +
+      '<div class="ora-mod-valto">' +
+        '<button class="ora-mod-gomb' + (szunetMod ? '' : ' aktiv') + '" data-t="ora-mod" data-mod="kor">' + esc(sz('ora_mod_kor')) + '</button>' +
+        '<button class="ora-mod-gomb' + (szunetMod ? ' aktiv' : '') + '" data-t="ora-mod" data-mod="szunet">' + esc(sz('ora_mod_szunet')) + '</button>' +
+      '</div>' +
       '<div class="ora-vezerlok">' +
-          '<label>' + esc(sz('ora_perc')) + ' <input id="ora-perc" class="mini-input" value="' + esc(o.perc || a.beall.oraPerc || 50) + '"></label>' +
+          '<label>' + esc(sz('ora_perc')) + ' <input id="ora-perc" class="mini-input" value="' +
+            esc(o.perc || (szunetMod ? (a.beall.szunetPerc || 15) : (a.beall.oraPerc || 50))) + '"></label>' +
           gomb +
           '<button class="masod-gomb" data-t="ora-nullaz">' + esc(sz('ora_nullaz')) + '</button>' +
           '<button class="masod-gomb" data-t="ora-szin">' + esc(a.beall.oraVilagos ? sz('ora_sotet') : sz('ora_vilagos')) + '</button>' +
@@ -1623,7 +1629,7 @@
     function nyitott(kulcs) {
       return (S.nyitottDetails && S.nyitottDetails[kulcs]) ? ' open' : '';
     }
-    var biztNyit = (S.biztNyitva !== false);
+    var biztNyit = (S.biztNyitva === true);   /* alapból csukva */
     var tesztKi = M.tesztBetolt();
     var tesztSor = tesztKi
       ? '<div class="teszt-sor"><span class="teszt-jel">●</span> ' + esc(sz('teszt_van')) +
@@ -2453,10 +2459,29 @@
 
     if (t === 'nezet') { nezetValt(cel.getAttribute('data-nezet'), parseInt(cel.getAttribute('data-aszta'), 10) || 0); return; }
     if (t === 'vissza') { vissza(); return; }
+    if (t === 'ora-mod') {
+      var modUj = cel.getAttribute('data-mod') || 'kor';
+      S.allapot.ora = S.allapot.ora || {};
+      S.allapot.ora.mod = modUj;
+      S.allapot.ora.perc = (modUj === 'szunet') ? (S.allapot.beall.szunetPerc || 15) : (S.allapot.beall.oraPerc || 50);
+      S.allapot.ora.fut = false;
+      S.allapot.ora.vege = null;
+      S.allapot.ora.maradek = null;
+      mentes(); render();
+      return;
+    }
     if (t === 'ora-indit') {
       oraCsipogott = false;
       var pBe = document.getElementById('ora-perc');
-      M.oraPerc(S.allapot, pBe ? pBe.value : (S.allapot.beall.oraPerc || 50));
+      var szunetE = !!(S.allapot.ora && S.allapot.ora.mod === 'szunet');
+      var voltOraPerc = S.allapot.beall.oraPerc;
+      var inditPerc = pBe ? pBe.value : (szunetE ? (S.allapot.beall.szunetPerc || 15) : (S.allapot.beall.oraPerc || 50));
+      M.oraPerc(S.allapot, inditPerc);
+      if (szunetE) {
+        /* a szünet hossza ne írja felül a kör hosszát */
+        S.allapot.beall.oraPerc = voltOraPerc;
+        S.allapot.beall.szunetPerc = szam(inditPerc, 15);
+      }
       M.oraIndit(S.allapot);
       mentes(); render();
       ok(sz('ora_elindult', { perc: S.allapot.ora.perc }));
@@ -2743,7 +2768,7 @@
       return;
     }
     if (t === 'elo-feltolt') { eloFeltolt(); return; }
-    if (t === 'bizt-nyit') { S.biztNyitva = (S.biztNyitva === false); render(); return; }
+    if (t === 'bizt-nyit') { S.biztNyitva = (S.biztNyitva !== true); render(); return; }
     if (t === 'felho-ment') { felhoMentes(false); return; }
     if (t === 'felho-vissza') {
       if (!global.confirm || global.confirm(sz('felho_kerdes'))) felhoVissza();
@@ -3309,7 +3334,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.31';
+  V.VERZIO = '1.32';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
