@@ -1773,6 +1773,17 @@
 
     return '' +
 
+      /* ---------- Új verseny / tiszta lap (mindig legfelül) ---------- */
+      /* ---------- Új verseny / tiszta lap ---------- */
+      '<div class="kartya-blokk">' +
+        '<h2>' + esc(sz('uj_kartya_cim')) + sugoIkon('uj_kartya_sugo') + '</h2>' +
+        '<p class="sugo">' + esc(sz('uj_kartya_magyar')) + '</p>' +
+        '<div class="nevezes-sor">' +
+          '<button class="fo-gomb" data-t="ujverseny-ker">' + esc(sz('uj_kartya_gomb')) + '</button>' +
+          '<button class="masod-gomb kicsi veszely-gomb" data-t="teljes-torles">' + esc(sz('uj_tiszta_gomb')) + '</button>' +
+        '</div>' +
+      '</div>' +
+
       /* ---------- Verseny adatai ---------- */
       '<div class="kartya-blokk">' +
         '<h2>' + esc(sz('beall_cim')) + sugoIkon('beall_sugo') + '</h2>' +
@@ -2008,18 +2019,9 @@
           : '<p class="sugo">' + esc(sz('archiv_csukva')) + '</p>') +
       '</div>' +
 
-      /* ---------- Új verseny / tiszta lap ---------- */
-      '<div class="kartya-blokk">' +
-        '<h2>' + esc(sz('uj_kartya_cim')) + sugoIkon('uj_kartya_sugo') + '</h2>' +
-        '<p class="sugo">' + esc(sz('uj_kartya_magyar')) + '</p>' +
-        '<div class="nevezes-sor">' +
-          '<button class="fo-gomb" data-t="ujverseny-ker">' + esc(sz('uj_kartya_gomb')) + '</button>' +
-          '<button class="masod-gomb kicsi veszely-gomb" data-t="teljes-torles">' + esc(sz('uj_tiszta_gomb')) + '</button>' +
-        '</div>' +
-      '</div>' +
 
-      
-      
+
+            
 
       /* ---------- weblap-feltöltés állapot ---------- */
       (a.korok.length && a.beall.feltoltesTiltva
@@ -3741,7 +3743,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.49';
+  V.VERZIO = '1.50';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
