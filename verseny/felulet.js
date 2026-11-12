@@ -2213,6 +2213,53 @@
     });
   }
 
+  /* ============ Helyi archívum (localStorage) – mindig működik ============ */
+  var ARCHIV_KULCS = 'mub-verseny-archiv';
+  var ARCHIV_MAX = 80;
+
+  function archivHelyiLista() {
+    try {
+      var t = global.localStorage && global.localStorage.getItem(ARCHIV_KULCS);
+      var l = t ? JSON.parse(t) : [];
+      return Array.isArray(l) ? l : [];
+    } catch (e) { return []; }
+  }
+
+  function archivHelyiIr(l) {
+    try {
+      if (global.localStorage) global.localStorage.setItem(ARCHIV_KULCS, JSON.stringify(l.slice(0, ARCHIV_MAX)));
+    } catch (e) { }
+  }
+
+  /* elmenti a mostani állapotot helyben (mindig), és visszaadja a bejegyzést */
+  function archivHelyiMent(a) {
+    a = a || S.allapot;
+    var bej = {
+      id: 'helyi-' + Date.now(),
+      esemeny: a.esemenyId || '',
+      nev: a.beall.nev || a.beall.helyHu || '',
+      hely: a.beall.helyHu || a.beall.hely || '',
+      datum: a.beall.datum || '',
+      korDb: (a.korok || []).length,
+      jatekDb: (a.jatekosok || []).length,
+      teszt: !!a.beall.tesztVerseny,
+      lezarva: !!a.lezarva,
+      ts: Date.now(),
+      helyi: true,
+      teljes: JSON.stringify(a)
+    };
+    var l = archivHelyiLista();
+    l.unshift(bej);
+    archivHelyiIr(l);
+    return bej;
+  }
+
+  function archivHelyiOlvas(id) {
+    var l = archivHelyiLista();
+    for (var i = 0; i < l.length; i++) if (String(l[i].id) === String(id)) return l[i];
+    return null;
+  }
+
   /* A mostani verseny mentése az archívumba (dátummal, hellyel, teszt/éles jelzéssel). */
   function archivMent(csendes) {
     var a = S.allapot;
@@ -2228,20 +2275,49 @@
       lezarva: !!a.lezarva,
       teljes: JSON.stringify(a)
     };
+    /* 1) helyben MINDIG elmentjük */
+    archivHelyiMent(a);
+    /* 2) a felhőbe is megpróbáljuk */
     global.BEKULDES.archivMent(csomag, function (h) {
-      if (h) { if (!csendes) { hiba(sz('archiv_hiba')); render(); } return; }
-      if (!csendes) { S.archivAllapot = sz('archiv_mentve', { ido: oraPerc2() }); ok(sz('archiv_mentve', { ido: oraPerc2() })); render(); }
+      if (h) {
+        S.archivAllapot = sz('archiv_helyben_mentve', { ido: oraPerc2() }) + ' · ' + (h.code || h.message || '');
+        if (!csendes) { render(); ok(S.archivAllapot); }
+        return;
+      }
+      S.archivAllapot = sz('archiv_mentve', { ido: oraPerc2() });
+      if (!csendes) { ok(S.archivAllapot); render(); }
     });
   }
 
   /* az archívum listájának betöltése */
   function archivFrissit() {
-    if (!global.BEKULDES || !global.BEKULDES.archivLista) { return; }
+    var helyiek = archivHelyiLista();
     S.archivAllapot = sz('felho_lista_tolt');
+    S.archivLista = helyiek.slice();
     render();
+    if (!global.BEKULDES || !global.BEKULDES.archivLista) {
+      S.archivAllapot = sz('archiv_helyben_lista');
+      render();
+      return;
+    }
     global.BEKULDES.archivLista(function (h, lista) {
-      S.archivAllapot = h ? sz('felho_lista_hiba') : '';
-      S.archivLista = (h || !lista) ? [] : lista;
+      var felho = (h || !lista) ? [] : lista;
+      /* egyesítés: a felhő elemei elöl, a helyiek utána (azonos azonosító kiszűrve) */
+      var latott = {};
+      var egy = [];
+      felho.forEach(function (x) {
+        latott[String(x.id)] = 1;
+        x.helyi = false;
+        egy.push(x);
+      });
+      helyiek.forEach(function (x) {
+        if (!latott[String(x.id)]) egy.push(x);
+      });
+      egy.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+      S.archivLista = egy;
+      S.archivAllapot = h
+        ? sz('archiv_helyben_lista') + ' (' + (h.code || h.message || '') + ')'
+        : (egy.length ? '' : sz('archiv_ures'));
       render();
     });
   }
@@ -2255,8 +2331,9 @@
   }
 
   function archivMentesCsendes(cb) {
-    if (!global.BEKULDES || !global.BEKULDES.archivMent) { cb(); return; }
     var a = S.allapot;
+    archivHelyiMent(a);            /* váltás előtt mindig helyben is */
+    if (!global.BEKULDES || !global.BEKULDES.archivMent) { cb(); return; }
     global.BEKULDES.archivMent({
       esemeny: a.esemenyId || '',
       nev: a.beall.nev || a.beall.helyHu || '',
@@ -2276,19 +2353,32 @@
   }
 
   function archivBetolt(id, javitas) {
+    /* helyi bejegyzés? */
+    var helyiBej = archivHelyiOlvas(id);
+    if (helyiBej) { archivBeallit(helyiBej, javitas); return; }
+    if (!global.BEKULDES || !global.BEKULDES.archivOlvas) {
+      var h2 = archivHelyiOlvas(id);
+      if (h2) { archivBeallit(h2, javitas); return; }
+      hiba(sz('archiv_hiba')); render(); return;
+    }
     global.BEKULDES.archivOlvas(id, function (h, d) {
       if (h || !d || !d.teljes) { hiba(sz('archiv_hiba')); render(); return; }
-      var a2 = null;
-      try { a2 = JSON.parse(d.teljes); } catch (e) { a2 = null; }
-      if (!a2 || !a2.beall) { hiba(sz('archiv_hiba')); render(); return; }
-      S.allapot = a2;
-      if (javitas) S.allapot.lezarva = false;      /* javításhoz újranyitjuk */
-      if (!S.allapot.esemenyId && d.esemeny) S.allapot.esemenyId = d.esemeny;
-      mentes();
-      S.nezet = javitas ? 'beiras' : 'rangsor';
-      render();
-      ok(javitas ? sz('archiv_javitas_kesz') : sz('archiv_megnyitva'));
+      archivBeallit(d, javitas);
     });
+  }
+
+  /* Egy archív bejegyzés betöltése az állapotba. */
+  function archivBeallit(d, javitas) {
+    var a2 = null;
+    try { a2 = JSON.parse(d.teljes); } catch (e) { a2 = null; }
+    if (!a2 || !a2.beall) { hiba(sz('archiv_hiba')); render(); return; }
+    S.allapot = a2;
+    if (javitas) S.allapot.lezarva = false;      /* javításhoz újranyitjuk */
+    if (!S.allapot.esemenyId && d.esemeny) S.allapot.esemenyId = d.esemeny;
+    mentes();
+    S.nezet = javitas ? 'beiras' : 'rangsor';
+    render();
+    ok(javitas ? sz('archiv_javitas_kesz') : sz('archiv_megnyitva'));
   }
 
   function felhoVissza() {
@@ -3743,7 +3833,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.50';
+  V.VERZIO = '1.51';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
@@ -3756,6 +3846,10 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._biztNyit = function (v) { S.biztNyitva = !!v; };
   V._torzsEgyesit = function (a, b) { return torzsEgyesit(a, b); };
   V._archivListaBeallit = function (l) { S.archivLista = l || []; };
+  V._archivHelyiMent = function () { return archivHelyiMent(); };
+  V._archivHelyiLista = function () { return archivHelyiLista(); };
+  V._archivHelyiBetolt = function (id, j) { return archivBeallit(archivHelyiOlvas(id), j); };
+  V._archivHelyiTisztit = function () { try { global.localStorage.removeItem('mub-verseny-archiv'); } catch (e) { } };
   V._asztaBeallit = function (n) { S.asztal = n; };
   V._kovetkezoAsztal = function () { return kovetkezoHianyzoAsztal(); };
   V._kovetkezoKor = function () { return kovetkezoKor(); };
