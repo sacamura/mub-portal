@@ -2251,7 +2251,25 @@
     var l = archivHelyiLista();
     l.unshift(bej);
     archivHelyiIr(l);
+    /* a felület listája is azonnal lássa */
+    S.archivLista = S.archivLista || [];
+    if (!S.archivLista.some(function (x) { return String(x.id) === String(bej.id); })) S.archivLista.unshift(bej);
     return bej;
+  }
+
+  /* Ha a mostani verseny még nincs az előzményekben, elmentjük (indításkor). */
+  function archivHelyiPotlas() {
+    var a = S.allapot;
+    if (!a || !a.korok || !a.korok.length) return false;
+    var l = archivHelyiLista();
+    var van = l.some(function (x) {
+      return String(x.esemeny || '') === String(a.esemenyId || '') &&
+        String(x.datum || '') === String(a.beall.datum || '') &&
+        Number(x.korDb || 0) === a.korok.length;
+    });
+    if (van) return false;
+    archivHelyiMent(a);
+    return true;
   }
 
   function archivHelyiOlvas(id) {
@@ -2316,7 +2334,7 @@
       egy.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
       S.archivLista = egy;
       S.archivAllapot = h
-        ? sz('archiv_helyben_lista') + ' (' + (h.code || h.message || '') + ')'
+        ? sz('archiv_helyben_lista')
         : (egy.length ? '' : sz('archiv_ures'));
       render();
     });
@@ -3688,6 +3706,9 @@
     S.kiemeltLista = V.Motor.kiemeltekBetolt();
     /* a törzslista a felhőből is (ha van internet) */
     try { torzsFelhoBetolt(); } catch (e) { }
+    /* az előzmények betöltése indításkor (helyi + felhő) */
+    try { archivHelyiPotlas(); } catch (e) { }
+    try { archivFrissit(); } catch (e) { }
     /* Külön ablak (kivetítő): a vezérlők lebegő sávban vannak, ami egérre vagy
        érintésre előjön, majd pár másodperc után eltűnik – így a kivetítés tiszta
        marad, de a vissza gomb és az óra vezérlői bármikor kézre esnek. */
@@ -3833,7 +3854,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.52';
+  V.VERZIO = '1.53';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
@@ -3850,6 +3871,7 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._archivHelyiLista = function () { return archivHelyiLista(); };
   V._archivHelyiBetolt = function (id, j) { return archivBeallit(archivHelyiOlvas(id), j); };
   V._archivHelyiTisztit = function () { try { global.localStorage.removeItem('mub-verseny-archiv'); } catch (e) { } };
+  V._archivHelyiPotlas = function () { return archivHelyiPotlas(); };
   V._asztaBeallit = function (n) { S.asztal = n; };
   V._kovetkezoAsztal = function () { return kovetkezoHianyzoAsztal(); };
   V._kovetkezoKor = function () { return kovetkezoKor(); };
