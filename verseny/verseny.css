@@ -945,3 +945,9 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 /* vet-gorgeto: a kivetített rangsor görgethető része */
 .vet-gorgeto{max-height:calc(100vh - 200px)!important;overflow:auto;border-radius:10px}
 .vet-rangsor{display:flex;flex-direction:column;min-height:0}
+
+/* elozmenyek */
+.elozmenyek-kartya .felho-lista{max-height:none}
+.felho-elem.aktiv-elem{background:#f3fbf5}
+.aktiv-cimke{background:#e7f6ec;border:1px solid #bcdcc6;color:#1f7a44}
+.felho-elem .fo-gomb.kicsi{padding:5px 12px;font-size:.82rem}
