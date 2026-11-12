@@ -725,8 +725,8 @@ table.c-tabla th{font-size:8pt}
 .nyelv-opcio.aktiv{background:#e9f5ec;color:var(--zold);font-weight:800}
 .zaszlo{width:18px;height:12px;border-radius:2px;display:inline-block;flex:0 0 auto;
   border:1px solid rgba(0,0,0,.18);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)}
-.zaszlo-hu{background:linear-gradient(to bottom,#c8102e 0 33%,#fff 33% 66%,#00753a 66% 100%)}
-.zaszlo-sk{background:linear-gradient(to bottom,#fff 0 33%,#0b4ea2 33% 66%,#c8102e 66% 100%)}
+.zaszlo-hu{background:linear-gradient(to bottom,#c8102e 0 33%,#fff 33% 66%,#00753a 66% 100%);border:1px solid rgba(0,0,0,.12)}
+.zaszlo-sk{background-color:#fff;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2090%2060'%3E%3Crect%20width%3D'90'%20height%3D'60'%20fill%3D'%23fff'%2F%3E%3Crect%20y%3D'20'%20width%3D'90'%20height%3D'20'%20fill%3D'%230b4ea2'%2F%3E%3Crect%20y%3D'40'%20width%3D'90'%20height%3D'20'%20fill%3D'%23c8102e'%2F%3E%3Cpath%20d%3D'M18%2010h30v20c0%2011-15%2018-15%2018S18%2041%2018%2030z'%20fill%3D'%23c8102e'%20stroke%3D'%23fff'%20stroke-width%3D'3'%2F%3E%3Cpath%20d%3D'M20.5%2040c3.4-5%207.8-5%2011.2%200%203.4-5%207.8-5%2011.2%200%203.4-5%207.8-5%2011.2%200v7h-33.6z'%20fill%3D'%230b4ea2'%2F%3E%3Cpath%20d%3D'M30.8%2014h6.4v5.6h6.2v4.6h-6.2v2.4h8.4v4.6h-8.4v9.4h-6.4v-9.4h-8.4v-4.6h8.4v-2.4h-6.2v-4.6h6.2z'%20fill%3D'%23fff'%2F%3E%3C%2Fsvg%3E");background-size:100% 100%;background-repeat:no-repeat;background-position:center;border:1px solid rgba(0,0,0,.12)}
 .nyelv-lenyilo>summary .zaszlo+.zaszlo{margin-left:-11px}
 
 /* cedula-aszta-uj */
