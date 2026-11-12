@@ -1763,6 +1763,7 @@
       return (S.nyitottDetails && S.nyitottDetails[kulcs]) ? ' open' : '';
     }
     var biztNyit = (S.biztNyitva === true);   /* alapból csukva */
+    var archivNyit = (S.archivNyitva !== false);  /* az előzmények alapból nyitva */
     var tesztKi = M.tesztBetolt();
     var tesztSor = tesztKi
       ? '<div class="teszt-sor"><span class="teszt-jel">●</span> ' + esc(sz('teszt_van')) +
@@ -1918,32 +1919,6 @@
                   : '') +
               '</div>' +
 
-              /* ---------- 2b. archívum ---------- */
-              '<div class="bizt-blokk">' +
-                '<div class="bizt-fej">' + esc(sz('archiv_cim')) + sugoIkon('archiv_sugo') + '</div>' +
-                '<p class="bizt-magyar">' + esc(sz('archiv_magyar')) + '</p>' +
-                '<div class="nevezes-sor">' +
-                  '<button class="masod-gomb kicsi" data-t="archiv-frissit">' + esc(sz('nyitott_frissit')) + '</button>' +
-                  '<button class="masod-gomb kicsi" data-t="archiv-ment">' + esc(sz('archiv_ment_gomb')) + '</button>' +
-                  '<span class="sugo">' + esc(S.archivAllapot || '') + '</span>' +
-                '</div>' +
-                ((S.archivLista && S.archivLista.length)
-                  ? '<div class="felho-lista">' + S.archivLista.map(function (x) {
-                      var ido = x.ts ? new Date(x.ts) : null;
-                      return '<div class="felho-elem">' +
-                        '<div class="felho-elem-szov"><b>' + esc(x.hely || x.nev || sz('verseny_cim_hely')) +
-                          (x.teszt ? ' <span class="cimke teszt-cimke">' + esc(sz('archiv_teszt')) + '</span>' : '') +
-                          (x.lezarva ? ' <span class="cimke">' + esc(sz('archiv_lezart')) + '</span>' : ' <span class="cimke kilepett">' + esc(sz('archiv_felbe')) + '</span>') +
-                        '</b>' +
-                          '<span>' + esc(x.datum || '') + ' · ' + x.korDb + ' ' + esc(sz('archiv_kor')) + ' · ' + x.jatekDb + ' ' + esc(sz('archiv_jatekos')) +
-                          (ido ? ' · ' + esc(ido.toLocaleString()) : '') + '</span></div>' +
-                        '<button class="masod-gomb kicsi" data-t="archiv-nez" data-id="' + esc(x.id) + '">' + esc(sz('archiv_nez')) + '</button>' +
-                        '<button class="masod-gomb kicsi" data-t="archiv-javit" data-id="' + esc(x.id) + '">' + esc(sz('archiv_javit')) + '</button>' +
-                      '</div>';
-                    }).join('') + '</div>'
-                  : '') +
-              '</div>' +
-
               /* ---------- 3. Excel ---------- */
               '<div class="bizt-blokk">' +
                 '<div class="bizt-fej">' + esc(sz('b3_cim')) + '</div>' +
@@ -1997,6 +1972,54 @@
             '</div>'
           : '<p class="sugo bizt-vezeto">' + esc(sz('b_csukva')) + '</p>') +
       '</div>' +
+
+      /* ---------- Előzmények: minden lefutott / félbehagyott verseny ---------- */
+      '<div class="kartya-blokk elozmenyek-kartya">' +
+        '<h2><button class="kartya-fej-gomb" data-t="archiv-nyit">' +
+          '<span class="kartya-nyil">' + (archivNyit ? '▾' : '▸') + '</span>' +
+          esc(sz('archiv_cim')) + '</button>' + sugoIkon('archiv_sugo') + '</h2>' +
+        (archivNyit
+          ? '<p class="sugo">' + szh('archiv_magyar') + '</p>' +
+            '<div class="nevezes-sor">' +
+              '<button class="masod-gomb kicsi" data-t="archiv-frissit">' + esc(sz('nyitott_frissit')) + '</button>' +
+              '<button class="masod-gomb kicsi" data-t="archiv-ment">' + esc(sz('archiv_ment_gomb')) + '</button>' +
+              '<span class="sugo">' + esc(S.archivAllapot || '') + '</span>' +
+            '</div>' +
+            ((S.archivLista && S.archivLista.length)
+              ? '<div class="felho-lista">' + S.archivLista.map(function (x) {
+                  var ido = x.ts ? new Date(x.ts) : null;
+                  var aktivE = (S.allapot && S.allapot.esemenyId && x.esemeny &&
+                    String(S.allapot.esemenyId) === String(x.esemeny));
+                  return '<div class="felho-elem' + (aktivE ? ' aktiv-elem' : '') + '">' +
+                    '<div class="felho-elem-szov"><b>' + esc(x.hely || x.nev || sz('verseny_cim_hely')) +
+                      (x.teszt ? ' <span class="cimke teszt-cimke">' + esc(sz('archiv_teszt')) + '</span>' : '') +
+                      (x.lezarva
+                        ? ' <span class="cimke">' + esc(sz('archiv_lezart')) + '</span>'
+                        : ' <span class="cimke kilepett">' + esc(sz('archiv_felbe')) + '</span>') +
+                      (aktivE ? ' <span class="cimke aktiv-cimke">' + esc(sz('archiv_ez_van')) + '</span>' : '') +
+                    '</b>' +
+                      '<span>' + esc(x.datum || '') + ' · ' + x.korDb + ' ' + esc(sz('archiv_kor')) + ' · ' + x.jatekDb + ' ' + esc(sz('archiv_jatekos')) +
+                      (ido ? ' · ' + esc(ido.toLocaleString()) : '') + '</span></div>' +
+                    '<button class="masod-gomb kicsi" data-t="archiv-nez" data-id="' + esc(x.id) + '">' + esc(sz('archiv_nez')) + '</button>' +
+                    '<button class="fo-gomb kicsi" data-t="archiv-javit" data-id="' + esc(x.id) + '">' + esc(sz('archiv_valtas')) + '</button>' +
+                  '</div>';
+                }).join('') + '</div>'
+              : '<p class="sugo">' + esc(sz('archiv_ures')) + '</p>')
+          : '<p class="sugo">' + esc(sz('archiv_csukva')) + '</p>') +
+      '</div>' +
+
+      /* ---------- Új verseny / tiszta lap ---------- */
+      '<div class="kartya-blokk">' +
+        '<h2>' + esc(sz('uj_kartya_cim')) + sugoIkon('uj_kartya_sugo') + '</h2>' +
+        '<p class="sugo">' + esc(sz('uj_kartya_magyar')) + '</p>' +
+        '<div class="nevezes-sor">' +
+          '<button class="fo-gomb" data-t="ujverseny-ker">' + esc(sz('uj_kartya_gomb')) + '</button>' +
+          '<button class="masod-gomb kicsi veszely-gomb" data-t="teljes-torles">' + esc(sz('uj_tiszta_gomb')) + '</button>' +
+        '</div>' +
+      '</div>' +
+
+      
+      
 
       /* ---------- weblap-feltöltés állapot ---------- */
       (a.korok.length && a.beall.feltoltesTiltva
@@ -2222,8 +2245,35 @@
   }
 
   /* egy archív verseny megnyitása */
+  /* Váltás előtt a mostani verseny is bekerül az előzményekbe (ne vesszen el). */
+  function mostaniMent(cb) {
+    var a = S.allapot;
+    if (!a || !a.korok || !a.korok.length) { cb(); return; }
+    try { archivMentesCsendes(cb); } catch (e) { cb(); }
+  }
+
+  function archivMentesCsendes(cb) {
+    if (!global.BEKULDES || !global.BEKULDES.archivMent) { cb(); return; }
+    var a = S.allapot;
+    global.BEKULDES.archivMent({
+      esemeny: a.esemenyId || '',
+      nev: a.beall.nev || a.beall.helyHu || '',
+      hely: a.beall.helyHu || a.beall.hely || '',
+      datum: a.beall.datum || '',
+      korDb: (a.korok || []).length,
+      jatekDb: (a.jatekosok || []).length,
+      teszt: !!a.beall.tesztVerseny,
+      lezarva: !!a.lezarva,
+      teljes: JSON.stringify(a)
+    }, function () { cb(); });
+  }
+
   function archivMegnyit(id, javitas) {
     if (!global.BEKULDES || !global.BEKULDES.archivOlvas) { hiba(sz('felho_hiba')); render(); return; }
+    mostaniMent(function () { archivBetolt(id, javitas); });
+  }
+
+  function archivBetolt(id, javitas) {
     global.BEKULDES.archivOlvas(id, function (h, d) {
       if (h || !d || !d.teljes) { hiba(sz('archiv_hiba')); render(); return; }
       var a2 = null;
@@ -3073,6 +3123,23 @@
     }
     if (t === 'elo-feltolt') { eloFeltolt(); return; }
     if (t === 'bizt-nyit') { S.biztNyitva = (S.biztNyitva !== true); render(); return; }
+    if (t === 'archiv-nyit') { S.archivNyitva = (S.archivNyitva === false); render(); return; }
+    if (t === 'ujverseny-ker') {
+      if (global.confirm && !global.confirm(sz('uj_verseny_kerdes2'))) return;
+      /* új verseny: a beállítások megmaradnak, a helyszín/dátum/játékosok törlődnek */
+      S.allapot.korok = [];
+      S.allapot.aktualisKor = 0;
+      S.allapot.lezarva = false;
+      S.allapot.beall.nev = ''; S.allapot.beall.datum = '';
+      S.allapot.beall.hely = ''; S.allapot.beall.helyHu = ''; S.allapot.beall.helySk = '';
+      S.allapot.jatekosok = [];
+      S.allapot.esemenyId = M.esemenyId ? M.esemenyId() : '';
+      mentes();
+      S.nezet = 'nevezes';
+      render();
+      ok(sz('uj_verseny_kesz'));
+      return;
+    }
     if (t === 'archiv-frissit') { archivFrissit(); return; }
     if (t === 'archiv-ment') { archivMent(false); return; }
     if (t === 'archiv-nez') { archivMegnyit(cel.getAttribute('data-id'), false); return; }
@@ -3674,7 +3741,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.48';
+  V.VERZIO = '1.49';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
