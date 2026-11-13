@@ -1095,8 +1095,8 @@
         '<td><input class="penz-input' + (javaslat && id === uresId ? ' javasolt' : '') + '" type="text" inputmode="decimal" autocomplete="off" data-t="penz" data-id="' + id + '"' +
           (javaslat && id === uresId ? ' data-javaslat="' + esc(javaslat) + '" title="' + esc(sz('javasolt_penz', { penz: javaslat })) + '"' : '') +
           ' value="' + (vanErtek(adat.penz) ? esc(adat.penz) : '') + '" placeholder="' + (javaslat && id === uresId ? esc(javaslat) : '0,00') + '"></td>' +
-        '<td class="pont-cell" id="pont-' + id + '">' + (vanErtek(adat.pont)
-          ? '<input class="pont-input" data-t="pont" data-id="' + id + '" value="' + esc(adat.pont) + '">'
+        '<td class="pont-cell" id="pont-' + id + '">' + ((!a.beall.pontZar || vanErtek(adat.pont))
+          ? '<input class="pont-input" data-t="pont" data-id="' + id + '" value="' + esc(vanErtek(adat.pont) ? adat.pont : '') + '" placeholder="' + esc(pontok[id]) + '">'
           : '<b>' + pontok[id] + '</b>') + '</td>' +
         '</tr>';
     }).join('');
@@ -1112,7 +1112,10 @@
               k4.kor + '.' + (e4 ? '<span class="pip">✓</span>' : '') + '</button>';
           }).join('') +
         '</div>' +
-        '<h2 class="beir-fej">' + esc(sz('beir_cim', { kor: kor.kor })) + '</h2>' +
+        '<h2 class="beir-fej">' + esc(sz('beir_cim', { kor: kor.kor })) +
+          '<button class="lakat-gomb' + (a.beall.pontZar ? '' : ' nyitva') + '" data-t="pont-zar" title="' +
+            esc(a.beall.pontZar ? sz('lakat_tipp_zar') : sz('lakat_tipp_nyit')) + '">' +
+            (a.beall.pontZar ? '🔒' : '🔓') + '</button></h2>' +
         /* egyetlen, tömör sor a tudnivalókkal */
         (function () {
           var savok = [];
@@ -3171,8 +3174,29 @@
       ok(sz('ujranyitva'));
       return;
     }
+    if (t === 'pont-zar') {
+      S.allapot.beall.pontZar = !S.allapot.beall.pontZar;
+      mentes(); render();
+      ok(S.allapot.beall.pontZar ? sz('lakat_bezarva') : sz('lakat_nyitva'));
+      return;
+    }
     if (t === 'ujraoszt') { ujraoszt(); return; }
     if (t === 'kor-lezar') {
+      /* ha valamelyik asztalon nem a várt összeg van, külön figyelmeztetünk */
+      var korL = aktualisKor();
+      if (korL) {
+        var rendhagyo = korL.asztalok.filter(function (x) {
+          var eL = M.asztalEllenorzes(x, S.allapot.beall);
+          return eL.kitoltve === eL.letszam && eL.letszam > 0 && !eL.penzOk;
+        });
+        if (rendhagyo.length && global.confirm) {
+          var felsor = rendhagyo.map(function (x) {
+            var eL = M.asztalEllenorzes(x, S.allapot.beall);
+            return x.asztal + '. asztal: ' + penz(eL.penzOssz) + ' (' + penz(eL.vartPenz) + ' helyett)';
+          }).join('\n');
+          if (!global.confirm(sz('rendhagyo_penz_kerdes', { lista: felsor }))) return;
+        }
+      }
       /* A kör lezárása: beosztjuk a következő kört, és rögtön a kivetítésre váltunk,
          hogy a játékosok lássák, ki hol ül. */
       var elotteKor = S.allapot.korok.length;
@@ -3860,7 +3884,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.54';
+  V.VERZIO = '1.55';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
