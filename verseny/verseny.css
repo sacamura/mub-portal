@@ -951,3 +951,9 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 .felho-elem.aktiv-elem{background:#f3fbf5}
 .aktiv-cimke{background:#e7f6ec;border:1px solid #bcdcc6;color:#1f7a44}
 .felho-elem .fo-gomb.kicsi{padding:5px 12px;font-size:.82rem}
+
+/* lakat-gomb */
+.lakat-gomb{background:none;border:none;cursor:pointer;font-size:1rem;margin-left:8px;
+  padding:2px 6px;border-radius:7px;opacity:.55;vertical-align:middle}
+.lakat-gomb:hover{background:#eef4f9;opacity:1}
+.lakat-gomb.nyitva{opacity:1;background:#fff8e6}
