@@ -863,7 +863,13 @@
     var jk = M.aktivJatekosok(S.allapot, 1);
     if (!jk.length) { hiba(sz('nincs_jatekos')); return; }
     if (jk.length < 3) { hiba(sz('min_harom')); return; }
-    var e = M.sorsolElso(jk, M.asztalLetszamok(jk.length, szam(S.allapot.beall.asztalLetszam, 3), 'vegen'), seed, S.allapot.beall.kiemeltVedelem);
+    /* Kétfős asztal nem lehet: ha a létszám nem jön ki 3-4 fős asztalokra, szólunk. */
+    var capT = M.asztalLetszamok(jk.length, szam(S.allapot.beall.asztalLetszam, 3), 'vegen');
+    if (capT.some(function (c) { return c < 3; })) {
+      hiba(sz('keves_az_asztalhoz', { n: jk.length, kell: 6 }));
+      return;
+    }
+    var e = M.sorsolElso(jk, capT, seed, S.allapot.beall.kiemeltVedelem);
     S.allapot.korok = [V.korLetrehoz(S.allapot, e.szekek, e.figyelmeztetes)];
     S.allapot.aktualisKor = 1;
     mentes();
@@ -3854,7 +3860,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.53';
+  V.VERZIO = '1.54';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
