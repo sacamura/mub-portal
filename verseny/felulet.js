@@ -347,6 +347,7 @@
     var korSzoveg = a.aktualisKor > 0
       ? sz('kor_jelzo', { kor: a.aktualisKor, osszes: a.beall.korok })
       : sz('nincs_sorsolas');
+  if (a.lezarva) korSzoveg = sz('lezarva_jel') + ' · ' + korSzoveg;
     if (kor && kor.asztalok.length) {
       var kesz = kor.asztalok.filter(function (x) { return M.asztalEllenorzes(x, a.beall).kesz; }).length;
       korSzoveg += ' · ' + sz('kesz_asztal', { kesz: kesz, ossz: kor.asztalok.length });
@@ -1365,14 +1366,22 @@
     return '<div class="kartya-blokk">' +
       '<button class="masod-gomb kicsi vissza-gomb" data-t="vissza">← ' + esc(sz('vissza')) + '</button>' +
       '<h2>' + esc(sz('rang_cim', { kor: ig })) + '</h2>' +
-      (a.beall.lezarva
-        ? '<p class="ok-jel">' + esc(sz('lezarva_jel')) + '</p>' +
+      (a.lezarva
+        ? '<div class="lezarva-sav"><b>' + esc(sz('lezarva_jel')) + '</b>' +
+            '<span>' + esc(sz('lezarva_sugo2')) + '</span>' +
+            '<button class="masod-gomb kicsi" data-t="ujranyit">' + esc(sz('lezarva_megnyitas')) + '</button>' +
+          '</div>' +
           '<div class="nevezes-sor">' +
             '<button class="fo-gomb" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
             '<button class="masod-gomb" data-t="nezet" data-nezet="beallitas">' + esc(sz('lezarva_feltoltes')) + '</button>' +
             (varE('ujverseny')
               ? megerositesSav(sz('uj_verseny_biztos'), 'ujverseny-igen', 'megerosites-nem')
               : '<button class="masod-gomb" data-t="ujverseny">' + esc(sz('uj_verseny')) + '</button>') +
+          '</div>' +
+          '<div class="nevezes-sor">' +
+            '<button class="fo-gomb kicsi" data-t="vegeredmeny-nyomtat">' + esc(sz('vegeredmeny_gomb')) + '</button>' +
+            '<button class="masod-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
+            '<button class="masod-gomb kicsi" data-t="elo-feltolt" title="' + esc(sz('elo_tipp')) + '">' + esc(sz('elo_gomb')) + '</button>' +
           '</div>'
         : '<div class="nevezes-sor">' +
             ((varE('lezar1')
@@ -4209,7 +4218,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.81';
+  V.VERZIO = '1.82';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
