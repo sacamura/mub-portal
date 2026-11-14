@@ -2680,18 +2680,22 @@
         S.gsAllapot = sz('gs_mentve', { ido: oraPerc2() });
         gsJel();
       }, function () {
-        S.gsAllapot = sz('gs_hiba');
+        S.gsAllapot = sz('gs_hiba_cim');
         gsJel();
       });
       S.gsAllapot = sz('gs_kuld');
       gsJel();
-      /* ellenőrzés: visszaolvassuk a mentett állapotot (a no-cors miatt a POST válaszát nem látjuk) */
+      /* Az ellenőrző visszaolvasás csak MEGERŐSÍTHET, nem cáfolhat: a böngésző CORS
+         miatt blokkolhatja a GET-et, pedig a mentés sikerült. */
       global.setTimeout(function () {
         try {
           global.fetch(url, { method: 'GET' }).then(function (r) { return r.text(); })
-            .then(function (t2) { S.gsAllapot = (t2 && t2.length > 20) ? sz('gs_mentve', { ido: oraPerc2() }) : sz('gs_hiba'); gsJel(); })
-            .catch(function () { S.gsAllapot = sz('gs_hiba'); gsJel(); });
-        } catch (e) { S.gsAllapot = sz('gs_hiba'); gsJel(); }
+            .then(function (t2) {
+              if (t2 && t2.length > 20) { S.gsAllapot = sz('gs_mentve', { ido: oraPerc2() }); }
+              gsJel();
+            })
+            .catch(function () { /* néma: a POST eredménye az érvényes */ });
+        } catch (e) { }
       }, 1500);
     } catch (e) {
       S.gsAllapot = sz('gs_hiba');
@@ -4016,7 +4020,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.66';
+  V.VERZIO = '1.67';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
