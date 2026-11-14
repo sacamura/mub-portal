@@ -165,6 +165,8 @@
     #teljes{display:none!important}
     #nyomtat-terulet{display:block!important}
     #nyomtat-terulet .cedulak{padding:0}
+  /* a nyomtatott lapra ne kerüljön verziószám, teszt-jelző, gomb */
+  #app-verzio,.teszt-jelzo,.lakat-gomb,.vissza-gomb,.ora-vissza,.ujra-sav{display:none!important}
   }
   @media (max-width:900px){
     .nagy-input,.kozepes-input{width:100%}
