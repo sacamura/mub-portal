@@ -802,12 +802,12 @@
           '<span class="sugo">' + esc(sz('seed_auto', { seed: a.beall.sorsolasSeed })) + '</span>' +
           '</div>' +
           '<div class="kiemelt-valaszto">' +
-            '<span class="kiemelt-kerdes">' + esc(sz('kiemelt_kerdes')) + '</span>' +
-            '<button class="valaszto-gomb' + (a.beall.kiemeltVedelem ? ' aktiv' : '') + '" data-t="sors-vedelem" data-ertek="1">' + esc(sz('kezdo_kiemelt_kulon')) + '</button>' +
-            '<button class="valaszto-gomb' + (a.beall.kiemeltVedelem ? '' : ' aktiv') + '" data-t="sors-vedelem" data-ertek="0">' + esc(sz('kezdo_kiemelt_egyutt')) + '</button>' +
+            '<span class="kiemelt-kerdes">' + esc(sz('sors_kerdes')) + '</span>' +
+            '<button class="fo-gomb" data-t="sorsol-ved" data-ertek="1">' + esc(sz('sors_gomb_kulon')) + '</button>' +
+            '<button class="masod-gomb" data-t="sorsol-ved" data-ertek="0">' + esc(sz('sors_gomb_egyutt')) + '</button>' +
           '</div>' +
           '<div class="nevezes-sor">' +
-          '<button class="fo-gomb" data-t="sorsol"' + (jk.length < 3 ? ' disabled' : '') + '>' + esc(sz('sorsol_gomb')) + '</button>' +
+          '<button class="masod-gomb kicsi" data-t="sorsol"' + (jk.length < 3 ? ' disabled' : '') + '>' + esc(sz('sorsol_gomb')) + '</button>' +
         '</div>' +
         (negyDb
           ? '<p class="sugo">' + esc((caps.length - negyDb) === 0
@@ -3219,6 +3219,13 @@
       ok(sz('ujranyitva'));
       return;
     }
+    if (t === 'sorsol-ved') {
+      if (S.allapot.korok.length) { hiba(sz('mar_van_kor')); render(); return; }
+      S.allapot.beall.kiemeltVedelem = (cel.getAttribute('data-ertek') === '1');
+      mentes();
+      sorsolElso();
+      return;
+    }
     if (t === 'sors-vedelem') {
       S.allapot.beall.kiemeltVedelem = (cel.getAttribute('data-ertek') === '1');
       mentes(); render();
@@ -3959,7 +3966,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.59';
+  V.VERZIO = '1.60';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
