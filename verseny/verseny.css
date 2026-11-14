@@ -962,3 +962,13 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 .kiemelt-valaszto{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 10px;
   background:#f6faf7;border:1px solid #dcebe1;border-radius:10px;padding:9px 12px}
 .kiemelt-kerdes{font-weight:700;color:#3f5a49;font-size:.92rem;margin-right:2px}
+
+/* nem-jon */
+.nem-jon-cella{width:26px;padding-right:0!important}
+.nem-jon-gomb{background:none;border:none;cursor:pointer;color:#bbb;font-size:1rem;line-height:1;
+  padding:1px 5px;border-radius:5px}
+.nem-jon-gomb:hover{background:#fdecea;color:#c62828}
+.duplikat-doboz{background:#fff7f7;border:1.5px solid #f0c4c0;border-radius:10px;padding:10px 13px;
+  margin:0 0 12px;color:#8c2b24;font-size:.92rem}
+.duplikat-doboz b{display:block;margin-bottom:4px}
+.duplikat-doboz .sugo{color:#8c6b67;margin:5px 0 0;font-size:.85rem}
