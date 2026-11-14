@@ -199,12 +199,15 @@
         sorba.map(function (x) {
           var r = x.r;
           var mar = M.hianyzoJelentkezok([r], a.jatekosok).length === 0;
-          return '<button class="weblap-elem' + (mar ? ' megvan' : '') + '"' +
+          return '<span class="weblap-par">' +
+            '<button class="weblap-elem' + (mar ? ' megvan' : '') + '"' +
             (mar ? ' disabled' : ' data-t="weblap-felvesz" data-idx="' + x.i + '"') + '>' +
             '<span class="weblap-jel">' + (mar ? '✓' : '☐') + '</span>' +
             (r.kod ? '<span class="weblap-kod">' + esc(r.kod) + '</span>' : '') +
             '<span>' + esc(r.nev) + '</span>' +
-            '</button>';
+            '</button>' +
+            (mar ? '<button class="weblap-x" data-t="weblap-nem" data-idx="' + x.i + '" title="' + esc(sz('nem_jon_tipp')) + '">✕</button>' : '') +
+            '</span>';
         }).join('') +
       '</div></div>';
   }
@@ -213,6 +216,8 @@
      Visszaad: 'uj' (felvéve), 'mar' (már benevezve), 'vendeg' (nem volt a törzslistán). */
   function felveszNevbol(nev, kod) {
     var t = kod ? torzsKeres(String(kod)) : null;
+    /* Ha a kód a törzslistán MÁS emberé, ne őt vegyük fel (ez okozott két azonos kódot). */
+    if (t && nev && M.nevKulcs(t.nev) !== M.nevKulcs(nev)) t = null;
     if (!t) { var e = M.nevEgyezes(torzsLista(), nev); if (e.length === 1) t = e[0]; }
     if (t) {
       if (M.keres(S.allapot.jatekosok, String(t.id))) return 'mar';
@@ -3425,6 +3430,30 @@
       ok(sz('klist_mentve', { n: ujDb, ossz: (S.kiemeltLista || []).length }));
       return;
     }
+    if (t === 'weblap-nem') {
+      var wi = parseInt(cel.getAttribute('data-idx'), 10);
+      var wl = (S.allapot.beall.weblapJelentkezok || [])[wi];
+      if (!wl) return;
+      /* a hozzá tartozó benevezett játékost keressük: ELŐBB NÉV szerint (a kód lehet másé) */
+      var wp = null;
+      var wk = M.nevKulcs(wl.nev);
+      (S.allapot.jatekosok || []).forEach(function (x) {
+        if (wp) return;
+        if (M.nevKulcs(x.nev) === wk) wp = x;
+      });
+      /* Kód alapján NEM törlünk: az más emberé lehet. Csak név alapján. */
+      if (!wp) { hiba(sz('weblap_nincs_ilyen')); render(); return; }
+      if (global.confirm && !global.confirm(sz('torles_biztos', { nev: wp.nev }))) return;
+      /* csak EGY sort töröl */
+      var toroltW = false;
+      S.allapot.jatekosok = S.allapot.jatekosok.filter(function (x) {
+        if (!toroltW && x === wp) { toroltW = true; return false; }
+        return true;
+      });
+      mentes(); render();
+      ok(sz('weblap_nem_kesz', { nev: wp.nev }));
+      return;
+    }
     if (t === 'weblap-felvesz') {
       var idx = parseInt(cel.getAttribute('data-idx'), 10);
       var r = (S.allapot.beall.weblapJelentkezok || [])[idx];
@@ -3930,7 +3959,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.58';
+  V.VERZIO = '1.59';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
@@ -3948,6 +3977,7 @@ V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._archivHelyiBetolt = function (id, j) { return archivBeallit(archivHelyiOlvas(id), j); };
   V._archivHelyiTisztit = function () { try { global.localStorage.removeItem('mub-verseny-archiv'); } catch (e) { } };
   V._archivHelyiPotlas = function () { return archivHelyiPotlas(); };
+  V._felveszNevbol = function (nev, kod) { return felveszNevbol(nev, kod); };
   V._asztaBeallit = function (n) { S.asztal = n; };
   V._kovetkezoAsztal = function () { return kovetkezoHianyzoAsztal(); };
   V._kovetkezoKor = function () { return kovetkezoKor(); };
