@@ -1682,7 +1682,10 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       el.querySelector('#elo-tartalom').textContent = T('Nincs kiválasztott verseny. Nyisd meg a Verseny oldalon az „Élő eredmény” gombot.','Nie je vybraná súťaž. Otvor ju cez tlačidlo „Živý výsledok” na stránke Súťaž.');
       return;
     }
-    db.collection('verseny_elo').doc(String(ELO_ID)).get().then(function(d){
+    /* A program a saját esemény-azonosítójával tölt fel, ami eltérhet a weblap
+       verseny-azonosítójától – ezért a LEGÚJABB feltöltést mutatjuk. */
+    db.collection('verseny_elo').orderBy('ts','desc').limit(1).get().then(function(snap){
+      var d = (snap && snap.docs && snap.docs.length) ? snap.docs[0] : null;
       var box = el.querySelector('#elo-tartalom');
       if(!d || !d.exists){ if(box) box.textContent = T('Még nincs feltöltött állás.','Zatiaľ nie je nahratý stav.'); return; }
       var x = d.data() || {};
