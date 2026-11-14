@@ -402,13 +402,15 @@
             ' · ' + esc(sz('offline')) +
           '</div>' +
         '</div>' +
-        '<div class="fej-jobb">' +
-        ((a.ora && a.ora.fut)
-          ? '<button class="fej-ora" data-t="nezet" data-nezet="ora" title="' + esc(sz('fej_ora_tipp')) + '">⏱ <span id="fej-ora-szam">' +
-            M.oraSzoveg(M.oraMaradek(a, Date.now())) + '</span></button>'
-          : '') +
-          '<div class="korjelzo">' + esc(korSzoveg) + '</div>' +
+      '<div class="fej-jobb">' +
+        '<div class="korjelzo">' + esc(korSzoveg) + '</div>' +
+        '<div class="fej-eszkozok">' +
+          ((a.ora && a.ora.fut)
+            ? '<button class="fej-ora" data-t="nezet" data-nezet="ora" title="' + esc(sz('fej_ora_tipp')) + '">⏱ <span id="fej-ora-szam">' +
+              M.oraSzoveg(M.oraMaradek(a, Date.now())) + '</span></button>'
+            : '') +
           '<div class="nyelv-valto" title="' + esc(sz('nyelv')) + '">' + nyelvGombok + '</div>' +
+        '</div>' +
         '</div>' +
       '</header>' +
       '<nav class="nav">' + nav + '</nav>';
@@ -1718,6 +1720,7 @@
     oraTickFut = true;
     global.setInterval(function () {
       if (!S.allapot) return;
+      if (!(S.allapot.ora && S.allapot.ora.fut) && S.nezet !== 'ora') return;
       var fejOra = document.getElementById('fej-ora-szam');
       if (fejOra) fejOra.textContent = M.oraSzoveg(M.oraMaradek(S.allapot, Date.now()));
       if (S.nezet !== 'ora') return;
@@ -4119,7 +4122,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.75';
+  V.VERZIO = '1.76';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
