@@ -2013,7 +2013,6 @@
                 '<p class="bizt-magyar">' + esc(sz('b1_magyar')) + '</p>' +
                 '<div class="nevezes-sor">' +
                   '<button class="fo-gomb" data-t="felho-ment">' + esc(sz('b1_gomb')) + '</button>' +
-                  '<button class="masod-gomb" data-t="excel-bizt">' + esc(sz('b3_gomb')) + '</button>' +
                 '</div>' +
                 '<p id="felho-allapot" class="felho-allapot' + (S.felhoTipus ? ' ' + S.felhoTipus : '') + '">' + esc(S.felhoAllapot || '') + '</p>' +
               '</div>' +
@@ -4069,7 +4068,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.70';
+  V.VERZIO = '1.71';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
