@@ -1015,3 +1015,28 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 /* fej-eszkozok: óra + nyelvváltó egy sorban */
 .fej-eszkozok{display:flex;align-items:center;gap:.5rem;flex-wrap:nowrap}
 .fej-ora{margin-bottom:0}
+
+/* eredmeny-lap: A4-es végeredmény, egy oldalra */
+.eredmeny-lap{background:#fff;color:#000;padding:0;margin:0 auto;max-width:200mm}
+.e-fej{margin:0 0 4mm}
+.e-cim{font-size:15pt;font-weight:900;line-height:1.15}
+.e-al{font-size:9.5pt;color:#444;margin-top:1mm}
+.e-tabla{width:100%;border-collapse:collapse;font-size:9pt}
+.e-tabla th,.e-tabla td{border-bottom:.4pt solid #bbb;padding:1.1mm 1.4mm;text-align:right}
+.e-tabla th{background:#f2f2f2;font-weight:800;border-bottom:.8pt solid #666;font-size:8.5pt}
+.e-tabla th:nth-child(2),.e-tabla td.e-nev{text-align:left}
+.e-hely{width:9mm;font-weight:800}
+.e-pont{width:8mm;color:#222}
+.e-ossz{width:13mm;font-weight:900}
+.e-dij td{background:#fffbe8}
+.e-lablec{margin-top:4mm;font-size:9pt}
+@media print{
+  @page{size:A4 portrait;margin:10mm}
+  .eredmeny-lap{max-width:none}
+  .e-tabla{font-size:8.6pt}
+  .e-tabla th,.e-tabla td{padding:.9mm 1.2mm}
+  .e-dij td{background:#fffbe8!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .e-tabla th{background:#f2f2f2!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .eredmeny-lap,.e-tabla{page-break-inside:auto}
+  .e-tabla tr{page-break-inside:avoid}
+}
