@@ -826,8 +826,24 @@
     }
 
     var utolsoKesz = M.korKesz(a, a.korok.length - 1);
+    /* Az 1. kör újrasorsolása – a kiemeltek szabályának megadásával. */
+    var kiemeltDb = a.jatekosok.filter(function (j) { return j.kiemelt && !M.kilepettE(j, 999); }).length;
+    var asztalDb = M.asztalLetszamok(M.aktivJatekosok(a, 1).length, szam(a.beall.asztalLetszam, 3), 'vegen').length;
+    var elsokKor = a.korok[0];
+    var ujraSav = (elsokKor && !M.korEredmenyVan(a, 1))
+      ? '<div class="kiemelt-valaszto ujra-sav">' +
+          '<span class="kiemelt-kerdes">' + esc(sz('ujra_kerdes')) + '</span>' +
+          '<button class="fo-gomb" data-t="sors-ujra" data-ertek="1">' + esc(sz('ujra_gomb_kulon')) + '</button>' +
+          '<button class="masod-gomb" data-t="sors-ujra" data-ertek="0">' + esc(sz('ujra_gomb_egyutt')) + '</button>' +
+          '<span class="sugo">' + esc(sz('ujra_info', { k: kiemeltDb, t: asztalDb })) + '</span>' +
+          (kiemeltDb > asztalDb
+            ? '<div class="figyelem">' + esc(sz('tobb_kiemelt', { k: kiemeltDb, t: asztalDb, marad: kiemeltDb - asztalDb })) + '</div>'
+            : '') +
+        '</div>'
+      : '';
     html += '<div class="kartya-blokk">' +
       '<h2>' + esc(sz('korok_cim')) + '</h2>' +
+      ujraSav +
       '<p class="sugo">' + szh('korok_sugo') + '</p>' +
       '<div class="kor-gombok">' +
       a.korok.map(function (kor, i) {
@@ -3219,6 +3235,15 @@
       ok(sz('ujranyitva'));
       return;
     }
+    if (t === 'sors-ujra') {
+      if (!S.allapot.korok.length) { hiba(sz('nincs_sorsolas')); render(); return; }
+      if (M.korEredmenyVan(S.allapot, 1)) { hiba(sz('keso_van_eredmeny')); render(); return; }
+      S.allapot.beall.kiemeltVedelem = (cel.getAttribute('data-ertek') === '1');
+      var ujK = M.ujrasorsolKor(S.allapot, 1, Math.floor(Math.random() * 900000) + 100000);
+      mentes(); render();
+      ok(sz('sors_ujra_kesz', { asztalok: (ujK && ujK.asztalok) || 0 }));
+      return;
+    }
     if (t === 'sorsol-ved') {
       if (S.allapot.korok.length) { hiba(sz('mar_van_kor')); render(); return; }
       S.allapot.beall.kiemeltVedelem = (cel.getAttribute('data-ertek') === '1');
@@ -3966,7 +3991,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.60';
+  V.VERZIO = '1.61';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
