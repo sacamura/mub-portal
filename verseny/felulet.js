@@ -429,6 +429,7 @@
         ? megerositesSav(sz('torles_biztos', { nev: j.nev }), 'torol-igen', 'megerosites-nem', j.id)
         : '<button class="torles-gomb" data-t="torol" data-id="' + j.id + '" title="' + esc(sz('torles_tipp')) + '">' + esc(sz('gomb_torles')) + '</button>';
       return '<tr class="' + (j.kiemelt ? 'kiemelt-sor' : '') + '">' +
+        '<td class="nem-jon-cella"><button class="nem-jon-gomb" data-t="tolol" data-id="' + j.id + '" title="' + esc(sz('nem_jon_tipp')) + '">✕</button></td>' +
         '<td><input class="mini kod-input" data-t="kod" data-id="' + j.id + '" value="' + j.id + '" title="' + esc(sz('kod_tipp')) + '"></td>' +
         '<td><input class="nev-input" data-t="nev" data-id="' + j.id + '" value="' + esc(j.nev) + '" title="' + esc(sz('nev_tipp')) + '">' + cimkek + '</td>' +
         '<td><input class="mini" data-t="kartya" data-id="' + j.id + '" value="' + esc(j.kartyakod || '') + '" placeholder="' + esc(sz('th_kartya')) + '" size="12"></td>' +
@@ -442,6 +443,29 @@
           torles + '</td>' +
         '</tr>';
     }).join('');
+
+    /* Duplikált kódok / nevek figyelmeztetése (a weblapról jött nevezéseknél gyakori). */
+    var duplKod = {}, duplNev = {}, figyelmeztetes = '';
+    S.allapot.jatekosok.forEach(function (j) {
+      if (!j || !j.nev) return;
+      var jk2 = String(j.id);
+      (duplKod[jk2] = duplKod[jk2] || []).push(j.nev);
+      var nk = M.nevKulcs ? M.nevKulcs(j.nev) : String(j.nev).toLowerCase();
+      (duplNev[nk] = duplNev[nk] || []).push(j.id);
+    });
+    var kodbaj = [], nevbaj = [];
+    Object.keys(duplKod).forEach(function (k) {
+      if (duplKod[k].length > 1) kodbaj.push(k + ': ' + duplKod[k].join(' / '));
+    });
+    Object.keys(duplNev).forEach(function (k) {
+      if (duplNev[k].length > 1) nevbaj.push(duplNev[k].join(' / '));
+    });
+    if (kodbaj.length || nevbaj.length) {
+      figyelmeztetes = '<div class="duplikat-doboz"><b>' + esc(sz('duplikat_cim')) + '</b>' +
+        (kodbaj.length ? '<div>' + esc(sz('duplikat_kod')) + ' ' + esc(kodbaj.join(' · ')) + '</div>' : '') +
+        (nevbaj.length ? '<div>' + esc(sz('duplikat_nev')) + ' ' + esc(nevbaj.join(' · ')) + '</div>' : '') +
+        '<div class="sugo">' + esc(sz('duplikat_sugo')) + '</div></div>';
+    }
 
     var importKartya = '';
     if (S.fuggobenImport) {
@@ -502,6 +526,7 @@
       (a.beall.kezdesKesz ? weblapJelentkezokKartya() : '') +
       '<div class="kartya-blokk">' +
         '<h2>' + esc(sz('nevezes_cim')) + '</h2>' +
+      figyelmeztetes +
         szamlalo() +
         '<p class="sugo">' + szh('nevezes_sugo') + '</p>' +
         ((a.korok || []).length
@@ -3005,6 +3030,11 @@
       if (j) { j.kiemelt = !j.kiemelt; mentes(); render(); }
       return;
     }
+    if (t === 'tolol') {
+      S.megerosites = { t: 'torol', id: parseInt(cel.getAttribute('data-id'), 10) };
+      render();
+      return;
+    }
     if (t === 'torol') {
       S.megerosites = { t: 'torol', id: parseInt(cel.getAttribute('data-id'), 10) };
       render();
@@ -3014,7 +3044,12 @@
       var idT = parseInt(cel.getAttribute('data-id'), 10);
       var j2 = jatekos(idT);
       S.megerosites = null;
-      S.allapot.jatekosok = S.allapot.jatekosok.filter(function (x) { return x.id !== idT; });
+      /* Csak EGY sort törlünk: ha ketten ugyanazt a kódot használják, a másik megmarad. */
+      var torolt = false;
+      S.allapot.jatekosok = S.allapot.jatekosok.filter(function (x) {
+        if (!torolt && x.id === idT) { torolt = true; return false; }
+        return true;
+      });
       (S.allapot.korok || []).forEach(function (kor) {
         (kor.asztalok || []).forEach(function (asz) {
           asz.szekek = (asz.szekek || []).filter(function (x) { return x !== idT; });
@@ -3894,7 +3929,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.56';
+  V.VERZIO = '1.57';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
