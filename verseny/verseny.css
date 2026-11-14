@@ -976,3 +976,9 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 /* sorszam */
 .sorszam-cella{color:#8798a8;font-weight:700;font-size:.85rem;text-align:right;width:34px;padding-right:2px!important}
 .sorszam-fej{width:34px;text-align:right}
+
+/* weblap-par */
+.weblap-par{display:inline-flex;align-items:center;gap:0}
+.weblap-x{background:none;border:none;cursor:pointer;color:#bbb;font-size:.85rem;line-height:1;
+  padding:2px 5px;margin-left:-2px;border-radius:5px}
+.weblap-x:hover{background:#fdecea;color:#c62828}
