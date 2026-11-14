@@ -1424,7 +1424,7 @@
         ? '<button class="nav-gomb' + (gorgetBe() ? ' aktiv' : '') + '" data-t="gorget">' + esc(gorgetBe() ? sz('gorget_ki') : sz('gorget_be')) + '</button>'
         : '') +
       '<button class="nav-gomb" data-t="vetites-ablak">' + esc(sz('vet_ablak')) + '</button>' +
-      '<button class="nav-gomb" data-t="ora-ablak">' + esc(sz('ora_ablak')) + '</button>' +
+        '<button class="nav-gomb" data-t="ora-ablak">' + esc(popup ? sz('nav_ora') : sz('ora_ablak')) + '</button>' +
       '</div>');
 
     if (S.vetites === 'nevlista') {
@@ -1543,14 +1543,22 @@
     }
     /* FÜGGŐLEGES elrendezés: az asztalok 1, 2, 3, 4… LEFELÉ mennek, és a képernyőhöz
        igazodnak: annyi sor, amennyi kényelmesen kifér, a többi új oszlopba kerül. */
-    var maxOszlop = Math.max(1, Math.floor(szel / 240));          /* 240 px-nél keskenyebb kártya nem olvasható */
-    var kenyelmesSor = Math.max(2, Math.floor(mag / 78));         /* ennyi fér egymás alá kényelmesen */
-    var szukseges = Math.max(1, Math.ceil(db / kenyelmesSor));
-    /* legfeljebb 6 sor egymás alatt, hogy ne legyen túl hosszú a lista */
-    var legfeljebb = Math.max(1, Math.ceil(db / 6));
-    oszlopok = Math.min(maxOszlop, Math.max(szukseges, legfeljebb));
-    var sorok = Math.ceil(db / oszlopok);                          /* így MINDEN asztal kifér */
-    if (sorok < 1) sorok = 1;
+    /* A betűméretet maximalizáljuk (mint korábban): amelyik oszlopszámnál a név
+       a legnagyobb betűvel fér ki. A kártyák így nem csúsznak össze. */
+    for (var o2 = 1; o2 <= Math.min(db, 10); o2++) {
+      var sor3 = Math.ceil(db / o2);
+      var kartySz3 = szel / o2 - 22;
+      if (szel / o2 < 240) continue;
+      var kartyM3 = mag / sor3 - 10;
+      var viz3 = (kartySz3 - 105) / (0.5 * NEV_HOSSZ);
+      var fug3 = kartyM3 / ((maxSzek + 2) * 1.3);
+      var betu3 = Math.min(viz3, fug3);
+      if (betu3 > legjobbBetu) { legjobbBetu = betu3; oszlopok = o2; }
+    }
+    if (legjobbBetu <= 0) {
+      oszlopok = Math.max(1, Math.min(db, Math.round(Math.sqrt(db * szel / Math.max(1, mag)))));
+    }
+    var sorok = Math.ceil(db / oszlopok);
     return gombok + '<div class="vetites"><h1>' + esc(sz('vet_ki_hol_ul', { kor: kor.kor })) + '</h1>' +
       '<div class="vet-racs" style="--oszlopok:' + oszlopok + ';--sorok:' + sorok + '">' + kartyak + '</div></div>';
   }
@@ -4193,7 +4201,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.78';
+  V.VERZIO = '1.79';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
