@@ -184,6 +184,16 @@
     if (!jl || !jl.length) return '';
     var hianyzo = M.hianyzoJelentkezok(jl, a.jatekosok);
     var ott = jl.length - hianyzo.length;
+    /* Helyszíni (előre nem jelentkezett) játékosok: akik nincsenek a weblap listáján. */
+    var eloreKulcs = {};
+    (jl || []).forEach(function (r) {
+      if (r.kod) eloreKulcs['k' + String(r.kod)] = 1;
+      if (r.nev) eloreKulcs['n' + M.nevKulcs(r.nev)] = 1;
+    });
+    var helyszini = (a.jatekosok || []).filter(function (j) {
+      if (!j || !j.nev) return false;
+      return !(eloreKulcs['k' + String(j.id)] || eloreKulcs['n' + M.nevKulcs(j.nev)]);
+    }).length;
     /* szám szerint sorba: a kód szerint növekvő, a kód nélküliek a végére */
     var sorba = jl.map(function (r, i) { return { r: r, i: i }; }).sort(function (x, y) {
       var kx = parseInt(x.r.kod, 10), ky = parseInt(y.r.kod, 10);
@@ -193,7 +203,7 @@
     });
     return '<div class="kartya-blokk weblap-kartya">' +
       '<h2>' + esc(sz('weblap_cim')) + '</h2>' +
-      '<p class="sugo">' + esc(sz('weblap_db', { n: jl.length, k: ott, h: hianyzo.length })) + '</p>' +
+      '<p class="sugo">' + esc(sz('weblap_db', { n: jl.length, k: ott, h: hianyzo.length, hsz: helyszini })) + '</p>' +
       '<p class="sugo">' + esc(sz('weblap_kattints')) + '</p>' +
       '<div class="weblap-lista">' +
         sorba.map(function (x) {
@@ -4218,7 +4228,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.82';
+  V.VERZIO = '1.83';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
