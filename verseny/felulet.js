@@ -452,7 +452,6 @@
         : '<button class="torles-gomb" data-t="torol" data-id="' + j.id + '" title="' + esc(sz('torles_tipp')) + '">' + esc(sz('gomb_torles')) + '</button>';
       return '<tr class="' + (j.kiemelt ? 'kiemelt-sor' : '') + '">' +
         '<td class="sorszam-cella">' + (sorszam + 1) + '.</td>' +
-        '<td class="nem-jon-cella"><button class="nem-jon-gomb" data-t="tolol" data-id="' + j.id + '" title="' + esc(sz('nem_jon_tipp')) + '">✕</button></td>' +
         '<td><input class="mini kod-input" data-t="kod" data-id="' + j.id + '" value="' + j.id + '" title="' + esc(sz('kod_tipp')) + '"></td>' +
         '<td><input class="nev-input" data-t="nev" data-id="' + j.id + '" value="' + esc(j.nev) + '" title="' + esc(sz('nev_tipp')) + '">' + cimkek + '</td>' +
         '<td><input class="mini" data-t="kartya" data-id="' + j.id + '" value="' + esc(j.kartyakod || '') + '" placeholder="' + esc(sz('th_kartya')) + '" size="12"></td>' +
@@ -4228,7 +4227,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.83';
+  V.VERZIO = '1.84';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
