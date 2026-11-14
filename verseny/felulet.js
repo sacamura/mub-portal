@@ -769,7 +769,13 @@
         '<p class="sugo">' + szh('sors_sugo') + '</p>' +
         '<div class="nevezes-sor">' +
           '<span class="sugo">' + esc(sz('seed_auto', { seed: a.beall.sorsolasSeed })) + '</span>' +
-          '<label class="kapcsolo"><input type="checkbox" id="vedelem-be" data-t="beall" data-mezo="kiemeltVedelem"' + (a.beall.kiemeltVedelem ? ' checked' : '') + '> ' + esc(sz('kiemelt_vedelem')) + '</label>' +
+          '</div>' +
+          '<div class="kiemelt-valaszto">' +
+            '<span class="kiemelt-kerdes">' + esc(sz('kiemelt_kerdes')) + '</span>' +
+            '<button class="valaszto-gomb' + (a.beall.kiemeltVedelem ? ' aktiv' : '') + '" data-t="sors-vedelem" data-ertek="1">' + esc(sz('kezdo_kiemelt_kulon')) + '</button>' +
+            '<button class="valaszto-gomb' + (a.beall.kiemeltVedelem ? '' : ' aktiv') + '" data-t="sors-vedelem" data-ertek="0">' + esc(sz('kezdo_kiemelt_egyutt')) + '</button>' +
+          '</div>' +
+          '<div class="nevezes-sor">' +
           '<button class="fo-gomb" data-t="sorsol"' + (jk.length < 3 ? ' disabled' : '') + '>' + esc(sz('sorsol_gomb')) + '</button>' +
         '</div>' +
         (negyDb
@@ -858,8 +864,6 @@
        más beosztást ad, nem kell hozzá semmit beírni. */
     var seed = V.Motor.ujSeed();
     S.allapot.beall.sorsolasSeed = seed;
-    var vedBe = document.getElementById('vedelem-be');
-    if (vedBe) S.allapot.beall.kiemeltVedelem = !!vedBe.checked;
     var jk = M.aktivJatekosok(S.allapot, 1);
     if (!jk.length) { hiba(sz('nincs_jatekos')); return; }
     if (jk.length < 3) { hiba(sz('min_harom')); return; }
@@ -3174,6 +3178,12 @@
       ok(sz('ujranyitva'));
       return;
     }
+    if (t === 'sors-vedelem') {
+      S.allapot.beall.kiemeltVedelem = (cel.getAttribute('data-ertek') === '1');
+      mentes(); render();
+      ok(S.allapot.beall.kiemeltVedelem ? sz('kiemelt_kulon_kesz') : sz('kiemelt_egyutt_kesz'));
+      return;
+    }
     if (t === 'pont-zar') {
       S.allapot.beall.pontZar = !S.allapot.beall.pontZar;
       mentes(); render();
@@ -3884,7 +3894,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.55';
+  V.VERZIO = '1.56';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
