@@ -972,3 +972,7 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
   margin:0 0 12px;color:#8c2b24;font-size:.92rem}
 .duplikat-doboz b{display:block;margin-bottom:4px}
 .duplikat-doboz .sugo{color:#8c6b67;margin:5px 0 0;font-size:.85rem}
+
+/* sorszam */
+.sorszam-cella{color:#8798a8;font-weight:700;font-size:.85rem;text-align:right;width:34px;padding-right:2px!important}
+.sorszam-fej{width:34px;text-align:right}
