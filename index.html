@@ -613,6 +613,23 @@
 @media (max-width:640px){.elo-tabla{font-size:.82rem}.elo-tabla th,.elo-tabla td{padding:.3rem .35rem}}
 
 .elo-hiany{background:#fff8e6;border:1px solid #ecd9a6;color:#7a6420;font-size:.88rem;padding:.45rem .7rem;border-radius:8px;margin:.5rem 0 0}
+
+/* élő oldal: szűkebb és sűrűbb */
+.elo-gorgeto{max-height:60vh}
+.elo-tabla th,.elo-tabla td{padding:.28rem .38rem;font-size:.86rem}
+.elo-tabla thead th{font-size:.84rem}
+.elo-asztal-cim{margin:1.1rem 0 .5rem;font-size:1.02rem}
+.elo-asztalok{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.5rem}
+.elo-asz-tal{background:#f7fafc;border:1px solid #e2e9f0;border-radius:9px;padding:.45rem .6rem}
+.elo-asz-fej{font-weight:800;font-size:.8rem;color:#3d5064;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem}
+.elo-asz-nev{font-size:.9rem;line-height:1.35;color:#25313c}
+@media (max-width:640px){
+  .elo-tabla .elo-kpenz{display:none}
+  .elo-tabla{font-size:.78rem}
+  .elo-asztalok{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+}
+
+.elo-oldal{max-width:760px;margin:0 auto}
 </style>
 </head>
 <body>
@@ -1688,7 +1705,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     if(typeof route === 'function') {} /* a hash-váltás újrarajzol */
   }
   function renderElo(el){
-    el.innerHTML = '<h1 class="page-title">'+esc(T('Élő eredmény','Živý výsledok'))+'</h1>'
+    el.innerHTML = '<div class="elo-oldal"><h1 class="page-title">'+esc(T('Élő eredmény','Živý výsledok'))+'</h1>'
       + '<div class="card" style="padding:1.2rem 1.4rem"><p id="elo-tartalom">'+esc(T('Betöltés…','Načítava sa…'))+'</p></div>';
     if(!ELO_ID){
       try { ELO_ID = new URLSearchParams(location.search).get('id'); } catch(e){ ELO_ID = null; }
@@ -1740,10 +1757,23 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     html += '</tbody></table></div>'
       + (korDb > 0 && sorok.length && !(sorok[0].k && sorok[0].k.length)
         ? '<p class="elo-hiany">' + esc(T('A körönkénti bontás a következő feltöltés után jelenik meg (a programban: Rangsor → „Élő állás a weblapra”).', 'Rozpis po kolách sa zobrazí po ďalšom nahratí (v programe: Poradie → „Živý stav na web”).')) + '</p>'
-        : '');
-        + (x.ts ? '<p style="color:#667;font-size:.9rem;margin-top:.6rem">'+esc(T('Frissítve:','Aktualizované:'))+' '+esc(new Date(x.ts).toLocaleString())+'</p>' : '')
-        + (x.dijazott ? '<p style="color:#7a6420;font-size:.95rem">🎁 '+esc(T('Az első','Prvých'))+' '+esc(String(x.dijazott))+' '+esc(T('helyezett ajándékot kap – érdemes maradni a díjátadó végéig.','miest dostane cenu – oplatí sa zostať do konca odovzdávania cien.'))+'</p>' : '');
-      if(box) box.innerHTML = html;
+        : '')
+      + (x.ts ? '<p style="color:#667;font-size:.9rem;margin-top:.6rem">' + esc(T('Frissítve:','Aktualizované:')) + ' ' + esc(new Date(x.ts).toLocaleString()) + '</p>' : '')
+      + (x.dijazott ? '<p style="color:#7a6420;font-size:.95rem">🎁 ' + esc(T('Az első','Prvých')) + ' ' + esc(String(x.dijazott)) + ' ' + esc(T('helyezett ajándékot kap – érdemes maradni a díjátadó végéig.','miest dostane cenu – oplatí sa zostať do konca odovzdávania cien.')) + '</p>' : '');
+
+    /* asztalbeosztás: ki kivel játszik (3-asával, kártyákká szedve) */
+    var asztalHtml = '';
+    if ((x.asztalok || []).length) {
+      asztalHtml = '<h3 class="elo-asztal-cim">' + esc(T('Ki kivel játszik – a mostani kör asztalai','Kto s kým hrá – stoly aktuálneho kola')) + '</h3>'
+        + '<div class="elo-asztalok">'
+        + x.asztalok.map(function (a3) {
+            return '<div class="elo-asz-tal"><div class="elo-asz-fej">' + esc(String(a3.asztal)) + '. ' + esc(T('asztal','stôl')) + '</div>'
+              + (a3.jatekosok || []).map(function (j3) { return '<div class="elo-asz-nev">' + esc(j3.nev || '') + '</div>'; }).join('')
+              + '</div>';
+          }).join('')
+        + '</div>';
+    }
+      if(box) box.innerHTML = html + asztalHtml;
       /* 60 másodpercenként újraolvassuk (a lap nyitva marad) */
       if(window.__eloIdo){ clearTimeout(window.__eloIdo); }
       window.__eloIdo = setTimeout(function(){
