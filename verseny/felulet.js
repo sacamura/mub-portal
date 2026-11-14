@@ -1137,6 +1137,15 @@
     var javObj = penzJavaslat(asztal);
     var javaslat = javObj ? javObj.ertek : '';
     var uresId = javObj ? javObj.id : null;
+    /* A pontokhoz a hiányzó összeget is beszámítjuk (a kiszámolt értékkel),
+       így már 2 beírt összegnél is helyes sorrendet mutat. */
+    var pontokP = pontok;
+    if (javObj && javaslat) {
+      var tmpAsztal = { szekek: asztal.szekek, eredmenyek: {} };
+      Object.keys(e).forEach(function (k) { tmpAsztal.eredmenyek[k] = e[k]; });
+      tmpAsztal.eredmenyek[javObj.id] = { penz: String(javaslat).replace(',', '.') };
+      pontokP = M.asztalPontok(tmpAsztal) || pontok;
+    }
 
     var sorok = (asztal.szekek || []).filter(function (x) { return x !== null; }).map(function (id) {
       var j = jatekos(id);
@@ -1150,11 +1159,11 @@
           ' value="' + (vanErtek(adat.penz) ? esc(adat.penz) : '') + '" placeholder="' + (javaslat && id === uresId ? esc(javaslat) : '0,00') + '"></td>' +
         '<td class="pont-cell" id="pont-' + id + '">' + (function () {
           /* Amíg nincs minden összeg beírva, a pont még nem tudható – ne mutassunk rosszat. */
-          if (ell.kitoltve < ell.letszam && !vanErtek(adat.pont)) return '<span class="pont-var">–</span>';
           if (!a.beall.pontZar || vanErtek(adat.pont)) {
-            return '<input class="pont-input" data-t="pont" data-id="' + id + '" value="' + esc(vanErtek(adat.pont) ? adat.pont : '') + '" placeholder="' + esc(pontok[id]) + '">';
+            return '<input class="pont-input" data-t="pont" data-id="' + id + '" value="' + esc(vanErtek(adat.pont) ? adat.pont : '') + '" placeholder="' + esc(pontokP[id]) + '">';
           }
-          return '<b>' + pontok[id] + '</b>';
+          if (ell.kitoltve < ell.letszam) return '<b class="pont-elozetes" title="' + esc(sz('pont_elozetes_tipp')) + '">' + pontokP[id] + '</b>';
+          return '<b>' + pontokP[id] + '</b>';
         })() + '</td>' +
         '</tr>';
     }).join('');
@@ -1252,7 +1261,7 @@
         : '<span class="hiba-jel">✗ ' + esc(sz('penz_hiba', { ossz: penz(ell.penzOssz), vart: penz(ell.vartPenz) })) + '</span>';
     }
     return '<span class="semleges-jel">' + esc(sz('penz_reszben', { kesz: ell.kitoltve, ossz: ell.letszam, vart: penz(ell.vartPenz) })) +
-      ' · ' + esc(sz('pont_kesobb')) + '</span>';
+      ' · ' + esc(sz('pont_elozetes')) + '</span>';
   }
 
   function beirasFrissit() {
@@ -1269,7 +1278,7 @@
       var e2 = asztal.eredmenyek[id] || {};
         if (cella && !vanErtek(e2.pont)) {
           cella.innerHTML = (ell.kitoltve < ell.letszam)
-            ? '<span class="pont-var">–</span>'
+            ? '<b class="pont-elozetes">' + (ell.vartPontok ? ell.vartPontok[id] : ell.pontok[id]) + '</b>'
             : '<b>' + ell.pontok[id] + '</b>';
         }
     });
@@ -2564,7 +2573,7 @@
       var osszP = 0, osszE = 0;
       for (var k = 0; k < 5; k++) {
         var e2 = (perKor[j.id] || [])[k] || {};
-        sor.push(e2.penz === null || e2.penz === undefined ? '' : e2.penz);
+        sor.push(e2.penz === null || e2.penz === undefined ? '' : penz(e2.penz).replace('.', ','));
         sor.push(e2.pont === null || e2.pont === undefined ? '' : e2.pont);
         if (e2.penz) osszE += Number(e2.penz);
         if (e2.pont) osszP += Number(e2.pont);
@@ -3043,6 +3052,8 @@
       return;
     }
     if (t === 'ora-ablak') {
+      /* kivetítő ablakban NE nyisson új ablakot: váltson helyben */
+      if (global.opener) { S.nezet = 'ora'; render(); return; }
       try {
         var cim = String(global.location.href).split('#')[0] + '#/ora';
         var ablak = global.open(cim, 'mubOra', 'width=1150,height=800');
@@ -4005,7 +4016,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.65';
+  V.VERZIO = '1.66';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
