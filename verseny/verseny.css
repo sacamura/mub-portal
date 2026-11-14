@@ -1066,3 +1066,9 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 #nyomtat-terulet .cedulak { page: cedula }
 #nyomtat-terulet .eredmeny-lap { page: eredmeny }
 .eredmeny-lap { page: eredmeny }
+
+/* lezarva-sav */
+.lezarva-sav{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#eef7f0;
+  border:1.5px solid #bcdcc6;border-radius:10px;padding:9px 13px;margin:0 0 10px}
+.lezarva-sav b{color:#1f7a44}
+.lezarva-sav span{color:#4a6b58;font-size:.9rem;flex:1 1 200px}
