@@ -997,3 +997,6 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 .osszefoglalo-fo{font-size:1.12rem;font-weight:800;color:#274534}
 .osszefoglalo-al{font-size:.9rem;color:#6b7f8f;font-weight:600}
 .gyors-gombok{display:flex;flex-wrap:wrap;gap:8px}
+
+/* beall-kiemelt */
+.beall-kiemelt{margin-top:10px;background:#f7fafc;border-color:#e2e9f0}
