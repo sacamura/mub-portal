@@ -1148,9 +1148,14 @@
         '<td><input class="penz-input' + (javaslat && id === uresId ? ' javasolt' : '') + '" type="text" inputmode="decimal" autocomplete="off" data-t="penz" data-id="' + id + '"' +
           (javaslat && id === uresId ? ' data-javaslat="' + esc(javaslat) + '" title="' + esc(sz('javasolt_penz', { penz: javaslat })) + '"' : '') +
           ' value="' + (vanErtek(adat.penz) ? esc(adat.penz) : '') + '" placeholder="' + (javaslat && id === uresId ? esc(javaslat) : '0,00') + '"></td>' +
-        '<td class="pont-cell" id="pont-' + id + '">' + ((!a.beall.pontZar || vanErtek(adat.pont))
-          ? '<input class="pont-input" data-t="pont" data-id="' + id + '" value="' + esc(vanErtek(adat.pont) ? adat.pont : '') + '" placeholder="' + esc(pontok[id]) + '">'
-          : '<b>' + pontok[id] + '</b>') + '</td>' +
+        '<td class="pont-cell" id="pont-' + id + '">' + (function () {
+          /* Amíg nincs minden összeg beírva, a pont még nem tudható – ne mutassunk rosszat. */
+          if (ell.kitoltve < ell.letszam && !vanErtek(adat.pont)) return '<span class="pont-var">–</span>';
+          if (!a.beall.pontZar || vanErtek(adat.pont)) {
+            return '<input class="pont-input" data-t="pont" data-id="' + id + '" value="' + esc(vanErtek(adat.pont) ? adat.pont : '') + '" placeholder="' + esc(pontok[id]) + '">';
+          }
+          return '<b>' + pontok[id] + '</b>';
+        })() + '</td>' +
         '</tr>';
     }).join('');
 
@@ -1246,7 +1251,8 @@
         ? '<span class="ok-jel">✓ ' + esc(sz('penz_rendben', { penz: penz(ell.penzOssz) })) + '</span>'
         : '<span class="hiba-jel">✗ ' + esc(sz('penz_hiba', { ossz: penz(ell.penzOssz), vart: penz(ell.vartPenz) })) + '</span>';
     }
-    return '<span class="semleges-jel">' + esc(sz('penz_reszben', { kesz: ell.kitoltve, ossz: ell.letszam, vart: penz(ell.vartPenz) })) + '</span>';
+    return '<span class="semleges-jel">' + esc(sz('penz_reszben', { kesz: ell.kitoltve, ossz: ell.letszam, vart: penz(ell.vartPenz) })) +
+      ' · ' + esc(sz('pont_kesobb')) + '</span>';
   }
 
   function beirasFrissit() {
@@ -1261,7 +1267,11 @@
       if (id === null) return;
       var cella = document.getElementById('pont-' + id);
       var e2 = asztal.eredmenyek[id] || {};
-      if (cella && !vanErtek(e2.pont)) cella.innerHTML = '<b>' + ell.pontok[id] + '</b>';
+        if (cella && !vanErtek(e2.pont)) {
+          cella.innerHTML = (ell.kitoltve < ell.letszam)
+            ? '<span class="pont-var">–</span>'
+            : '<b>' + ell.pontok[id] + '</b>';
+        }
     });
     /* A hiányzó összeget gépelés közben is felkínáljuk (szürke placeholder). */
     var jav = penzJavaslat(asztal);
@@ -3995,7 +4005,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.64';
+  V.VERZIO = '1.65';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
