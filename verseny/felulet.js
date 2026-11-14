@@ -807,7 +807,7 @@
             '<button class="masod-gomb" data-t="sorsol-ved" data-ertek="0">' + esc(sz('sors_gomb_egyutt')) + '</button>' +
           '</div>' +
           '<div class="nevezes-sor">' +
-          '<button class="masod-gomb kicsi" data-t="sorsol"' + (jk.length < 3 ? ' disabled' : '') + '>' + esc(sz('sorsol_gomb')) + '</button>' +
+
         '</div>' +
         (negyDb
           ? '<p class="sugo">' + esc((caps.length - negyDb) === 0
@@ -920,7 +920,9 @@
       hiba(sz('keves_az_asztalhoz', { n: jk.length, kell: 6 }));
       return;
     }
-    var e = M.sorsolElso(jk, capT, seed, S.allapot.beall.kiemeltVedelem);
+    var vedelemE = (S.allapot.beall.kiemeltVedelem !== false);   /* alapból VÉDVE */
+    S.allapot.beall.kiemeltVedelem = vedelemE;
+    var e = M.sorsolElso(jk, capT, seed, vedelemE);
     S.allapot.korok = [V.korLetrehoz(S.allapot, e.szekek, e.figyelmeztetes)];
     S.allapot.aktualisKor = 1;
     mentes();
@@ -3991,7 +3993,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.62';
+  V.VERZIO = '1.63';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
