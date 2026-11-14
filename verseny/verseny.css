@@ -1040,3 +1040,13 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
   .eredmeny-lap,.e-tabla{page-break-inside:auto}
   .e-tabla tr{page-break-inside:avoid}
 }
+
+/* kivetítő: kevesebb üres sáv, nagyobb rangsor */
+.vetites h1{font-size:clamp(1rem,1.6vw,1.6rem)!important;margin:.2rem 0 .4rem!important}
+.vet-rangsor .vet-gorgeto{max-height:calc(100vh - 120px)!important}
+.vet-racs{gap:10px!important}
+
+/* kivetítő asztalok: lefelé (oszloponként) töltés */
+.vet-racs{grid-template-columns:repeat(var(--oszlopok,3),minmax(0,1fr))!important;
+  grid-template-rows:repeat(var(--sorok,6),minmax(0,1fr))!important;
+  grid-auto-flow:column!important}
