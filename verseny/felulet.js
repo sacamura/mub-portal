@@ -2571,6 +2571,18 @@
       statuszHu: hu,
       statuszSk: sk,
       dijazott: szam(a.beall.dijazott, 0),
+      /* a mostani (utolsó) kör asztalai: ki kivel ül */
+      asztalok: (function () {
+        var ut = a.korok[a.korok.length - 1];
+        if (!ut) return [];
+        return (ut.asztalok || []).map(function (asz) {
+          return {
+            asztal: asz.asztal,
+            jatekosok: (asz.szekek || []).filter(function (id) { return id !== null && id !== undefined; })
+              .map(function (id) { var j = jatekos(id); return { nev: j ? j.nev : ('#' + id), kod: String(id) }; })
+          };
+        });
+      })(),
       sorok: lista.map(function (p, i) {
         return {
           h: i + 1, nev: p.nev, pont: p.pont, penz: Math.round(p.penz * 100) / 100,
@@ -4107,7 +4119,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.74';
+  V.VERZIO = '1.75';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
