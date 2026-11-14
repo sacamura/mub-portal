@@ -2523,24 +2523,55 @@
     });
   }
 
+
+  /* Az élő álláshoz küldött csomag: körönkénti részeredmények + állapot. */
+  function eloCsomag() {
+    var a = S.allapot;
+    var lista = V.Motor.rangsor(a, a.aktualisKor || a.korok.length);
+    var korDb = a.korok.length;
+    var kesz = korDb > 0 && V.Motor.korKesz(a, korDb - 1);
+    var tervezett = szam(a.beall.korok, 5);
+    var hu, sk;
+    if (a.lezarva) {
+      hu = 'A verseny lezárult.'; sk = 'Súťaž sa skončila.';
+    } else if (!korDb) {
+      hu = 'A verseny hamarosan kezdődik.'; sk = 'Súťaž sa čoskoro začne.';
+    } else if (kesz) {
+      if (korDb >= tervezett) { hu = 'Az utolsó (' + korDb + '.) kör véget ért.'; sk = 'Posledné (' + korDb + '.) kolo sa skončilo.'; }
+      else { hu = 'A(z) ' + korDb + '. kör véget ért – következik a(z) ' + (korDb + 1) + '. kör.'; sk = korDb + '. kolo sa skončilo – nasleduje ' + (korDb + 1) + '. kolo.'; }
+    } else {
+      hu = 'A(z) ' + korDb + '. kör folyamatban van.'; sk = korDb + '. kolo práve prebieha.';
+    }
+    return {
+      nev: a.beall.nev || a.beall.helyHu || '',
+      hely: a.beall.helyHu || '',
+      datum: a.beall.datum || '',
+      kor: korDb,
+      korDb: korDb,
+      tervezett: tervezett,
+      lezarva: !!a.lezarva,
+      statuszHu: hu,
+      statuszSk: sk,
+      dijazott: szam(a.beall.dijazott, 0),
+      sorok: lista.map(function (p, i) {
+        return {
+          h: i + 1, nev: p.nev, pont: p.pont, penz: Math.round(p.penz * 100) / 100,
+          kod: String(p.id),
+          k: (p.korok || []).map(function (kr) {
+            return { kor: kr.kor, pont: kr.pont, penz: Math.round(kr.penz * 100) / 100 };
+          })
+        };
+      })
+    };
+  }
+
   /* Élő állás feltöltése a weblapra (a verseny napján mutatja). */
   function eloFeltolt() {
     if (tesztBlokk(false)) return;
     var a = S.allapot;
     if (!a.korok.length) { hiba(sz('elo_nincs_kor')); render(); return; }
     if (!a.esemenyId) { hiba(sz('elo_nincs_esemeny')); render(); return; }
-    var lista = V.Motor.rangsor(a, a.aktualisKor || a.korok.length);
-    var sorok = lista.map(function (p, i) {
-      return { h: i + 1, nev: p.nev, pont: p.pont, penz: Math.round(p.penz * 100) / 100, kod: String(p.id) };
-    });
-    var csomag = {
-      nev: a.beall.nev || a.beall.helyHu || '',
-      hely: a.beall.helyHu || '',
-      datum: a.beall.datum || '',
-      kor: a.korok.length,
-      dijazott: szam(a.beall.dijazott, 0),
-      sorok: sorok
-    };
+    var csomag = eloCsomag();
     if (!global.BEKULDES || !global.BEKULDES.eloMent) { hiba(sz('elo_hiba')); render(); return; }
     ok(sz('elo_kuld'));
     global.BEKULDES.eloMent(a.esemenyId, csomag, function (h) {
@@ -2557,18 +2588,7 @@
     var a = S.allapot;
     if (!a.esemenyId || !a.korok.length) return;
     if (!global.BEKULDES || !global.BEKULDES.eloMent) return;
-    var lista = V.Motor.rangsor(a, a.aktualisKor || a.korok.length);
-    var sorok = lista.map(function (p, i) {
-      return { h: i + 1, nev: p.nev, pont: p.pont, penz: Math.round(p.penz * 100) / 100, kod: String(p.id) };
-    });
-    global.BEKULDES.eloMent(a.esemenyId, {
-      nev: a.beall.nev || a.beall.helyHu || '',
-      hely: a.beall.helyHu || '',
-      datum: a.beall.datum || '',
-      kor: a.korok.length,
-      dijazott: szam(a.beall.dijazott, 0),
-      sorok: sorok
-    }, function () { });
+    global.BEKULDES.eloMent(a.esemenyId, eloCsomag(), function () { });
   }
 
   function excelSorok() {
@@ -4068,7 +4088,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.71';
+  V.VERZIO = '1.72';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
