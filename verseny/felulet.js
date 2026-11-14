@@ -1348,7 +1348,7 @@
         (i % 2 ? 'paros-sor' : '') + '">' +
         '<td class="szam nagy">' + s.hely + '.</td>' +
         '<td>' + esc(s.nev) + (dijDb > 0 && s.hely <= dijDb ? ' <span class="dij-jel" title="' + esc(sz('dij_tipp')) + '">🎁</span>' : '') +
-          (s.kiemelt ? ' <span class="cimke">' + esc(sz('cimke_kiemelt')) + '</span>' : '') +
+          (s.kiemelt ? ' <span class="cimke kiemelt-rovid" title="' + esc(sz('cimke_kiemelt')) + '">★</span>' : '') +
           (M.kilepettE(jatekos(s.id), 999) ? ' <span class="cimke kilepett">' + esc(sz('cimke_kilepett', { kor: jatekos(s.id).kilepettKor })) + '</span>' : '') + '</td>' +
         korok +
         '<td class="szam nagy ossz">' + s.pont + '</td>' +
@@ -1391,10 +1391,12 @@
         '<button class="masod-gomb kicsi" data-t="elo-feltolt" title="' + esc(sz('elo_tipp')) + '">' + esc(sz('elo_gomb')) + '</button>' +
                 '<span class="sugo">' + esc(sz('lezar_sugo')) + '</span>') +
           '</div>') +
-      '<div class="nevezes-sor"><button class="' + (gorgetBe() ? 'fo-gomb' : 'masod-gomb') + ' kicsi" data-t="gorget">' +
+      '<div class="nevezes-sor rangsor-eszkozok"><button class="' + (gorgetBe() ? 'fo-gomb' : 'masod-gomb') + ' kicsi" data-t="gorget">' +
         esc(gorgetBe() ? sz('gorget_ki') : sz('gorget_be')) + '</button>' +
-        '<span class="sugo">' + esc(sz('gorget_sugo')) + '</span></div>' +
-      '<p class="sugo">' + esc(sz('rang_sugo', { sorrend: kulcsok.map(function (k) { return sz('tb_' + k); }).join(' → ') })) + '</p>' +
+        '<details class="beall-resz rangsor-sugo" style="margin:0"><summary>' + esc(sz('rang_reszletek')) + '</summary>' +
+          '<p class="sugo">' + esc(sz('gorget_sugo')) + '</p>' +
+          '<p class="sugo">' + esc(sz('rang_sugo', { sorrend: kulcsok.map(function (k) { return sz('tb_' + k); }).join(' → ') })) + '</p>' +
+        '</details></div>' +
       '<div class="rangsor-gorgeto" id="rangsor-gorgeto">' +
       '<table class="tabla rangsor"><thead>' +
         '<tr><th rowspan="2">' + esc(sz('th_hely')) + '</th><th rowspan="2">' + esc(sz('th_nev')) + '</th>' +
@@ -4201,7 +4203,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.79';
+  V.VERZIO = '1.80';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
