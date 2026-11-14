@@ -990,3 +990,10 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 
 /* pont-elozetes */
 .pont-elozetes{color:#8a9cae;font-weight:700}
+
+/* beall-osszefoglalo */
+.beall-osszefoglalo{background:linear-gradient(180deg,#f7fbf8,#ffffff);border:1px solid #dcebe1}
+.osszefoglalo-sor{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin:2px 0 10px}
+.osszefoglalo-fo{font-size:1.12rem;font-weight:800;color:#274534}
+.osszefoglalo-al{font-size:.9rem;color:#6b7f8f;font-weight:600}
+.gyors-gombok{display:flex;flex-wrap:wrap;gap:8px}
