@@ -1386,7 +1386,12 @@
               '</div>' +
             '</div>'
           : '<button class="masod-gomb kicsi veszely-gomb" data-t="lezar-ker">' + esc(sz('lezar_gomb')) + '</button>') +
-        '<button class="masod-gomb kicsi" data-t="vegeredmeny-nyomtat">' + esc(sz('vegeredmeny_gomb')) + '</button>' +
+        (function () {
+        var utolsoKesz = a.korok.length > 0 && M.korKesz(a, a.korok.length - 1);
+        var hangsulyos = a.lezarva || (utolsoKesz && a.korok.length >= szam(a.beall.korok, 5));
+        return '<button class="' + (hangsulyos ? 'fo-gomb' : 'masod-gomb') + ' kicsi" data-t="vegeredmeny-nyomtat">' +
+          esc(sz('vegeredmeny_gomb')) + '</button>';
+      })() +
         '<button class="masod-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
         '<button class="masod-gomb kicsi" data-t="elo-feltolt" title="' + esc(sz('elo_tipp')) + '">' + esc(sz('elo_gomb')) + '</button>' +
                 '<span class="sugo">' + esc(sz('lezar_sugo')) + '</span>') +
@@ -1586,6 +1591,7 @@
     var valto = '<div class="valaszto-sor" style="margin-bottom:8px">' +
       '<button class="valaszto-gomb' + (vegmod ? '' : ' aktiv') + '" data-t="nyom-mod" data-mod="cedula">' + esc(sz('nyom_mod_cedula')) + '</button>' +
       '<button class="valaszto-gomb' + (vegmod ? ' aktiv' : '') + '" data-t="nyom-mod" data-mod="eredmeny">' + esc(sz('nyom_mod_eredmeny')) + '</button>' +
+      '<span class="sugo">' + esc(sz('nyom_mod_sugo')) + '</span>' +
       '</div>';
     if (vegmod) {
       return '<div class="kartya-blokk">' +
@@ -4203,7 +4209,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.80';
+  V.VERZIO = '1.81';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
