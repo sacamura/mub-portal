@@ -1712,7 +1712,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     var korDb = Number(x.korDb || x.kor || 0);
     var html = '<p class="elo-allapot' + (x.lezarva ? ' kesz' : '') + '">' + esc(allapotSzov) + '</p>'
       + '<div style="margin-bottom:.6rem"><strong>' + esc(x.nev || '') + '</strong>'
-      + (x.hely ? ' · ' + esc(x.hely) : '')
+      + ((x.hely && x.hely !== x.nev) ? ' · ' + esc(x.hely) : '')
       + (x.datum ? ' · ' + esc(x.datum) : '')
       + '</div>'
       + '<div class="elo-gorgeto"><table class="tbl elo-tabla"><thead><tr><th>#</th><th>' + esc(T('Név','Meno')) + '</th>';
