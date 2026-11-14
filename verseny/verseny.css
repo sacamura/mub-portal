@@ -957,3 +957,8 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
   padding:2px 6px;border-radius:7px;opacity:.55;vertical-align:middle}
 .lakat-gomb:hover{background:#eef4f9;opacity:1}
 .lakat-gomb.nyitva{opacity:1;background:#fff8e6}
+
+/* kiemelt-valaszto */
+.kiemelt-valaszto{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 10px;
+  background:#f6faf7;border:1px solid #dcebe1;border-radius:10px;padding:9px 12px}
+.kiemelt-kerdes{font-weight:700;color:#3f5a49;font-size:.92rem;margin-right:2px}
