@@ -607,8 +607,8 @@
 .elo-tabla thead tr:nth-child(2) th{top:2.1em;background:#f8fafc;font-weight:600;color:#6b7f8f;font-size:.8rem}
 .elo-kor-fej{text-align:center;border-left:2px solid #cfdbe6}
 .elo-al-fej{text-align:center}
-.elo-pont{text-align:right;color:#2f7a4b;font-weight:700}
-.elo-penz{text-align:right;color:#76858f;border-right:2px solid #e3eaf1}
+.elo-kp{text-align:right;color:#2f7a4b;font-weight:700}
+.elo-kpenz{text-align:right;color:#76858f;border-right:2px solid #e3eaf1}
 .elo-ossz{text-align:right;font-weight:900}
 @media (max-width:640px){.elo-tabla{font-size:.82rem}.elo-tabla th,.elo-tabla td{padding:.3rem .35rem}}
 </style>
@@ -1729,8 +1729,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       var sor = '<tr><td>' + esc(String(r2.h)) + '</td><td>' + esc(r2.nev || '') + dij + '</td>';
       for (var kk = 1; kk <= korDb; kk++) {
         var kr = (r2.k || []).filter(function(z){ return Number(z.kor) === kk; })[0];
-        sor += '<td class="elo-pont">' + (kr ? esc(String(kr.pont)) : '·') + '</td>'
-             + '<td class="elo-penz">' + (kr ? esc(String(kr.penz)) : '·') + '</td>';
+        sor += '<td class="elo-kp">' + (kr ? esc(String(kr.pont)) : '·') + '</td>'
+             + '<td class="elo-kpenz">' + (kr ? esc(String(kr.penz)) : '·') + '</td>';
       }
       sor += '<td class="elo-ossz">' + esc(String(r2.pont)) + '</td><td class="elo-ossz">' + esc(String(r2.penz)) + '</td></tr>';
       return sor;
