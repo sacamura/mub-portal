@@ -1386,6 +1386,7 @@
               '</div>' +
             '</div>'
           : '<button class="masod-gomb kicsi veszely-gomb" data-t="lezar-ker">' + esc(sz('lezar_gomb')) + '</button>') +
+        '<button class="masod-gomb kicsi" data-t="vegeredmeny-nyomtat">' + esc(sz('vegeredmeny_gomb')) + '</button>' +
         '<button class="masod-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
         '<button class="masod-gomb kicsi" data-t="elo-feltolt" title="' + esc(sz('elo_tipp')) + '">' + esc(sz('elo_gomb')) + '</button>' +
                 '<span class="sugo">' + esc(sz('lezar_sugo')) + '</span>') +
@@ -1562,9 +1563,21 @@
       return '<option value="' + k.kor + '"' + (k.kor === kor.kor ? ' selected' : '') + '>' + esc(sz('kor_gomb', { kor: k.kor })) + '</option>';
     }).join('');
     var db = szam(a.beall.papirDB, 8);
+    var vegmod = (S.nyomtatEredmeny === true);
+    var valto = '<div class="valaszto-sor" style="margin-bottom:8px">' +
+      '<button class="valaszto-gomb' + (vegmod ? '' : ' aktiv') + '" data-t="nyom-mod" data-mod="cedula">' + esc(sz('nyom_mod_cedula')) + '</button>' +
+      '<button class="valaszto-gomb' + (vegmod ? ' aktiv' : '') + '" data-t="nyom-mod" data-mod="eredmeny">' + esc(sz('nyom_mod_eredmeny')) + '</button>' +
+      '</div>';
+    if (vegmod) {
+      return '<div class="kartya-blokk">' +
+        '<h2>' + esc(sz('vegeredmeny_cim')) + '</h2>' +
+        valto +
+        '<p class="sugo">' + esc(sz('vegeredmeny_sugo')) + '</p>' +
+        '<div class="nevezes-sor"><button class="fo-gomb" data-t="nyomtat">' + esc(sz('nyom_gomb')) + '</button></div>' +
+        '</div>' + eredmenyPrintHtml();
+    }
     return '<div class="kartya-blokk">' +
-      
-      '<h2>' + esc(sz('nyom_cim')) + '</h2>' +
+      valto +
       '<p class="sugo">' + szh('nyom_sugo') + '</p>' +
       '<div class="nevezes-sor">' +
         '<label>' + esc(sz('nyom_kor')) + ' <select id="nyomtat-kor">' + szelek + '</select></label>' +
@@ -1574,6 +1587,38 @@
         '<button class="fo-gomb" data-t="nyomtat">' + esc(sz('nyom_gomb')) + '</button>' +
       '</div>' +
       '</div>' + cedulaHtml(kor);
+  }
+
+  /* A4-es végeredmény-lap: egy oldalra beférő, tömör táblázat. */
+  function eredmenyPrintHtml() {
+    var a = S.allapot;
+    var ig = a.aktualisKor || a.korok.length;
+    var lista = M.rangsor(a, ig);
+    var dijDb = szam(a.beall.dijazott, 0);
+    var fej = '<tr><th>#</th><th>' + esc(sz('th_nev')) + '</th>';
+    for (var k = 1; k <= ig; k++) fej += '<th>' + k + '.</th>';
+    fej += '<th>' + esc(sz('th_ossz_pont')) + '</th><th>' + esc(sz('th_ossz_penz')) + '</th></tr>';
+    var test = lista.map(function (s2) {
+      var sor = '<tr' + (dijDb > 0 && s2.hely <= dijDb ? ' class="e-dij"' : '') + '>' +
+        '<td class="e-hely">' + s2.hely + '.</td>' +
+        '<td class="e-nev">' + esc(s2.nev) + (dijDb > 0 && s2.hely <= dijDb ? ' 🎁' : '') + '</td>';
+      for (var k2 = 1; k2 <= ig; k2++) {
+        var kr = (s2.korok || []).filter(function (x) { return x.kor === k2; })[0];
+        sor += '<td class="e-pont">' + (kr ? kr.pont : '·') + '</td>';
+      }
+      sor += '<td class="e-ossz">' + s2.pont + '</td><td class="e-ossz">' + penz(s2.penz) + '</td></tr>';
+      return sor;
+    }).join('');
+    return '<div class="eredmeny-lap">' +
+      '<div class="e-fej">' +
+        '<div class="e-cim">' + esc(a.beall.nev || helySzoveg() || sz('verseny_cim_hely')) + '</div>' +
+        '<div class="e-al">' + esc(helySzoveg() || '') + (a.beall.datum ? ' · ' + esc(a.beall.datum) : '') +
+          ' · ' + esc(sz('osszefoglalo_kor', { kor: ig, ossz: szam(a.beall.korok, 5) })) +
+          ' · ' + esc(sz('osszefoglalo_jatekos', { n: lista.length })) + '</div>' +
+      '</div>' +
+      '<table class="e-tabla"><thead>' + fej + '</thead><tbody>' + test + '</tbody></table>' +
+      (dijDb > 0 ? '<div class="e-lablec">🎁 ' + esc(sz('dij_lablec', { n: dijDb })) + '</div>' : '') +
+      '</div>';
   }
 
   function cedulaHtml(kor) {
@@ -2885,7 +2930,11 @@
       (S.uzenet ? '<div class="uzenet ' + S.uzenetTipus + '">' + esc(S.uzenet) + '</div>' : '');
 
     var nyomtatTerulet = document.getElementById('nyomtat-terulet');
-    if (nyomtatTerulet) nyomtatTerulet.innerHTML = (S.nezet === 'nyomtat' && nyomtatKor()) ? cedulaHtml(nyomtatKor()) : '';
+    if (nyomtatTerulet) {
+      nyomtatTerulet.innerHTML = (S.nezet === 'nyomtat')
+        ? (S.nyomtatEredmeny === true ? eredmenyPrintHtml() : (nyomtatKor() ? cedulaHtml(nyomtatKor()) : ''))
+        : '';
+    }
 
     /* Eredménybeírásnál a kurzor rögtön az első összeg mezőben legyen,
        hogy lehessen azonnal írni (asztalváltás után is). */
@@ -3419,6 +3468,11 @@
       return;
     }
     if (t === 'vetites') { S.vetites = cel.getAttribute('data-mod'); render(); return; }
+    if (t === 'nyom-mod') {
+      S.nyomtatEredmeny = (cel.getAttribute('data-mod') === 'eredmeny');
+      mentes(); render();
+      return;
+    }
     if (t === 'nyomtat') {
       var kor2 = nyomtatKor();
       var terulet = document.getElementById('nyomtat-terulet');
@@ -3494,6 +3548,12 @@
     if (t === 'felho-ment') { felhoMentes(false); return; }
     if (t === 'felho-vissza') {
       if (!global.confirm || global.confirm(sz('felho_kerdes'))) felhoVissza();
+      return;
+    }
+    if (t === 'vegeredmeny-nyomtat') {
+      S.nyomtatEredmeny = true;
+      S.vetitesVissza = null;
+      nezetValt('nyomtat');
       return;
     }
     if (t === 'excel') { excelExport(); render(); return; }
@@ -4122,7 +4182,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.76';
+  V.VERZIO = '1.77';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
