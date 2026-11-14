@@ -1280,6 +1280,8 @@
       } else {
         inp.removeAttribute('data-javaslat');
         inp.className = 'penz-input';
+        /* Ha már nincs érvényes javaslat, a RÉGI se maradjon ott (ez zavart okozott). */
+        if (!kitoltve) inp.placeholder = '0,00';
       }
     });
   }
@@ -3993,7 +3995,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.63';
+  V.VERZIO = '1.64';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
