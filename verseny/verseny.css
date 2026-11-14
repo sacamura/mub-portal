@@ -1011,3 +1011,7 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
   font-variant-numeric:tabular-nums;margin-bottom:4px}
 .fej-ora:hover{background:#fff2cc}
 .fej-ora.lejart{background:#fff1f0;border-color:#e6b3ae;color:#b3261e}
+
+/* fej-eszkozok: óra + nyelvváltó egy sorban */
+.fej-eszkozok{display:flex;align-items:center;gap:.5rem;flex-wrap:nowrap}
+.fej-ora{margin-bottom:0}
