@@ -2044,7 +2044,8 @@
                   '<label class="beall-mezo szeles"><span class="mezo-felirat">' + esc(sz('gs_url')) + '</span>' +
                     '<input data-t="beall" data-mezo="gsUrl" value="' + esc(b.gsUrl || '') + '" placeholder="https://script.google.com/macros/s/…/exec"></label>' +
                   '<div class="nevezes-sor">' +
-                    '<button class="masod-gomb kicsi" data-t="gs-most">' + esc(sz('gs_most')) + '</button>' +
+                    '<button class="masod-gomb kicsi" data-t="gs-teszt">' + esc(sz('gs_teszt_gomb')) + '</button>' +
+            '<button class="masod-gomb kicsi" data-t="gs-most">' + esc(sz('gs_most')) + '</button>' +
                     '<button class="masod-gomb kicsi" data-t="gs-vissza">' + esc(sz('gs_vissza_gomb')) + '</button>' +
                     '<span id="gs-allapot" class="sugo">' + esc(S.gsAllapot || '') + '</span>' +
                   '</div>' +
@@ -3419,6 +3420,22 @@
       if (!global.confirm || global.confirm(sz('gs_vissza_kerdes'))) gsVissza(urlV);
       return;
     }
+    if (t === 'gs-teszt') {
+      var uT = String(S.allapot.beall.gsUrl || '').trim();
+      if (!uT) { hiba(sz('gs_nincs_url')); render(); return; }
+      S.gsAllapot = sz('gs_teszt_fut');
+      gsJel();
+      if (!global.fetch) { S.gsAllapot = sz('gs_nincs_fetch'); gsJel(); return; }
+      global.fetch(uT, { method: 'GET' }).then(function (r) { return r.text(); })
+        .then(function (t3) {
+          S.gsAllapot = (t3 && t3.length > 5)
+            ? sz('gs_teszt_ok', { hossz: t3.length, resz: String(t3).slice(0, 60).replace(/s+/g, ' ') })
+            : sz('gs_teszt_ures');
+          gsJel();
+        })
+        .catch(function () { S.gsAllapot = sz('gs_teszt_hiba'); gsJel(); });
+      return;
+    }
     if (t === 'gs-most') {
       var gsUrl2 = String(S.allapot.beall.gsUrl || '').trim();
       if (!gsUrl2) { hiba(sz('gs_nincs_url')); render(); return; }
@@ -4020,7 +4037,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.67';
+  V.VERZIO = '1.68';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
