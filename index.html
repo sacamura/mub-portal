@@ -611,6 +611,8 @@
 .elo-kpenz{text-align:right;color:#76858f;border-right:2px solid #e3eaf1}
 .elo-ossz{text-align:right;font-weight:900}
 @media (max-width:640px){.elo-tabla{font-size:.82rem}.elo-tabla th,.elo-tabla td{padding:.3rem .35rem}}
+
+.elo-hiany{background:#fff8e6;border:1px solid #ecd9a6;color:#7a6420;font-size:.88rem;padding:.45rem .7rem;border-radius:8px;margin:.5rem 0 0}
 </style>
 </head>
 <body>
@@ -1735,7 +1737,10 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       sor += '<td class="elo-ossz">' + esc(String(r2.pont)) + '</td><td class="elo-ossz">' + esc(String(r2.penz)) + '</td></tr>';
       return sor;
     }).join('');
-    html += '</tbody></table></div>';
+    html += '</tbody></table></div>'
+      + (korDb > 0 && sorok.length && !(sorok[0].k && sorok[0].k.length)
+        ? '<p class="elo-hiany">' + esc(T('A körönkénti bontás a következő feltöltés után jelenik meg (a programban: Rangsor → „Élő állás a weblapra”).', 'Rozpis po kolách sa zobrazí po ďalšom nahratí (v programe: Poradie → „Živý stav na web”).')) + '</p>'
+        : '');
         + (x.ts ? '<p style="color:#667;font-size:.9rem;margin-top:.6rem">'+esc(T('Frissítve:','Aktualizované:'))+' '+esc(new Date(x.ts).toLocaleString())+'</p>' : '')
         + (x.dijazott ? '<p style="color:#7a6420;font-size:.95rem">🎁 '+esc(T('Az első','Prvých'))+' '+esc(String(x.dijazott))+' '+esc(T('helyezett ajándékot kap – érdemes maradni a díjátadó végéig.','miest dostane cenu – oplatí sa zostať do konca odovzdávania cien.'))+'</p>' : '');
       if(box) box.innerHTML = html;
