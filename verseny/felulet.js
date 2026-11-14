@@ -422,13 +422,14 @@
   function nevezesNezet() {
     var a = S.allapot;
     var jk = aktivJatekosok();
-    var lista = jk.map(function (j) {
+    var lista = jk.map(function (j, sorszam) {
       var cimkek = (j.vendeg ? ' <span class="cimke vendeg">' + esc(sz('cimke_vendeg')) + '</span>' : '') +
         (j.kilepettKor ? ' <span class="cimke kilepett">' + esc(sz('cimke_kilepett', { kor: j.kilepettKor })) + '</span>' : '');
       var torles = (varE('torol') && S.megerosites.id === j.id)
         ? megerositesSav(sz('torles_biztos', { nev: j.nev }), 'torol-igen', 'megerosites-nem', j.id)
         : '<button class="torles-gomb" data-t="torol" data-id="' + j.id + '" title="' + esc(sz('torles_tipp')) + '">' + esc(sz('gomb_torles')) + '</button>';
       return '<tr class="' + (j.kiemelt ? 'kiemelt-sor' : '') + '">' +
+        '<td class="sorszam-cella">' + (sorszam + 1) + '.</td>' +
         '<td class="nem-jon-cella"><button class="nem-jon-gomb" data-t="tolol" data-id="' + j.id + '" title="' + esc(sz('nem_jon_tipp')) + '">✕</button></td>' +
         '<td><input class="mini kod-input" data-t="kod" data-id="' + j.id + '" value="' + j.id + '" title="' + esc(sz('kod_tipp')) + '"></td>' +
         '<td><input class="nev-input" data-t="nev" data-id="' + j.id + '" value="' + esc(j.nev) + '" title="' + esc(sz('nev_tipp')) + '">' + cimkek + '</td>' +
@@ -563,7 +564,7 @@
       '<div class="kartya-blokk">' +
         '<h3>' + esc(sz('nevezettek')) + ' (' + jk.length + ')</h3>' +
         (jk.length
-          ? '<table class="tabla nevezett-tabla"><thead><tr><th>' + esc(sz('th_kod')) + '</th><th>' + esc(sz('th_nev')) + '</th><th>' + esc(sz('th_kartya')) + '</th><th>' + esc(sz('th_kiemelt')) + '</th><th></th></tr></thead><tbody>' + lista + '</tbody></table>'
+          ? '<table class="tabla nevezett-tabla"><thead><tr><th class="sorszam-fej">#</th><th>' + esc(sz('th_kod')) + '</th><th>' + esc(sz('th_nev')) + '</th><th>' + esc(sz('th_kartya')) + '</th><th>' + esc(sz('th_kiemelt')) + '</th><th></th></tr></thead><tbody>' + lista + '</tbody></table>'
           : '<p class="sugo">' + esc(sz('nincs_nevezve')) + '</p>') +
       '</div>';
   }
@@ -3929,7 +3930,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.57';
+  V.VERZIO = '1.58';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
