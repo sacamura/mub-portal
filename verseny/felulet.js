@@ -1867,6 +1867,26 @@
         '</div>' +
       '</div>' +
 
+      /* ---------- Áttekintés + gyors műveletek ---------- */
+      '<div class="kartya-blokk beall-osszefoglalo">' +
+        '<h2>' + esc(sz('beall_attekintes')) + '</h2>' +
+        '<div class="osszefoglalo-sor">' +
+          '<div class="osszefoglalo-fo">' + esc(b.helyHu || b.nev || sz('verseny_cim_hely')) +
+            (b.datum ? ' · ' + esc(b.datum) : '') + '</div>' +
+          '<div class="osszefoglalo-al">' +
+            (a.korok.length ? esc(sz('osszefoglalo_kor', { kor: a.korok.length, ossz: szam(b.korok, 5) })) : esc(sz('osszefoglalo_nincs_kor'))) +
+            ' · ' + esc(sz('osszefoglalo_jatekos', { n: a.jatekosok.length })) +
+            (a.lezarva ? ' · ' + esc(sz('archiv_lezart')) : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="gyors-gombok">' +
+          '<button class="fo-gomb kicsi" data-t="felho-ment">' + esc(sz('gyors_mentes')) + '</button>' +
+          '<button class="masod-gomb kicsi" data-t="archiv-frissit">' + esc(sz('gyors_elozmenyek')) + '</button>' +
+          '<button class="masod-gomb kicsi" data-t="kesz-ki">' + esc(sz('gyors_torzs')) + '</button>' +
+          '<button class="masod-gomb kicsi" data-t="ujverseny-ker">' + esc(sz('gyors_uj')) + '</button>' +
+        '</div>' +
+      '</div>' +
+
       /* ---------- Verseny adatai ---------- */
       '<div class="kartya-blokk">' +
         '<h2>' + esc(sz('beall_cim')) + sugoIkon('beall_sugo') + '</h2>' +
@@ -1930,7 +1950,7 @@
 
       /* ---------- Játékosok (törzslista) ---------- */
       '<div class="kartya-blokk">' +
-        '<details class="beall-resz" data-dk="torzs"' + nyitott('torzs') + '><summary>' + esc(sz('torzs_cim')) + sugoIkon('torzs_szerk_sugo') +
+        '<details class="beall-resz" id="torzs-kartya" data-dk="torzs"' + nyitott('torzs') + '><summary>' + esc(sz('torzs_cim')) + sugoIkon('torzs_szerk_sugo') +
           '<span class="ossz-jel">' + esc(sz('torzs_most', { n: torzsLista().filter(function (x) { return x[2]; }).length })) + '</span>' +
         '</summary>' +
           '<p class="sugo torzs-csillag-sugo">' + esc(sz('torzs_csillag_sugo')) + '</p>' +
@@ -3375,6 +3395,12 @@
       return;
     }
     if (t === 'elo-feltolt') { eloFeltolt(); return; }
+    if (t === 'kesz-ki') {
+      /* csak odagörgetünk a törzslista kártyához – adatot nem érint */
+      var tk = document.getElementById && document.getElementById('torzs-kartya');
+      if (tk && tk.scrollIntoView) tk.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     if (t === 'bizt-nyit') { S.biztNyitva = (S.biztNyitva !== true); render(); return; }
     if (t === 'archiv-nyit') { S.archivNyitva = (S.archivNyitva === false); render(); return; }
     if (t === 'ujverseny-ker') {
@@ -4037,7 +4063,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.68';
+  V.VERZIO = '1.69';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
