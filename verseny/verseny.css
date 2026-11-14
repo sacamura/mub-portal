@@ -1000,3 +1000,7 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 
 /* beall-kiemelt */
 .beall-kiemelt{margin-top:10px;background:#f7fafc;border-color:#e2e9f0}
+
+/* kov-kor-var */
+.kov-kor-var{background:#f4f8fb;border:1px solid #dbe6f0;border-radius:9px;padding:7px 11px;
+  font-size:.88rem;color:#4a6076;margin:8px 0 0}
