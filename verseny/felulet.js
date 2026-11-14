@@ -403,6 +403,10 @@
           '</div>' +
         '</div>' +
         '<div class="fej-jobb">' +
+        ((a.ora && a.ora.fut)
+          ? '<button class="fej-ora" data-t="nezet" data-nezet="ora" title="' + esc(sz('fej_ora_tipp')) + '">⏱ <span id="fej-ora-szam">' +
+            M.oraSzoveg(M.oraMaradek(a, Date.now())) + '</span></button>'
+          : '') +
           '<div class="korjelzo">' + esc(korSzoveg) + '</div>' +
           '<div class="nyelv-valto" title="' + esc(sz('nyelv')) + '">' + nyelvGombok + '</div>' +
         '</div>' +
@@ -1713,7 +1717,10 @@
     if (oraTickFut) return;
     oraTickFut = true;
     global.setInterval(function () {
-      if (S.nezet !== 'ora' || !S.allapot) return;
+      if (!S.allapot) return;
+      var fejOra = document.getElementById('fej-ora-szam');
+      if (fejOra) fejOra.textContent = M.oraSzoveg(M.oraMaradek(S.allapot, Date.now()));
+      if (S.nezet !== 'ora') return;
       var el = document.getElementById('ora-szam');
       if (!el) return;
       var o = S.allapot.ora || {};
@@ -3070,6 +3077,7 @@
       return;
     }
     if (t === 'ora-indit') {
+      oraTickIndit();
       oraCsipogott = false;
       var pBe = document.getElementById('ora-perc');
       var szunetE = !!(S.allapot.ora && S.allapot.ora.mod === 'szunet');
@@ -4099,7 +4107,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.73';
+  V.VERZIO = '1.74';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
