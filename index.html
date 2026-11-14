@@ -306,7 +306,7 @@
   .pwa-bar{position:fixed; left:0; right:0; bottom:0; z-index:70; display:flex; gap:.6rem; align-items:center; justify-content:center;
     flex-wrap:wrap; background:var(--surface); border-top:2px solid var(--accent); padding:.6rem .8rem;
     box-shadow:0 -2px 10px rgba(0,0,0,.18); font-size:1rem}
-  .pwa-bar.offline{border-top-color:var(--danger)}
+  .pwa-bar.offline{border-top-color:#e0a800;background:#fffbef}
   body.has-pwabar{padding-bottom:4.6rem}
   /* Kattintható versenynév az eredmények listájában */
   .linkbtn.strong{font-weight:700; color:var(--accent-strong); text-align:left}
@@ -630,6 +630,15 @@
 }
 
 .elo-oldal{max-width:760px;margin:0 auto}
+
+/* tartalék hely a dinamikus tartalomnak – ne ugorjon az oldal */
+#home-body{min-height:62vh}
+#res-body{min-height:50vh}
+#cal-body{min-height:40vh}
+#stat-body{min-height:50vh}
+#gal-body{min-height:40vh}
+#rules-body{min-height:40vh}
+#jelentkezes-body{min-height:40vh}
 </style>
 </head>
 <body>
@@ -9817,6 +9826,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     if(typeof navigator !== 'undefined' && navigator.onLine === false){
       pwaBar(T('Nincs internet — a mentett oldal látható. Az új adatokhoz kapcsolódjon a hálózatra.','Bez internetu — zobrazuje sa uložená stránka. Pre nové údaje sa pripojte na sieť.'), '', '', true);
     }
+    /* 6 másodperc után magától eltűnik, ne maradjon ott sáv */
+    setTimeout(function(){ pwaBarClear(); }, 6000);
   }
   window.addEventListener('offline', offlineNote);
   window.addEventListener('online', function(){ pwaBarClear(); });
