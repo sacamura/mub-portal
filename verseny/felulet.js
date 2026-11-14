@@ -1198,6 +1198,17 @@
           (hianyzo.length ? ' · <b class="hianyzo-szoveg">' + esc(sz('hianyzo_asztalok', { lista: hianyzo.join(', ') })) + '</b>' : '') +
         '</p>' +
         '<div class="asztal-gombok">' + gombok + '</div>' +
+        (hianyzo.length
+          ? (function () {
+              var kovKor = (a.korok.length || (kor.kor || 1)) + 1;
+              var vanTobb = (a.korok.length || 0) < szam(a.beall.korok, 5);
+              return '<p class="sugo kov-kor-var">' +
+                esc(vanTobb
+                  ? sz('kov_kor_var', { kov: kovKor, kesz: asztalok.length - hianyzo.length, ossz: asztalok.length })
+                  : sz('kov_kor_nincs')) +
+                '</p>';
+            })()
+          : '') +
         (function () {
           if (hianyzo.length) return '';
           var utolsoKor = a.korok.length;
@@ -4088,7 +4099,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.72';
+  V.VERZIO = '1.73';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
