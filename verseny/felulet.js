@@ -1541,7 +1541,16 @@
     if (legjobbBetu <= 0) {
       oszlopok = Math.max(1, Math.min(db, Math.round(Math.sqrt(db * szel / Math.max(1, mag)))));
     }
-    var sorok = Math.ceil(db / oszlopok);
+    /* FÜGGŐLEGES elrendezés: az asztalok 1, 2, 3, 4… LEFELÉ mennek, és a képernyőhöz
+       igazodnak: annyi sor, amennyi kényelmesen kifér, a többi új oszlopba kerül. */
+    var maxOszlop = Math.max(1, Math.floor(szel / 240));          /* 240 px-nél keskenyebb kártya nem olvasható */
+    var kenyelmesSor = Math.max(2, Math.floor(mag / 78));         /* ennyi fér egymás alá kényelmesen */
+    var szukseges = Math.max(1, Math.ceil(db / kenyelmesSor));
+    /* legfeljebb 6 sor egymás alatt, hogy ne legyen túl hosszú a lista */
+    var legfeljebb = Math.max(1, Math.ceil(db / 6));
+    oszlopok = Math.min(maxOszlop, Math.max(szukseges, legfeljebb));
+    var sorok = Math.ceil(db / oszlopok);                          /* így MINDEN asztal kifér */
+    if (sorok < 1) sorok = 1;
     return gombok + '<div class="vetites"><h1>' + esc(sz('vet_ki_hol_ul', { kor: kor.kor })) + '</h1>' +
       '<div class="vet-racs" style="--oszlopok:' + oszlopok + ';--sorok:' + sorok + '">' + kartyak + '</div></div>';
   }
@@ -3130,13 +3139,12 @@
     if (t === 'nezet') { nezetValt(cel.getAttribute('data-nezet'), parseInt(cel.getAttribute('data-aszta'), 10) || 0); return; }
     if (t === 'vissza') { vissza(); return; }
     if (t === 'ora-mod') {
+      if (S.allapot.ora && S.allapot.ora.fut && global.confirm &&
+          !global.confirm(sz('ora_mod_kerdes'))) return;
       var modUj = cel.getAttribute('data-mod') || 'kor';
       S.allapot.ora = S.allapot.ora || {};
       S.allapot.ora.mod = modUj;
       S.allapot.ora.perc = (modUj === 'szunet') ? (S.allapot.beall.szunetPerc || 15) : (S.allapot.beall.oraPerc || 50);
-      S.allapot.ora.fut = false;
-      S.allapot.ora.vege = null;
-      S.allapot.ora.maradek = null;
       mentes(); render();
       return;
     }
@@ -3171,7 +3179,10 @@
     }
     if (t === 'ora-szunet') { M.oraSzunet(S.allapot); mentes(); render(); return; }
     if (t === 'ora-folytat') { M.oraFolytat(S.allapot); mentes(); render(); return; }
-    if (t === 'ora-nullaz') { M.oraNullaz(S.allapot); mentes(); render(); return; }
+    if (t === 'ora-nullaz') {
+      if (global.confirm && !global.confirm(sz('ora_nullaz_kerdes'))) return;
+      M.oraNullaz(S.allapot); mentes(); render(); return;
+    }
     if (t === 'vetites-ablak') {
       try {
         var cim2 = String(global.location.href).split('#')[0] + '#/vetites-' + (S.vetites || 'asztalok');
@@ -4182,7 +4193,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.77';
+  V.VERZIO = '1.78';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
