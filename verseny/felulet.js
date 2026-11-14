@@ -1927,7 +1927,13 @@
           '<button class="valaszto-gomb' + (b.jatekmod === 'helycsere' ? ' aktiv' : '') + '" data-t="jatekmod" data-mod="helycsere">' + esc(sz('mod_helycsere_rovid')) + '</button>' +
           '<label class="beall-mezo kicsi beall-inline"><span class="mezo-felirat">' + esc(sz('mod_korok')) + sugoIkon('mod_helycsere_sugo') + '</span>' +
             '<input class="mini-input" data-t="beall" data-mezo="helycsereKorok" value="' + esc(b.helycsereKorok) + '"></label>' +
-        '</div>' +
+          '</div>' +
+          /* a kiemeltek sorsolása – ugyanitt, mert ez is a sorsolás szabálya */
+          '<div class="kiemelt-valaszto beall-kiemelt">' +
+            '<span class="kiemelt-kerdes">' + esc(sz('kiemelt_kerdes')) + '</span>' +
+            '<button class="valaszto-gomb' + (b.kiemeltVedelem ? ' aktiv' : '') + '" data-t="sors-vedelem" data-ertek="1">' + esc(sz('kezdo_kiemelt_kulon')) + '</button>' +
+            '<button class="valaszto-gomb' + (b.kiemeltVedelem ? '' : ' aktiv') + '" data-t="sors-vedelem" data-ertek="0">' + esc(sz('kezdo_kiemelt_egyutt')) + '</button>' +
+          '</div>' +
       '</div>' +
 
       /* ---------- Kiemelt játékosok ---------- */
@@ -4063,7 +4069,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.69';
+  V.VERZIO = '1.70';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
