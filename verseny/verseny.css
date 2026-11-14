@@ -1031,8 +1031,7 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 .e-dij td{background:#fffbe8}
 .e-lablec{margin-top:4mm;font-size:9pt}
 @media print{
-  @page{size:A4 portrait;margin:10mm}
-  .eredmeny-lap{max-width:none}
+  .eredmeny-lap{page: eredmeny;max-width:none}
   .e-tabla{font-size:8.6pt}
   .e-tabla th,.e-tabla td{padding:.9mm 1.2mm}
   .e-dij td{background:#fffbe8!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -1059,3 +1058,11 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 .rangsor-gorgeto{max-height:calc(100vh - 250px)!important}
 .rangsor td,.rangsor th{padding-top:3px!important;padding-bottom:3px!important;font-size:.95rem}
 .rangsor .cimke{display:inline-block;white-space:nowrap}
+
+/* Nyomtatási oldalak: a cédulák FEKVŐK, a végeredmény ÁLLÓ – nevesített oldalakkal,
+   így a kettő nem üti egymást. */
+@page cedula { size: A4 landscape; margin: 8mm }
+@page eredmeny { size: A4 portrait; margin: 10mm }
+#nyomtat-terulet .cedulak { page: cedula }
+#nyomtat-terulet .eredmeny-lap { page: eredmeny }
+.eredmeny-lap { page: eredmeny }
