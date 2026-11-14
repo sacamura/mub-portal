@@ -1050,3 +1050,12 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 .vet-racs{grid-template-columns:repeat(var(--oszlopok,3),minmax(0,1fr))!important;
   grid-template-rows:repeat(var(--sorok,6),minmax(0,1fr))!important;
   grid-auto-flow:column!important}
+
+/* rangsor: több sor kifér */
+.rangsor-eszkozok{margin-bottom:4px!important;align-items:center}
+.rangsor-sugo{display:inline-block}
+.rangsor-sugo>summary{font-size:.85rem;color:#6b7f8f;cursor:pointer}
+.kiemelt-rovid{font-size:.85em;padding:1px 5px;color:#b8860b;background:#fff8e6;border:1px solid #ecdcb4}
+.rangsor-gorgeto{max-height:calc(100vh - 250px)!important}
+.rangsor td,.rangsor th{padding-top:3px!important;padding-bottom:3px!important;font-size:.95rem}
+.rangsor .cimke{display:inline-block;white-space:nowrap}
