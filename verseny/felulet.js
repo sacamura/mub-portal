@@ -1664,12 +1664,23 @@
       dijazott: dijDb,
       sorok: sorok
     };
-    global.BEKULDES.eloMent('eredmeny-' + a.esemenyId, csomag, function (h) {
-      if (h) { hiba(sz('eredmeny_hiba')); render(); return; }
-      S.eredmenyAllapot = sz('eredmeny_feltoltve');
-      render();
-      ok(sz('eredmeny_feltoltve'));
-    });
+    var docId = 'eredmeny-' + a.esemenyId;
+    /* Ha már fent van és jóvá van hagyva, NE veszítsük el a jóváhagyást. */
+    var kuld = function (marJovahagyva) {
+      if (marJovahagyva) csomag.jovahagyva = true;
+      global.BEKULDES.eloMent(docId, csomag, function (h) {
+        if (h) { hiba(sz('eredmeny_hiba')); render(); return; }
+        S.eredmenyAllapot = marJovahagyva ? sz('eredmeny_frissitve') : sz('eredmeny_feltoltve');
+        render();
+        ok(S.eredmenyAllapot);
+      });
+    };
+    if (global.BEKULDES.eloOlvas) {
+      global.BEKULDES.eloOlvas(docId, function (h, d) {
+        var volt = !h && d && d.jovahagyva === true;
+        kuld(!!volt);
+      });
+    } else kuld(false);
   }
 
   function eredmenyPrintHtml() {
@@ -4278,7 +4289,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.90';
+  V.VERZIO = '1.91';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
