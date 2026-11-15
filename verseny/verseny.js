@@ -53,7 +53,8 @@
     lezarva: false,           // a verseny le van zárva
     dijazott: 0,              // hány helyezett kap ajándékot (0 = nincs)
     gsUrl: '',                // Google Apps Script webalkalmazás címe (opcionális)
-    tesztVerseny: false,      // teszt verseny: semmilyen adat nem megy a weblapra
+    tesztVerseny: false,
+      eloAuto: true,      // teszt verseny: semmilyen adat nem megy a weblapra
     pontZar: true,            // a pontok kézi átírása zárva (csak lakatlan nyitható)
     gorget: true,             // a rangsor automatikus görgetése (kivetítőn is)
     feltoltesTiltva: true,    // TESZT FÁZIS: a weblapra feltöltés egyelőre tiltva
