@@ -844,7 +844,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 98;
+  var BUILD = 99;
   var BUILD_DATE = '2026-11-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -1786,6 +1786,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     el.innerHTML = '<div class="elo-oldal"><h1 class="page-title">'+esc(T('Végeredmény','Konečný výsledok'))+'</h1>'
       + '<div class="card" style="padding:1.1rem 1.3rem"><p id="ve-tartalom">'+esc(T('Betöltés…','Načítava sa…'))+'</p></div></div>';
     var box = el.querySelector('#ve-tartalom');
+    loadNevalias(function(){ /* a neveket a döntések szerint írjuk ki */ });
     db.collection('verseny_elo').where('tipus','==','eredmeny').get().then(function(snap){
       var lista = [];
       snap.forEach(function(d){ var x = d.data() || {}; x.__id = d.id; lista.push(x); });
@@ -2929,6 +2930,23 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     if(!m) return String(iso || '');
     return Number(m[3]) + '.' + Number(m[2]) + '.' + m[1];
   }
+  /* A szervező név-döntései: „macik" -> „Macik Michal". A weblap ezt használja
+     mindenhol, hogy a következő feltöltésnél ne kelljen újra egyeztetni. */
+  var NEVALIAS = null;
+  function loadNevalias(cb){
+    if(NEVALIAS){ if(cb) cb(NEVALIAS); return; }
+    db.collection('settings').doc('nevalias').get().then(function(d){
+      NEVALIAS = (d && d.exists ? (d.data() || {}).map || {} : {});
+      if(cb) cb(NEVALIAS);
+    }).catch(function(){ NEVALIAS = {}; if(cb) cb(NEVALIAS); });
+  }
+  function aliasNev(nev){
+    try{
+      if(!NEVALIAS) return nev;
+      var k = deacc(String(nev || '').trim());
+      return NEVALIAS[k] || nev;
+    }catch(e){ return nev; }
+  }
   function loadResults(cb, src){
     var wantRef = (src === 'ref');
     var key = wantRef ? 'resultsRef' : 'results';
@@ -2960,7 +2978,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
           if(marVane) return;
           (x.sorok || []).forEach(function(r){
             cel.rows.push({
-              n: r.nev || '', t: cimke, place: Number(r.h || 0),
+              n: aliasNev(r.nev || ''), t: cimke, place: Number(r.h || 0),
               points: Number(r.pont || 0), money: Number(r.penz || 0),
               size: (x.sorok || []).length, drawn: false,
               rounds: (r.rounds || []).map(function (x2) {
@@ -6104,6 +6122,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '<div id="jov-list">'+esc(T('Betöltés…','Načítava sa…'))+'</div>';
     var box = document.getElementById('jov-list');
 
+    loadNevalias(function(){ });
     loadAllPlayers(function(ps){
       var rost = (ps || []).map(function(p){ return { kod: String(p.code || p.id || ''), nev: String(p.name || p.nev || '') }; })
                          .filter(function(p){ return p.nev; });
@@ -6121,10 +6140,11 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
           var sorHtml = sorok.map(function(r, i){
             var nev = String(r.nev || '');
             var van = !!ismert[nev.trim().toLowerCase()];
+            var javaslat = (!van && NEVALIAS) ? (NEVALIAS[deacc(nev.trim())] || '') : '';
             if(!van) gyanus++;
             return '<tr class="'+(van ? '' : 'jov-gyanus')+'">'
               + '<td class="num">'+esc(String(r.h))+'</td>'
-              + '<td><input class="mini nev-jav" data-doc="'+esc(x.__id)+'" data-i="'+i+'" value="'+esc(nev)+'" list="nevlista"></td>'
+              + '<td><input class="mini nev-jav" data-doc="'+esc(x.__id)+'" data-i="'+i+'" value="'+esc(nev)+'" list="nevlista"' + (javaslat ? ' title="'+esc(T('korábbi döntés: ','skoršie rozhodnutie: ')+javaslat)+'" placeholder="'+esc(javaslat)+'"' : '') + '></td>'
               + '<td class="num">'+esc(String(r.kod || ''))+'</td>'
               + '<td class="num">'+esc(String(r.pont))+'</td>'
               + '<td class="num">'+esc(String(r.penz))+'</td>'
@@ -6158,7 +6178,19 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
               if(ujSorok[i]) ujSorok[i] = Object.assign({}, ujSorok[i], { nev: inp.value.trim() });
             });
             b.disabled = true;
-            db.collection('verseny_elo').doc(id).update({ sorok: ujSorok }).then(function(){
+            /* a névváltoztatásokat megjegyezzük: legközelebb magától egyezteti */
+            var tanul = {};
+            (doc.sorok || []).forEach(function (regi, i2) {
+              var ujNev = ujSorok[i2] && ujSorok[i2].nev ? String(ujSorok[i2].nev).trim() : '';
+              var regiNev = regi && regi.nev ? String(regi.nev).trim() : '';
+              if (ujNev && regiNev && deacc(ujNev) !== deacc(regiNev)) tanul[deacc(regiNev)] = ujNev;
+            });
+            var ment = db.collection('verseny_elo').doc(id).update({ sorok: ujSorok });
+            var tanitas = Object.keys(tanul).length
+              ? db.collection('settings').doc('nevalias').set({ map: tanul }, { merge: true }).catch(function () { })
+              : Promise.resolve();
+            ment.then(function () { return tanitas; }).then(function () {
+              NEVALIAS = null;                     /* újratöltjük a döntéseket */
               renderAdminJovahagyas();
             }).catch(function(){ b.disabled = false; alert(T('A mentés nem sikerült.','Uloženie zlyhalo.')); });
           });
