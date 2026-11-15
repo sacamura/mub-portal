@@ -4328,8 +4328,41 @@
 
   /* ======================= indítás ====================================== */
 
+  /* ---------- kezelői belépés ellenőrzése ---------- */
+  function kezeloBejelentkezve() {
+    try {
+      var nyers = global.localStorage && global.localStorage.getItem('mub-adminroles');
+      if (!nyers) return false;
+      var r = JSON.parse(nyers) || {};
+      return ((r.full || []).length + (r.limited || []).length) > 0;
+    } catch (e) { return false; }
+  }
+  function belepesKapu() {
+    var c = document.getElementById('app');
+    if (!c) return;
+    c.innerHTML = '<div class="kapu">' +
+      '<h1>MUB – Verseny vezérlő</h1>' +
+      '<p class="sugo">A program használatához <b>kezelői belépés</b> kell. Jelentkezz be a weblapon a Google-fiókoddal; ' +
+      'ha a szervező felvett a kezelők közé, utána itt is beenged.</p>' +
+      '<div class="nevezes-sor">' +
+        '<a class="fo-gomb" href="https://mub.sk/#admin" target="_blank" rel="noopener">Belépés a weblapon</a>' +
+        '<button class="masod-gomb" data-t="kapu-ujra">Újraellenőrzés</button>' +
+      '</div>' +
+      '<p class="sugo" style="margin-top:1rem">Ha a szervező még nem vett fel: a weblap Admin → Adminok részén tud hozzáadni az e-mail-címeddel.</p>' +
+      '</div>';
+    if (c.querySelector) {
+      var g = c.querySelector('[data-t="kapu-ujra"]');
+      if (g && g.addEventListener) g.addEventListener('click', function () { if (kezeloBejelentkezve()) { render(); } else { g.textContent = 'Még nincs belépés'; } });
+    }
+  }
+
   function indit() {
     if (!global.document) return;
+    /* ha nincs kezelői belépés, csak a kaput mutatjuk */
+    var jl = global.location && global.location.protocol ? String(global.location.protocol) : '';
+    if (global.localStorage && (jl === 'https:' || jl === 'http:')) {
+      if (!kezeloBejelentkezve()) { belepesKapu(); return; }
+    }
     S.allapot = Tarolo.betolt() || V.ujAllapot();
     /* A weblapról indított verseny átvétele (a weblap a böngésző tárolójába írja). */
     S.fuggobenImport = null;
@@ -4484,7 +4517,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '2.00';
+  V.VERZIO = '2.01';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
