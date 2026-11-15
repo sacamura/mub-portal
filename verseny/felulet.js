@@ -453,6 +453,7 @@
         : '<button class="torles-gomb" data-t="torol" data-id="' + j.id + '" title="' + esc(sz('torles_tipp')) + '">' + esc(sz('gomb_torles')) + '</button>';
       return '<tr class="' + (j.kiemelt ? 'kiemelt-sor' : '') + '">' +
         '<td class="sorszam-cella">' + (sorszam + 1) + '.</td>' +
+      '<td class="kiemelt-cella"><button class="kiemelt-star' + (j.kiemelt ? ' aktiv' : '') + '" data-t="kiemelt-valt" data-id="' + j.id + '" title="' + esc(sz('kiemelt_tipp')) + '">★</button></td>' +
         '<td><input class="mini kod-input" data-t="kod" data-id="' + j.id + '" value="' + j.id + '" title="' + esc(sz('kod_tipp')) + '"></td>' +
         '<td><input class="nev-input" data-t="nev" data-id="' + j.id + '" value="' + esc(j.nev) + '" title="' + esc(sz('nev_tipp')) + '">' + cimkek + '</td>' +
         '<td><input class="mini" data-t="kartya" data-id="' + j.id + '" value="' + esc(j.kartyakod || '') + '" placeholder="' + esc(sz('th_kartya')) + '" size="12"></td>' +
@@ -586,7 +587,7 @@
       '<div class="kartya-blokk">' +
         '<h3>' + esc(sz('nevezettek')) + ' (' + jk.length + ')</h3>' +
         (jk.length
-          ? '<table class="tabla nevezett-tabla"><thead><tr><th class="sorszam-fej">#</th><th>' + esc(sz('th_kod')) + '</th><th>' + esc(sz('th_nev')) + '</th><th>' + esc(sz('th_kartya')) + '</th><th>' + esc(sz('th_kiemelt')) + '</th><th></th></tr></thead><tbody>' + lista + '</tbody></table>'
+          ? '<table class="tabla nevezett-tabla"><thead><tr><th class="sorszam-fej">#</th><th class="kiemelt-fej" title="'+esc(sz('kiemelt_tipp'))+'">★</th><th>' + esc(sz('th_kod')) + '</th><th>' + esc(sz('th_nev')) + '</th><th>' + esc(sz('th_kartya')) + '</th><th>' + esc(sz('th_kiemelt')) + '</th><th></th></tr></thead><tbody>' + lista + '</tbody></table>'
           : '<p class="sugo">' + esc(sz('nincs_nevezve')) + '</p>') +
       '</div>';
   }
@@ -2885,6 +2886,29 @@
     }).catch(function () { });
   }
 
+  /* A programban bejelölt ★ feltöltése a weblapra (players/<kód>.kiemelt). */
+  function kiemeltKuld(id, ertek) {
+    if (!global.fetch) return;
+    var alap = 'https://firestore.googleapis.com/v1/projects/mub-versenyek/databases/(default)/documents/players/';
+    var kulcs = '?key=AIzaSyCIZwZB-O-uFyp19zOpMnCk8nwp_hLIKDc';
+    var doc = String(id);
+    /* csak akkor írunk, ha a játékos létezik a weblapon (ne hozzunk létre üres rekordot) */
+    global.fetch(alap + encodeURIComponent(doc) + kulcs).then(function (r) {
+      if (!r.ok) return null;
+      return r.json();
+    }).then(function (j) {
+      if (j === null) return;
+      return global.fetch(alap + encodeURIComponent(doc) + '?updateMask.fieldPaths=kiemelt&key=AIzaSyCIZwZB-O-uFyp19zOpMnCk8nwp_hLIKDc', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: { kiemelt: { booleanValue: !!ertek } } })
+      });
+    }).then(function () {
+      S.kiemeltAllapot = sz('kiemelt_feltoltve');
+      render();
+    }).catch(function () { });
+  }
+
   function excelSorok() {
     var a = S.allapot;
     var korDb = a.korok.length;
@@ -4149,6 +4173,16 @@
       if (km) { S.allapot.beall[km] = !!cel.checked; mentes(); render(); }
       return;
     }
+    if (t === 'kiemelt-valt') {
+      var kid = szam(cel.getAttribute('data-id'), 0);
+      var jk = jatekos(kid);
+      if (jk) {
+        jk.kiemelt = !jk.kiemelt;
+        mentes(); render();
+        kiemeltKuld(kid, !!jk.kiemelt);
+      }
+      return;
+    }
     if (t === 'beall') {
       var mez = cel.getAttribute('data-mezo');
       S.allapot.beall[mez] = (cel.type === 'checkbox') ? !!cel.checked : cel.value;
@@ -4418,7 +4452,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.95';
+  V.VERZIO = '1.96';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
