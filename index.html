@@ -5824,6 +5824,11 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '<button class="btn sm secondary noprint" onclick="MUB.logout()">'+esc(T('Kijelentkezés','Odhlásiť sa'))+'</button></div>'
       + '<div class="tabs noprint">'+tabs.map(function(t){ return '<button class="'+(adminTab===t[0]?'active':'')+'" onclick="MUB.setAdminTab(\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>'
       + '<div id="admin-sub"></div>'
+    + '<div class="card noprint" style="padding:.6rem .9rem;margin:.2rem 0 .8rem;display:flex;gap:.8rem;align-items:center;flex-wrap:wrap">'
+      + '<b>'+esc(T('Végeredmények jóváhagyása','Schvaľovanie konečných výsledkov'))+'</b>'
+      + '<a class="btn sm" href="#vegeredmeny">'+esc(T('Ellenőrzés és jóváhagyás','Kontrola a schválenie'))+'</a>'
+      + '<span class="meta" style="margin:0">'+esc(T('A programból feltöltött végeredmény csak itt, jóváhagyás után jelenik meg a nyilvános oldalon.','Konečný výsledok z programu sa verejne zobrazí až po schválení tu.'))+'</span>'
+    + '</div>'
       + '<div id="admin-body"></div>';
     el.innerHTML = html;
     /* A jogosultsági lista frissítése a háttérben (ha megváltozott, újrarajzolunk). */
