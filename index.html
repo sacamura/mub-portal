@@ -1833,10 +1833,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     if(!ELO_ID){
       try { ELO_ID = new URLSearchParams(location.search).get('id'); } catch(e){ ELO_ID = null; }
     }
-    if(!ELO_ID){
-      el.querySelector('#elo-tartalom').textContent = T('Nincs kiválasztott verseny. Nyisd meg a Verseny oldalon az „Élő eredmény” gombot.','Nie je vybraná súťaž. Otvor ju cez tlačidlo „Živý výsledok” na stránke Súťaž.');
-      return;
-    }
+    /* Ha nincs azonosító (pl. frissítés után), akkor is a legújabb feltöltést mutatjuk. */
+    if(!ELO_ID){ ELO_ID = 'legujabb'; }
     /* A program a saját esemény-azonosítójával tölt fel, ami eltérhet a weblap
        verseny-azonosítójától – ezért a LEGÚJABB feltöltést mutatjuk. */
     db.collection('verseny_elo').orderBy('ts','desc').limit(1).get().then(function(snap){
@@ -2249,7 +2247,9 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     autoLoadSheets();
   }
   function renderHome(el){
-    el.innerHTML = '<h1 class="page-title">'+esc(T('Üdvözlünk!','Vitajte!'))+'</h1>'+rule()+'<div id="home-body">'+esc(T('Betöltés…','Načítava sa…'))+'</div>';
+    el.innerHTML = '<h1 class="page-title">'+esc(T('Üdvözlünk!','Vitajte!'))+'</h1>'+rule()
+      + '<p style="margin:0 0 1rem"><a class="btn" style="font-size:1.05rem;padding:.7rem 1.3rem" href="verseny/verseny.html">▶ ' + esc(T('Verseny indítása','Spustiť turnaj')) + '</a></p>'
+      + '<div id="home-body">'+esc(T('Betöltés…','Načítava sa…'))+'</div>';
     loadTournaments(function(ts){
      loadRegistrations(function(regs){
       loadNews(function(news){
