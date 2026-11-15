@@ -652,6 +652,9 @@
 
 .uj-verseny{background:#eef7f0;border:1px solid #bcdcc6;color:#1f7a44;font-size:.72rem;font-weight:700;
   padding:.05rem .4rem;border-radius:999px;margin-left:.4rem}
+
+.jov-gyanus td{background:#fffbe8}
+.jov-gyanus input{background:#fffbe8}
 </style>
 </head>
 <body>
@@ -5984,26 +5987,81 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     var body = document.getElementById('admin-body');
     if(!body) return;
     body.innerHTML = '<h3 class="adminsub">'+esc(T('Végeredmények jóváhagyása','Schvaľovanie konečných výsledkov'))+'</h3>'
-      + '<p class="meta" style="margin:0 0 .9rem">'+esc(T('A programból feltöltött végeredmények itt ellenőrizhetők, itt hagyhatók jóvá, és innen látszik, mikor melyik verseny került fel.','Konečné výsledky z programu sa tu dajú skontrolovať a schváliť; vidno, kedy bol ktorý turnaj nahratý.'))+'</p>'
+      + '<p class="meta" style="margin:0 0 .9rem">'+esc(T('Itt ellenőrizhető és javítható a programból feltöltött végeredmény: nevek egyeztetése, sorok javítása, majd jóváhagyás. Jóváhagyás után megjelenik a nyilvános oldalon és beszámít az összesítettbe.','Tu skontrolujete a opravíte konečný výsledok z programu: zladenie mien, oprava riadkov, potom schválenie. Po schválení sa zobrazí na webe a započíta sa do súhrnu.'))+'</p>'
       + '<div id="jov-list">'+esc(T('Betöltés…','Načítava sa…'))+'</div>';
     var box = document.getElementById('jov-list');
-    db.collection('verseny_elo').where('tipus','==','eredmeny').get().then(function(snap){
-      var lista = [];
-      snap.forEach(function(d){ var x = d.data() || {}; x.__id = d.id; lista.push(x); });
-      lista.sort(function(a,b){ return ((b.ts||0)-(a.ts||0)) || String(b.datum||'').localeCompare(String(a.datum||'')); });
-      if(!lista.length){ if(box) box.innerHTML = '<p class="meta">'+esc(T('Még nincs feltöltött végeredmény.','Zatiaľ nie je nahratý konečný výsledok.'))+'</p>'; return; }
-      if(box) box.innerHTML = '<div class="table-wrap"><table class="list"><thead><tr>'
-        + '<th>'+esc(T('Verseny','Turnaj'))+'</th><th>'+esc(T('Dátum','Dátum'))+'</th><th class="num">'+esc(T('Játékos','Hráčov'))+'</th>'
-        + '<th>'+esc(T('Feltöltve','Nahraté'))+'</th><th>'+esc(T('Állapot','Stav'))+'</th><th></th></tr></thead><tbody>'
-        + lista.map(function(x){
-            var mikor = x.ts ? new Date(x.ts).toLocaleString() : '—';
-            return '<tr><td>'+esc(x.nev||'')+'</td><td class="num">'+esc(x.datum||'')+'</td><td class="num">'+esc(String((x.sorok||[]).length))+'</td>'
-              + '<td>'+esc(mikor)+'</td>'
-              + '<td>'+(x.jovahagyva ? '<span class="ve-ok">'+esc(T('jóváhagyva','schválené'))+'</span>' : '<span class="ve-var">'+esc(T('ellenőrzés alatt','na kontrole'))+'</span>')+'</td>'
-              + '<td><a class="btn sm secondary" href="#vegeredmeny">'+esc(T('Megnyitás','Otvoriť'))+'</a></td></tr>';
-          }).join('')
-        + '</tbody></table></div>';
-    }).catch(function(){ if(box) box.textContent = T('Nem sikerült betölteni.','Nepodarilo sa načítať.'); });
+
+    loadAllPlayers(function(ps){
+      var rost = (ps || []).map(function(p){ return { kod: String(p.code || p.id || ''), nev: String(p.name || p.nev || '') }; })
+                         .filter(function(p){ return p.nev; });
+      db.collection('verseny_elo').where('tipus','==','eredmeny').get().then(function(snap){
+        var lista = [];
+        snap.forEach(function(d){ var x = d.data() || {}; x.__id = d.id; lista.push(x); });
+        lista.sort(function(a,b){ return ((b.ts||0)-(a.ts||0)) || String(b.datum||'').localeCompare(String(a.datum||'')); });
+        if(!lista.length){ if(box) box.innerHTML = '<p class="meta">'+esc(T('Még nincs feltöltött végeredmény.','Zatiaľ nie je nahratý konečný výsledok.'))+'</p>'; return; }
+        if(!box) return;
+        box.innerHTML = lista.map(function(x, idx){
+          var sorok = x.sorok || [];
+          var ismert = {};
+          rost.forEach(function(p){ ismert[p.nev.toLowerCase()] = p; });
+          var gyanus = 0;
+          var sorHtml = sorok.map(function(r, i){
+            var nev = String(r.nev || '');
+            var van = !!ismert[nev.trim().toLowerCase()];
+            if(!van) gyanus++;
+            return '<tr class="'+(van ? '' : 'jov-gyanus')+'">'
+              + '<td class="num">'+esc(String(r.h))+'</td>'
+              + '<td><input class="mini nev-jav" data-doc="'+esc(x.__id)+'" data-i="'+i+'" value="'+esc(nev)+'" list="nevlista"></td>'
+              + '<td class="num">'+esc(String(r.kod || ''))+'</td>'
+              + '<td class="num">'+esc(String(r.pont))+'</td>'
+              + '<td class="num">'+esc(String(r.penz))+'</td>'
+              + '</tr>';
+          }).join('');
+          return '<div class="card" style="margin-bottom:1.2rem;padding:1rem 1.2rem">'
+            + '<div class="ve-fej"><b>'+esc(x.nev||'')+'</b> <span>'+esc(x.datum||'')+' · '+sorok.length+' '+esc(T('játékos','hráčov'))+'</span>'
+            + (x.jovahagyva ? ' <span class="ve-ok">'+esc(T('jóváhagyva','schválené'))+'</span>' : ' <span class="ve-var">'+esc(T('ellenőrzés alatt','na kontrole'))+'</span>')
+            + (gyanus ? ' <span class="ve-var">'+gyanus+' '+esc(T('egyeztetendő név','mien na zladenie'))+'</span>' : '')
+            + (x.ts ? ' <span class="meta" style="margin:0">'+esc(T('feltöltve:','nahraté:'))+' '+esc(new Date(x.ts).toLocaleString())+'</span>' : '')
+            + '</div>'
+            + (idx === 0 || x.__nyitva ? '<div class="elo-gorgeto" style="max-height:46vh"><table class="tbl"><thead><tr><th>#</th><th>'+esc(T('Név (javítható)','Meno (opraviteľné)'))+'</th><th>ID</th><th>'+esc(T('Pont','Body'))+'</th><th>€</th></tr></thead><tbody>'+sorHtml+'</tbody></table></div>'
+              + '<div class="nevezes-sor" style="margin-top:.6rem">'
+              + '<button class="btn sm" data-jov-ment="'+esc(x.__id)+'">'+esc(T('Javítások mentése','Uložiť opravy'))+'</button>'
+              + (x.jovahagyva ? '' : '<button class="btn sm" data-jov-ok="'+esc(x.__id)+'">'+esc(T('Jóváhagyás','Schváliť'))+'</button>')
+              + '</div>' : '')
+            + '</div>';
+        }).join('')
+        + '<datalist id="nevlista">' + rost.map(function(p){ return '<option value="'+esc(p.nev)+'">'; }).join('') + '</datalist>';
+
+        /* mentés: nevek javítása */
+        [].forEach.call(box.querySelectorAll('[data-jov-ment]'), function(b){
+          b.addEventListener('click', function(){
+            var id = b.getAttribute('data-jov-ment');
+            var doc = lista.filter(function(z){ return z.__id === id; })[0];
+            if(!doc) return;
+            var be = box.querySelectorAll('.nev-jav[data-doc="'+id+'"]');
+            var ujSorok = (doc.sorok || []).slice();
+            [].forEach.call(be, function(inp){
+              var i = Number(inp.getAttribute('data-i'));
+              if(ujSorok[i]) ujSorok[i] = Object.assign({}, ujSorok[i], { nev: inp.value.trim() });
+            });
+            b.disabled = true;
+            db.collection('verseny_elo').doc(id).update({ sorok: ujSorok }).then(function(){
+              renderAdminJovahagyas();
+            }).catch(function(){ b.disabled = false; alert(T('A mentés nem sikerült.','Uloženie zlyhalo.')); });
+          });
+        });
+        /* jóváhagyás */
+        [].forEach.call(box.querySelectorAll('[data-jov-ok]'), function(b){
+          b.addEventListener('click', function(){
+            var id = b.getAttribute('data-jov-ok');
+            b.disabled = true;
+            db.collection('verseny_elo').doc(id).update({ jovahagyva: true, jovahagyvaTs: Date.now() }).then(function(){
+              renderAdminJovahagyas();
+            }).catch(function(){ b.disabled = false; alert(T('A jóváhagyás nem sikerült (nincs jogosultság?).','Schválenie zlyhalo (chýba oprávnenie?).')); });
+          });
+        });
+      }).catch(function(){ if(box) box.textContent = T('Nem sikerült betölteni.','Nepodarilo sa načítať.'); });
+    });
   }
   /* A Szezonok fül megnyitása (pl. a Google-táblázat linkjének beillesztéséhez). */
   function goAdminSeasons(){
