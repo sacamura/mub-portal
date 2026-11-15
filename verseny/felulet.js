@@ -1389,6 +1389,7 @@
           '</div>' +
           '<div class="nevezes-sor">' +
             '<button class="fo-gomb kicsi" data-t="vegeredmeny-nyomtat">' + esc(sz('vegeredmeny_gomb')) + '</button>' +
+            '<button class="masod-gomb kicsi" data-t="eredmeny-feltolt" title="' + esc(sz('eredmeny_tipp')) + '">' + esc(sz('eredmeny_gomb')) + '</button>' +
             '<button class="masod-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
             '<button class="masod-gomb kicsi" data-t="elo-feltolt" title="' + esc(sz('elo_tipp')) + '">' + esc(sz('elo_gomb')) + '</button>' +
           '</div>'
@@ -1411,6 +1412,7 @@
           esc(sz('vegeredmeny_gomb')) + '</button>';
       })() +
         '<button class="masod-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
+          '<button class="masod-gomb kicsi" data-t="eredmeny-feltolt" title="' + esc(sz('eredmeny_tipp')) + '">' + esc(sz('eredmeny_gomb')) + '</button>' +
         '<button class="masod-gomb kicsi" data-t="elo-feltolt" title="' + esc(sz('elo_tipp')) + '">' + esc(sz('elo_gomb')) + '</button>' +
                 '<span class="sugo">' + esc(sz('lezar_sugo')) + '</span>') +
           '</div>') +
@@ -1633,6 +1635,41 @@
   }
 
   /* A4-es végeredmény-lap: egy oldalra beférő, tömör táblázat. */
+  /* A VÉGEREDMÉNY feltöltése a weblapra (a jóváhagyásig „ellenőrzés alatt"). */
+  function eredmenyFeltolt() {
+    var a = S.allapot;
+    if (!a.korok.length) { hiba(sz('nincs_eredmeny')); render(); return; }
+    if (!a.esemenyId) { hiba(sz('elo_nincs_esemeny')); render(); return; }
+    if (!global.BEKULDES || !global.BEKULDES.eloMent) { hiba(sz('elo_hiba')); render(); return; }
+    var ig = a.korok.length;
+    var lista = M.rangsor(a, ig);
+    var dijDb = szam(a.beall.dijazott, 0);
+    var sorok = lista.map(function (p) {
+      return {
+        h: p.hely, nev: p.nev, kod: String(p.id), pont: p.pont,
+        penz: Math.round(p.penz * 100) / 100,
+        dij: (dijDb > 0 && p.hely <= dijDb)
+      };
+    });
+    var csomag = {
+      tipus: 'eredmeny',
+      jovahagyva: false,
+      nev: a.beall.nev || a.beall.helyHu || '',
+      hely: a.beall.helyHu || '',
+      datum: a.beall.datum || '',
+      kor: ig,
+      jatekosDb: lista.length,
+      dijazott: dijDb,
+      sorok: sorok
+    };
+    global.BEKULDES.eloMent('eredmeny-' + a.esemenyId, csomag, function (h) {
+      if (h) { hiba(sz('eredmeny_hiba')); render(); return; }
+      S.eredmenyAllapot = sz('eredmeny_feltoltve');
+      render();
+      ok(sz('eredmeny_feltoltve'));
+    });
+  }
+
   function eredmenyPrintHtml() {
     var a = S.allapot;
     var ig = a.aktualisKor || a.korok.length;
@@ -3519,9 +3556,14 @@
       return;
     }
     if (t === 'nyomtat') {
-      var kor2 = nyomtatKor();
       var terulet = document.getElementById('nyomtat-terulet');
-      if (terulet && kor2) { terulet.innerHTML = cedulaHtml(kor2); global.print(); }
+      if (terulet) {
+        /* a VÁLASZTOTT módot nyomtatjuk: cédulák vagy végeredmény */
+        terulet.innerHTML = (S.nyomtatEredmeny === true)
+          ? eredmenyPrintHtml()
+          : (nyomtatKor() ? cedulaHtml(nyomtatKor()) : '');
+        global.print();
+      }
       return;
     }
     if (t === 'import-atvesz') {
@@ -3595,6 +3637,7 @@
       if (!global.confirm || global.confirm(sz('felho_kerdes'))) felhoVissza();
       return;
     }
+    if (t === 'eredmeny-feltolt') { eredmenyFeltolt(); return; }
     if (t === 'vegeredmeny-nyomtat') {
       S.nyomtatEredmeny = true;
       S.vetitesVissza = null;
@@ -4227,7 +4270,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.84';
+  V.VERZIO = '1.85';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
