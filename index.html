@@ -2300,8 +2300,26 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       loadRegistrations(function(regs){
         TID_COUNTS = countByTid(regs);
         var q = calFilter.trim().toLowerCase();
-        /* fordított sorrend: a legfrissebb verseny van elöl */
-      var sorted = ts.slice().sort(byDateDesc).filter(function(t){
+        /* Sorrend: előre a LEGKÖZELEBBI jövőbeli események, utána a múltbeliek
+         (a legutóbbi elöl, a legrégebbi a végén). */
+      var ma0 = (function () { var d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+      function idoErtek(t) {
+        var m = String(t.date || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (!m) return null;
+        var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+        return isNaN(d.getTime()) ? null : d.getTime();
+      }
+      var sorted = ts.slice().sort(function (a, b) {
+        var ia = idoErtek(a), ib = idoErtek(b);
+        if (ia === null && ib === null) return 0;
+        if (ia === null) return 1;
+        if (ib === null) return -1;
+        var ja = ia >= ma0, jb = ib >= ma0;
+        if (ja && jb) return ia - ib;          /* mindkettő jövőben: a közelebbi elöl */
+        if (ja) return -1;                      /* a jövőbeli előre */
+        if (jb) return 1;
+        return ib - ia;                         /* mindkettő múlt: a frissebb elöl */
+      }).filter(function(t){
           if(!q) return true;
           var infoTxt = (t.info||[]).map(function(r){ return String((r&&r.hu)||'')+' '+String((r&&r.sk)||''); }).join(' ');
           return (String(t.location_hu||'')+' '+String(t.location_sk||'')+' '+String(t.date||'')+' '+tagLabel(t.tag)+' '+infoTxt).toLowerCase().indexOf(q) >= 0;
@@ -3649,6 +3667,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     });
     var arr = Object.keys(by).map(function(k){
       var p = by[k];
+      /* Ha a szezonhoz nincs hivatalos összesítő sor (aggRows), a versenyeken szerzett
+         pontokból számoljuk az összesítettet — így az új verseny is beszámít. */
       /* Az összesített táblából származó értékek (szezononként a valódi sor). */
       var picks = p.aggPick || {};
       var yearsOf = Object.keys(picks).sort();
@@ -3759,6 +3779,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       return a.name.localeCompare(b.name, 'hu');
     });
     arr.forEach(function(p, i){ p.rank = i + 1; p.officialRank = (p.hasAgg && p.aggRank != null) ? p.aggRank : null; });
+    /* akinek nincs hivatalos szezon-összesítője, annak a versenypontjai számítanak */
+    arr.forEach(function (p) { if (p.aggPoints == null) p.aggPoints = p.points || 0; });
     return arr;
   }
   function findPlayer(list, q){
@@ -4530,10 +4552,9 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       'Výsledky spracovala umelá inteligencia z tabuliek – ak zistíte rozdiel, ozvite sa organizátorovi.'))
       + '</p>'
             + '<h2 class="resh">'+esc(T('Ranglista','Rebríček'))+'</h2>';
-          html += '<p class="meta">'+esc(T('A pénz 2 tizedesjegyen látszik, pontosan úgy, ahogy a feltöltött táblázatban van.','Peniaze sú zobrazené na 2 desatinné miesta, presne ako v nahratej tabuľke.'))+'</p>'
-            + '<p class="meta">'+esc(hasAgg
-            ? T('A sorrend a pontok szerint; azonos pontnál a több nyeremény dönt. A fejlécekre kattintva más szempont szerint is rendezhető.','Poradie podľa bodov; pri rovnakom počte bodov rozhodujú vyššie výhry. Kliknutím na hlavičku zoradíte inak.')
-            : T('Pontok és helyezések a portálra beolvasott eredményekből.','Body a umiestnenia z výsledkov načítaných do portálu.'))+'</p>';
+
+
+
           var shown = sortStats(stats).filter(function(p){
             var t = (p.played != null ? p.played : (p.tournaments || 0));
             return !resMin || t >= resMin;
