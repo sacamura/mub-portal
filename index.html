@@ -655,6 +655,16 @@
 
 .jov-gyanus td{background:#fffbe8}
 .jov-gyanus input{background:#fffbe8}
+
+/* kiemelt csillag és kompaktabb játékoskártya */
+.kiemelt-star{background:transparent;border:1px solid var(--border);border-radius:8px;cursor:pointer;
+  font-size:1rem;line-height:1;padding:.15rem .4rem;color:#b9c3cc}
+.kiemelt-star.aktiv{background:#fff8e6;border-color:#e6cf94;color:#b8860b}
+.pcard2{padding:.6rem .75rem!important;margin-bottom:.5rem!important}
+.pcard2__top{gap:.4rem!important;margin-bottom:.35rem!important}
+.pcard2 .field label{font-size:.76rem!important}
+.pcard2 .pin{padding:.3rem .4rem!important;font-size:.92rem!important}
+.pcard2__note{font-size:.8rem!important;margin-top:.15rem!important}
 </style>
 </head>
 <body>
@@ -8147,6 +8157,21 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     });
   }
+  /* Kiemelt (★) be-/kikapcsolása – ez a versenyprogramban is látszik. */
+  function toggleKiemelt(code){
+    if(!requireFull()) return;
+    code = String(code || '').trim();
+    if(!code) return;
+    loadAllPlayers(function(ps){
+      var p = (ps || []).filter(function(x){ return String(x.code) === code; })[0];
+      if(!p) return;
+      var ujErtek = !p.kiemelt;
+      db.collection('players').doc(String(p.id || p.code)).set({ kiemelt: ujErtek }, { merge: true }).then(function(){
+        invalidate('players');
+        renderAdminPlayers();
+      }).catch(function(err){ alert(T('Nem sikerült menteni: ','Nepodarilo sa uložiť: ') + err.message); });
+    });
+  }
   function renderAdminPlayers(){
     var body = document.getElementById('admin-body');
     body.innerHTML = '<div class="card" style="margin-bottom:1.2rem"><h3 style="margin-bottom:.8rem">'+esc(T('Új játékos','Nový hráč'))+'</h3>'
@@ -8211,6 +8236,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
           + '<div class="pcard2__top">'
             + '<span class="pcode2" title="'+esc(T('rövid kód','krátky kód'))+'">'+esc(p.code)+'</span>'
             + '<span class="pcard2__name">'+esc(p.name || T('(nincs név)','(bez mena)'))+'</span>'
+      + '<button type="button" class="kiemelt-star'+(p.kiemelt ? ' aktiv' : '')+'" title="'+esc(T('Kiemelt játékos (a versenyprogramban sorsoláskor előnyt kap)','Nasadený hráč (v programe má výhodu pri žrebovaní)'))+'" onclick="MUB.toggleKiemelt(\''+jsq(p.code)+'\')">★</button>'
             + (p.fromRoster ? '<span class="meta">'+esc(T('nincs mentve','neuložené'))+'</span>' : '')
             + (p.nfcCode ? '<span class="meta num">'+esc(T('kártyaszám: ','číslo karty: '))+esc(p.nfcCode)+'</span>' : '')
             + '<span class="pcard2__act">'
@@ -10136,7 +10162,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     savePlayer: savePlayer, setPlayerQuery: setPlayerQuery, playerShowMore: playerShowMore, exportContacts: exportContacts, setRegSort: setRegSort,
     uploadPlayerPhoto: uploadPlayerPhoto, removePlayerPhoto: removePlayerPhoto,
     setResSort: setResSort, setResMin: setResMin, setResSource: setResSource,
-    setResTab: function(t){ try{ setResTab(t); }catch(e){} }, setResVillage: setResVillage, resVillageOpen: resVillageOpen,
+    setResTab: function(t){ try{ setResTab(t); }catch(e){} },
+    toggleKiemelt: function(c){ try{ toggleKiemelt(c); }catch(e){} }, setResVillage: setResVillage, resVillageOpen: resVillageOpen,
     setResQ: setResQ, setResQYear: setResQYear, setResQTour: setResQTour, setResQVill: setResQVill, setResQReset: setResQReset,
     shortCodeOf: shortCodeOf, isLongId: isLongId, regOpenNow: regOpenNow, skClock: skClock,
     setAdminSub: setAdminSub, unifyPlayerName: unifyPlayerName, uploadCoverPhoto: uploadCoverPhoto, removeCoverPhoto: removeCoverPhoto,
