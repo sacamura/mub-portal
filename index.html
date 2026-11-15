@@ -2856,7 +2856,10 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
         var feltolt = [];
         s2.forEach(function(d){ var x = d.data() || {}; if(x.jovahagyva === true) feltolt.push(x); });
         feltolt.forEach(function(x){
-          var ev = String(x.datum || '').slice(0, 4) || 'ismeretlen';
+          /* a szezon a weblap szerint: a szeptembertől induló idény a KÖVETKEZŐ év */
+          var dEv = Number(String(x.datum || '').slice(0, 4)) || 0;
+          var dHo = Number(String(x.datum || '').slice(5, 7)) || 0;
+          var ev = String(dHo >= 9 ? dEv + 1 : dEv) || 'ismeretlen';
           var cimke = String(x.hely || x.nev || '') + ' ' + dmDate(x.datum || '');
           var cel = null;
           arr.forEach(function(y){ if(String(y.year) === ev) cel = y; });
