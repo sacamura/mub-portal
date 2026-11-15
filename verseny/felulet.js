@@ -2350,7 +2350,7 @@
 
     var torzs = lista.map(function (p, i) {
       var sor = '<tr><td class="kozep">' + (i + 1) + '</td>' +
-        '<td class="kozep">' + esc(p.id) + '</td>' +
+        '<td class="kod">' + esc(p.id) + '</td>' +
         '<td class="bal nev">' + esc(p.nev) + '</td>';
       var osszPenz = 0, osszPont = 0;
       for (var k = 0; k < sorokSzama; k++) {
@@ -2375,16 +2375,22 @@
       '<style>' +
       'body{font-family:Calibri,Arial,sans-serif;font-size:11pt}' +
       'table{border-collapse:collapse}' +
-      'th,td{border:1px solid #9aa7b4;padding:3px 6px}' +
-      'th{background:#eef2f6;font-weight:700;text-align:center}' +
-      '.korfej{background:#dfe8f0;font-weight:800}' +
-      '.ossz{background:#f6f0dc}' +
-      '.bal{text-align:left}.kozep{text-align:center;mso-number-format:"\\@"}' +
-      '.penz{text-align:right;mso-number-format:"0\.00"}' +
-      '.nev{font-weight:700}' +
-      '.cim{font-size:14pt;font-weight:800;border:none;padding:2px 0}' +
-      '.alcim{font-size:10pt;border:none;padding:0 0 8px}' +
+      'table{border-collapse:collapse}'
+      'th,td{border:0.5pt solid #000000;padding:1px 3px;background:#93C47D;height:17pt}'
+      'th{font-weight:700;text-align:center;vertical-align:middle}'
+      '.korfej{font-weight:700}'
+      '.ossz{font-weight:900}'
+      '.bal{text-align:left}.kozep{text-align:center;mso-number-format:"\\@"}'
+      '.penz{text-align:right;mso-number-format:"0\\.00"}'
+      '.nev{font-weight:700}'
+      '.kod{font-weight:700;text-align:center}'
+      '.cim{font-size:15pt;font-weight:800;border:none;background:#ffffff;text-align:left;padding:2px 0}'
+      '.alcim{font-size:10.5pt;border:none;background:#ffffff;text-align:left;padding:0 0 6px}'
       '</style></head><body>' +
+      '<table>' +
+      '<colgroup><col style="width:62px"><col style="width:56px"><col style="width:132px">' +
+      (function () { var c2 = ''; for (var q = 0; q < sorokSzama; q++) c2 += '<col style="width:52px"><col style="width:50px">'; return c2; })() +
+      '<col style="width:66px"><col style="width:60px"></colgroup>' +
       '<table>' +
       '<tr><td colspan="' + (3 + sorokSzama * 2 + 2) + '" class="cim">' + esc(cim) + '</td></tr>' +
       '<tr><td colspan="' + (3 + sorokSzama * 2 + 2) + '" class="alcim">' +
@@ -4272,7 +4278,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.89';
+  V.VERZIO = '1.90';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
