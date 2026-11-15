@@ -844,7 +844,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 100;
+  var BUILD = 101;
   var BUILD_DATE = '2026-11-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -6105,39 +6105,59 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     var body = document.getElementById('admin-body');
     if(!body) return;
     body.innerHTML = '<h3 class="adminsub">'+esc(T('Látogatottság','Návštevnosť'))+'</h3>'
-      + '<p class="meta" style="margin:0 0 .9rem">'+esc(T('Az utolsó 30 nap oldalmegnyitásai (saját mérés, külső szolgáltatás nélkül).','Otvárania stránok za posledných 30 dní (vlastné meranie, bez externej služby).'))+'</p>'
+      + '<p class="meta" style="margin:0 0 .9rem">'+esc(T('Az utolsó 30 nap: naponta hány oldalmegnyitás volt, és hány EGYEDI látogató (ugyanaz a böngésző egyszer számít).','Posledných 30 dní: koľko otvorení stránok bolo v ktorý deň a koľko JEDINEČNÝCH návštevníkov (ten istý prehliadač sa počíta raz).'))+'</p>'
       + '<div id="lat-body">'+esc(T('Betöltés…','Načítava sa…'))+'</div>';
     var box = document.getElementById('lat-body');
     var hatar = Date.now() - 30 * 24 * 3600 * 1000;
     db.collection('logs').where('tip','==','latogatas').limit(2000).get().then(function(snap){
-      var most = [], napok = {}, oldalak = {}, latogatok = {};
+      var rek = [];
       snap.forEach(function(d){
         var x = d.data() || {};
         if(!x.ts || x.ts < hatar) return;
-        most.push(x);
-        var nap = new Date(x.ts).toISOString().slice(0, 10);
-        napok[nap] = (napok[nap] || 0) + 1;
-        oldalak[x.route] = (oldalak[x.route] || 0) + 1;
-        if(x.vid) latogatok[x.vid] = 1;
+        rek.push(x);
       });
       var ma = new Date().toISOString().slice(0, 10);
       var het = Date.now() - 7 * 24 * 3600 * 1000;
-      var hetDb = most.filter(function(x){ return x.ts >= het; }).length;
-      var rendezett = Object.keys(napok).sort().reverse().slice(0, 14);
-      var top = Object.keys(oldalak).sort(function(a,b){ return oldalak[b]-oldalak[a]; }).slice(0, 10);
-      if(box) box.innerHTML = '<div class="row3" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">'
-        + '<div class="card" style="flex:1 1 140px;padding:.9rem"><div class="meta">'+esc(T('ma','dnes'))+'</div><div style="font-size:1.6rem;font-weight:800">'+(napok[ma]||0)+'</div></div>'
-        + '<div class="card" style="flex:1 1 140px;padding:.9rem"><div class="meta">'+esc(T('7 nap','7 dní'))+'</div><div style="font-size:1.6rem;font-weight:800">'+hetDb+'</div></div>'
-        + '<div class="card" style="flex:1 1 140px;padding:.9rem"><div class="meta">'+esc(T('30 nap','30 dní'))+'</div><div style="font-size:1.6rem;font-weight:800">'+most.length+'</div></div>'
-        + '<div class="card" style="flex:1 1 140px;padding:.9rem"><div class="meta">'+esc(T('látogatók','návštevníci'))+'</div><div style="font-size:1.6rem;font-weight:800">'+Object.keys(latogatok).length+'</div></div>'
+      /* naponta: megnyitás + egyedi látogatók */
+      var napok = {};
+      rek.forEach(function(x){
+        var nap = new Date(x.ts).toISOString().slice(0, 10);
+        if(!napok[nap]) napok[nap] = { megnyitas: 0, latogatok: {} };
+        napok[nap].megnyitas++;
+        if(x.vid) napok[nap].latogatok[x.vid] = 1;
+      });
+      /* összesen: egyedi látogatók, és közülük új / visszatérő */
+      var osszesLatogato = {}, elsоNap = {};
+      rek.slice().sort(function(a,b){ return a.ts - b.ts; }).forEach(function(x){
+        if(!x.vid) return;
+        osszesLatogato[x.vid] = 1;
+        if(!elsоNap[x.vid]) elsоNap[x.vid] = new Date(x.ts).toISOString().slice(0, 10);
+      });
+      var ujakMa = 0, ujakOssz = 0, visszatero = 0;
+      Object.keys(elsоNap).forEach(function(v){
+        ujakOssz++;
+        if(elsоNap[v] === ma) ujakMa++;
+        if(elsоNap[v] !== ma) visszatero++;
+      });
+      var maDb = napok[ma] ? napok[ma].megnyitas : 0;
+      var hetDb = rek.filter(function(x){ return x.ts >= het; }).length;
+      var rendezett = Object.keys(napok).sort().reverse();
+      if(box) box.innerHTML =
+          '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">'
+        + '<div class="card" style="flex:1 1 150px;padding:.9rem"><div class="meta">'+esc(T('ma (megnyitás)','dnes (otvorenia)'))+'</div><div style="font-size:1.5rem;font-weight:800">'+maDb+'</div>'
+        + '<div class="meta" style="margin:.2rem 0 0">'+esc(T('egyedi látogató','jedinečných návštevníkov'))+': <b>'+(napok[ma] ? Object.keys(napok[ma].latogatok).length : 0)+'</b></div></div>'
+        + '<div class="card" style="flex:1 1 150px;padding:.9rem"><div class="meta">'+esc(T('7 nap (megnyitás)','7 dní (otvorenia)'))+'</div><div style="font-size:1.5rem;font-weight:800">'+hetDb+'</div></div>'
+        + '<div class="card" style="flex:1 1 150px;padding:.9rem"><div class="meta">'+esc(T('30 nap (megnyitás)','30 dní (otvorenia)'))+'</div><div style="font-size:1.5rem;font-weight:800">'+rek.length+'</div></div>'
+        + '<div class="card" style="flex:1 1 170px;padding:.9rem"><div class="meta">'+esc(T('30 nap egyedi látogató','30 dní jedinečných'))+'</div><div style="font-size:1.5rem;font-weight:800">'+Object.keys(osszesLatogato).length+'</div>'
+        + '<div class="meta" style="margin:.2rem 0 0">'+esc(T('ebből új','z toho nových'))+': <b>'+ujakOssz+'</b> · '+esc(T('visszatérő','vracajúcich sa'))+': <b>'+visszatero+'</b></div></div>'
         + '</div>'
-        + '<h3 class="adminsub">'+esc(T('Napok szerint','Podľa dní'))+'</h3>'
-        + '<div class="table-wrap"><table class="list"><tbody>'
-        + rendezett.map(function(n){ return '<tr><td>'+esc(n)+'</td><td class="num">'+napok[n]+'</td></tr>'; }).join('')
-        + '</tbody></table></div>'
-        + '<h3 class="adminsub">'+esc(T('Legnézettebb oldalak','Najnavštevovanejšie stránky'))+'</h3>'
-        + '<div class="table-wrap"><table class="list"><tbody>'
-        + top.map(function(r){ return '<tr><td>'+esc(r)+'</td><td class="num">'+oldalak[r]+'</td></tr>'; }).join('')
+        + '<h3 class="adminsub">'+esc(T('Naponta','Denne'))+'</h3>'
+        + '<div class="table-wrap"><table class="list"><thead><tr><th>'+esc(T('Nap','Deň'))+'</th>'
+        + '<th class="num">'+esc(T('Megnyitás','Otvorenia'))+'</th><th class="num">'+esc(T('Egyedi látogató','Jedineční'))+'</th></tr></thead><tbody>'
+        + rendezett.map(function(n){
+            var o = napok[n];
+            return '<tr><td>'+esc(n)+'</td><td class="num">'+o.megnyitas+'</td><td class="num">'+Object.keys(o.latogatok).length+'</td></tr>';
+          }).join('')
         + '</tbody></table></div>';
     }).catch(function(){ if(box) box.textContent = T('Nem sikerült betölteni.','Nepodarilo sa načítať.'); });
   }
