@@ -1693,6 +1693,27 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       }
     }catch(e){}
   }
+  /* ---------- Látogatottság (saját mérés, külső szolgáltatás nélkül) ----------
+     Minden oldalmegnyitás egy kis rekord a logs gyűjteménybe: oldal, idő, nyelv.
+     A személyes azonosító egy véletlen szám a böngészőben (nem követi a látogatót). */
+  var LATOGATO_KULCS = 'mub-latogato';
+  function latogatoId(){
+    try{
+      var v = localStorage.getItem(LATOGATO_KULCS);
+      if(!v){ v = 'v' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); localStorage.setItem(LATOGATO_KULCS, v); }
+      return v;
+    }catch(e){ return 'v?'; }
+  }
+  function latogatas(route){
+    try{
+      if(!db || !route) return;
+      if(route === 'admin') return;                 /* az admin nem számít */
+      if(/^(file|localhost)/.test(location.protocol)) return;
+      db.collection('logs').add({ tip: 'latogatas', route: String(route), ts: Date.now(), lang: lang || 'hu', vid: latogatoId() })
+        .catch(function(){});
+    }catch(e){}
+  }
+
   function render(){
     document.documentElement.setAttribute('lang', lang==='sk' ? 'sk' : 'hu');
     var bs = document.getElementById('brand-sub');
@@ -1713,6 +1734,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     if(routeChanged && window.scrollTo) window.scrollTo(0, 0);
     /* a hosszú magyarázatokat becsukjuk (a rajzolás után, késleltetve) */
     setTimeout(function(){ try{ metaBecsuk(document.getElementById('view')); }catch(e){} }, 60);
+    setTimeout(function(){ try{ latogatas(route); }catch(e){} }, 300);
     if(route==='home') return renderHome(el);
     if(route==='naptar') return renderCalendar(el);
     if(route==='galeria') return renderGallery(el);
@@ -5649,7 +5671,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   var ADMIN_B_TABS = ['versenyek', 'hirek', 'galeria', 'jelentkezok', 'jatekosok', 'nevek', 'felvetel', 'szabalyok'];
   /* Az összevont „Eredmények” fül alpontjai (korábban külön fülek voltak). */
   var ADMIN_SUBS = [['felvetel', 'Eredmény felvétel', 'Zadať výsledky'], ['szezonok', 'Szezonok', 'Sezóny'],
-                    ['nevek', 'Név-egyesítés', 'Zlučovanie mien'], ['jovahagyas', 'Jóváhagyás', 'Schválenie'], ['tablazat', 'Táblázat beolvasása', 'Načítať tabuľku']];
+                    ['nevek', 'Név-egyesítés', 'Zlučovanie mien'], ['jovahagyas', 'Jóváhagyás', 'Schválenie'], ['latogatottsag', 'Látogatottság', 'Návštevnosť'], ['tablazat', 'Táblázat beolvasása', 'Načítať tabuľku']];
   function adminSubLabel(s){ return T(s[1], s[2]); }
   var ADMIN_ROLES = null;                              /* a Firebase-ből: { full:[], limited:[] } */
   function lowerList(a){ return (a || []).map(function(x){ return String(x).trim().toLowerCase(); }).filter(Boolean); }
@@ -6022,7 +6044,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         return '<button class="'+(adminSub===s[0]?'active':'')+'" onclick="MUB.setAdminSub(\''+s[0]+'\')">'+esc(adminSubLabel(s))+'</button>';
       }).join('')+'</div>';
     } else if(sub){ sub.innerHTML = ''; }
-    if(adminSub === 'jovahagyas') renderAdminJovahagyas();
+    if(adminSub === 'latogatottsag') renderAdminLatogatottsag();
+    else if(adminSub === 'jovahagyas') renderAdminJovahagyas();
     else if(adminSub === 'szezonok') renderAdminSeasons();
     else if(adminSub === 'nevek') renderAdminNames();
     else if(adminSub === 'tablazat') renderAdminResults();
@@ -6030,6 +6053,47 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   }
   /* A régi (külön) fülek neveit átirányítjuk az összevont fül megfelelő alpontjára.
      A fő „Eredmények” fülre kattintva az utolsó alpont marad (elsőre a felvétel). */
+  /* Látogatottság: az utolsó 30 nap oldalmegnyitásai. */
+  function renderAdminLatogatottsag(){
+    var body = document.getElementById('admin-body');
+    if(!body) return;
+    body.innerHTML = '<h3 class="adminsub">'+esc(T('Látogatottság','Návštevnosť'))+'</h3>'
+      + '<p class="meta" style="margin:0 0 .9rem">'+esc(T('Az utolsó 30 nap oldalmegnyitásai (saját mérés, külső szolgáltatás nélkül).','Otvárania stránok za posledných 30 dní (vlastné meranie, bez externej služby).'))+'</p>'
+      + '<div id="lat-body">'+esc(T('Betöltés…','Načítava sa…'))+'</div>';
+    var box = document.getElementById('lat-body');
+    var hatar = Date.now() - 30 * 24 * 3600 * 1000;
+    db.collection('logs').where('tip','==','latogatas').limit(2000).get().then(function(snap){
+      var most = [], napok = {}, oldalak = {}, latogatok = {};
+      snap.forEach(function(d){
+        var x = d.data() || {};
+        if(!x.ts || x.ts < hatar) return;
+        most.push(x);
+        var nap = new Date(x.ts).toISOString().slice(0, 10);
+        napok[nap] = (napok[nap] || 0) + 1;
+        oldalak[x.route] = (oldalak[x.route] || 0) + 1;
+        if(x.vid) latogatok[x.vid] = 1;
+      });
+      var ma = new Date().toISOString().slice(0, 10);
+      var het = Date.now() - 7 * 24 * 3600 * 1000;
+      var hetDb = most.filter(function(x){ return x.ts >= het; }).length;
+      var rendezett = Object.keys(napok).sort().reverse().slice(0, 14);
+      var top = Object.keys(oldalak).sort(function(a,b){ return oldalak[b]-oldalak[a]; }).slice(0, 10);
+      if(box) box.innerHTML = '<div class="row3" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">'
+        + '<div class="card" style="flex:1 1 140px;padding:.9rem"><div class="meta">'+esc(T('ma','dnes'))+'</div><div style="font-size:1.6rem;font-weight:800">'+(napok[ma]||0)+'</div></div>'
+        + '<div class="card" style="flex:1 1 140px;padding:.9rem"><div class="meta">'+esc(T('7 nap','7 dní'))+'</div><div style="font-size:1.6rem;font-weight:800">'+hetDb+'</div></div>'
+        + '<div class="card" style="flex:1 1 140px;padding:.9rem"><div class="meta">'+esc(T('30 nap','30 dní'))+'</div><div style="font-size:1.6rem;font-weight:800">'+most.length+'</div></div>'
+        + '<div class="card" style="flex:1 1 140px;padding:.9rem"><div class="meta">'+esc(T('látogatók','návštevníci'))+'</div><div style="font-size:1.6rem;font-weight:800">'+Object.keys(latogatok).length+'</div></div>'
+        + '</div>'
+        + '<h3 class="adminsub">'+esc(T('Napok szerint','Podľa dní'))+'</h3>'
+        + '<div class="table-wrap"><table class="list"><tbody>'
+        + rendezett.map(function(n){ return '<tr><td>'+esc(n)+'</td><td class="num">'+napok[n]+'</td></tr>'; }).join('')
+        + '</tbody></table></div>'
+        + '<h3 class="adminsub">'+esc(T('Legnézettebb oldalak','Najnavštevovanejšie stránky'))+'</h3>'
+        + '<div class="table-wrap"><table class="list"><tbody>'
+        + top.map(function(r){ return '<tr><td>'+esc(r)+'</td><td class="num">'+oldalak[r]+'</td></tr>'; }).join('')
+        + '</tbody></table></div>';
+    }).catch(function(){ if(box) box.textContent = T('Nem sikerült betölteni.','Nepodarilo sa načítať.'); });
+  }
   var ADMIN_TAB_ALIAS = { felvetel: 'felvetel', szezonok: 'szezonok', nevek: 'nevek', tablazat: 'tablazat', eredmeny: 'tablazat' };
   /* A programból feltöltött végeredmények jóváhagyása külön almenüben. */
   function renderAdminJovahagyas(){
