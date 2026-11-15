@@ -1416,6 +1416,7 @@
         '<button class="masod-gomb kicsi" data-t="elo-feltolt" title="' + esc(sz('elo_tipp')) + '">' + esc(sz('elo_gomb')) + '</button>' +
                 '<span class="sugo">' + esc(sz('lezar_sugo')) + '</span>') +
           '</div>') +
+      (S.eredmenyAllapot ? '<p class="eredmeny-allapot">' + esc(S.eredmenyAllapot) + '</p>' : '') +
       '<div class="nevezes-sor rangsor-eszkozok"><button class="' + (gorgetBe() ? 'fo-gomb' : 'masod-gomb') + ' kicsi" data-t="gorget">' +
         esc(gorgetBe() ? sz('gorget_ki') : sz('gorget_be')) + '</button>' +
         '<details class="beall-resz rangsor-sugo" style="margin:0"><summary>' + esc(sz('rang_reszletek')) + '</summary>' +
@@ -4270,7 +4271,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.85';
+  V.VERZIO = '1.86';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
