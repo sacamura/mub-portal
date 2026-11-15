@@ -2374,25 +2374,34 @@
               '<span class="sugo">' + esc(S.archivAllapot || '') + '</span>' +
             '</div>' +
             ((S.archivLista && S.archivLista.length)
-              ? '<div class="felho-lista">' + S.archivLista.map(function (x) {
-                  var ido = x.ts ? new Date(x.ts) : null;
-                  var aktivE = (S.allapot && S.allapot.esemenyId && x.esemeny &&
-                    String(S.allapot.esemenyId) === String(x.esemeny));
-                  return '<div class="felho-elem' + (aktivE ? ' aktiv-elem' : '') + '">' +
-                    '<div class="felho-elem-szov"><b>' + esc(x.hely || x.nev || sz('verseny_cim_hely')) +
-                      (x.teszt ? ' <span class="cimke teszt-cimke">' + esc(sz('archiv_teszt')) + '</span>' : '') +
-                      (x.lezarva
-                        ? ' <span class="cimke">' + esc(sz('archiv_lezart')) + '</span>'
-                        : ' <span class="cimke kilepett">' + esc(sz('archiv_felbe')) + '</span>') +
-                      (aktivE ? ' <span class="cimke aktiv-cimke">' + esc(sz('archiv_ez_van')) + '</span>' : '') +
-                    '</b>' +
-                      '<span>' + esc(x.datum || '') + ' · ' + x.korDb + ' ' + esc(sz('archiv_kor')) + ' · ' + x.jatekDb + ' ' + esc(sz('archiv_jatekos')) +
-                      (ido ? ' · ' + esc(ido.toLocaleString()) : '') + '</span></div>' +
-                    '<button class="masod-gomb kicsi" data-t="archiv-nez" data-id="' + esc(x.id) + '">' + esc(sz('archiv_nez')) + '</button>' +
-                    '<button class="fo-gomb kicsi" data-t="archiv-javit" data-id="' + esc(x.id) + '">' + esc(sz('archiv_valtas')) + '</button>' +
-                  '</div>';
-                }).join('') + '</div>'
-              : '<p class="sugo">' + esc(sz('archiv_ures')) + '</p>')
+      ? '<div class="felho-lista">' + (function () {
+          /* Egy verseny = egy sor; a legfrissebb mentést mutatjuk. */
+          var latott = {}, egy = [];
+          S.archivLista.slice().sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); }).forEach(function (x) {
+            var kulcs = String(x.esemeny || (String(x.hely || x.nev || '') + '|' + String(x.datum || '')));
+            if (latott[kulcs]) return;
+            latott[kulcs] = 1; egy.push(x);
+          });
+          return egy;
+        })().map(function (x) {
+        var ido = x.ts ? new Date(x.ts) : null;
+        var aktivE = (S.allapot && S.allapot.esemenyId && x.esemeny &&
+          String(S.allapot.esemenyId) === String(x.esemeny));
+        return '<div class="felho-elem' + (aktivE ? ' aktiv-elem' : '') + '">' +
+          '<div class="felho-elem-szov"><b>' + esc(x.hely || x.nev || sz('verseny_cim_hely')) +
+          (x.teszt ? ' <span class="cimke teszt-cimke">' + esc(sz('archiv_teszt')) + '</span>' : '') +
+          (x.lezarva
+            ? ' <span class="cimke">' + esc(sz('archiv_lezart')) + '</span>'
+            : ' <span class="cimke kilepett">' + esc(sz('archiv_felbe')) + '</span>') +
+          (aktivE ? ' <span class="cimke aktiv-cimke">' + esc(sz('archiv_ez_van')) + '</span>' : '') +
+          '</b>' +
+          '<span>' + esc(x.datum || '') + ' · ' + x.korDb + ' ' + esc(sz('archiv_kor')) + ' · ' + x.jatekDb + ' ' + esc(sz('archiv_jatekos')) +
+          (ido ? ' · ' + esc(ido.toLocaleString()) : '') + '</span></div>' +
+          '<button class="masod-gomb kicsi" data-t="archiv-nez" data-id="' + esc(x.id) + '">' + esc(sz('archiv_nez')) + '</button>' +
+          '<button class="fo-gomb kicsi" data-t="archiv-javit" data-id="' + esc(x.id) + '">' + esc(sz('archiv_valtas')) + '</button>' +
+          '</div>';
+        }).join('') + '</div>'
+        : '<p class="sugo">' + esc(sz('archiv_ures')) + '</p>')
           : '<p class="sugo">' + esc(sz('archiv_csukva')) + '</p>') +
       '</div>' +
 
@@ -4475,7 +4484,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.99';
+  V.VERZIO = '2.00';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
