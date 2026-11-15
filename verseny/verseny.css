@@ -1075,3 +1075,9 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 
 /* eredmeny-allapot */
 .eredmeny-allapot{margin:2px 0 6px;color:#1f7a44;font-weight:700;font-size:.9rem}
+
+/* gomb-racs: rendezettebb gombsor */
+.gomb-racs{gap:6px!important;align-items:center;flex-wrap:wrap}
+.gomb-halvany{margin-top:2px!important}
+.gomb-halvany .halvany-gomb{opacity:.85;font-size:.86rem}
+.ikon-gomb-szeles{min-width:auto}
