@@ -1384,7 +1384,11 @@
             '<button class="halvany-gomb kicsi" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
             '<button class="masod-gomb kicsi ikon-gomb-szeles" data-t="vegeredmeny-nyomtat" title="' + esc(sz('vegeredmeny_gomb')) + '">🖨 ' + esc(sz('nyomtatas_gomb')) + '</button>' +
             '<button class="fo-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
-            '<button class="masod-gomb kicsi" data-t="eredmeny-feltolt" title="' + esc(sz('eredmeny_tipp')) + '">' + esc(sz('eredmeny_gomb')) + '</button>' +
+            '<details class="beall-resz" style="margin:0"><summary>' + esc(sz('halado_cim')) + '</summary>' +
+              '<div class="nevezes-sor" style="margin-top:6px">' +
+                '<button class="masod-gomb kicsi" data-t="eredmeny-gs" title="' + esc(sz('eredmeny_gs_gomb')) + '">' + esc(sz('eredmeny_gs_gomb')) + '</button>' +
+                '<button class="halvany-gomb kicsi" data-t="eredmeny-feltolt" title="' + esc(sz('eredmeny_tipp')) + '">' + esc(sz('eredmeny_gomb')) + '</button>' +
+              '</div></details>' +
           '</div>' +
           '<div class="nevezes-sor gomb-racs gomb-halvany">' +
             '<button class="halvany-gomb kicsi" data-t="elo-feltolt" title="' + esc(sz('elo_tipp')) + '">' + esc(sz('elo_gomb')) + '</button>' +
@@ -1407,7 +1411,11 @@
           : '<button class="masod-gomb kicsi veszely-gomb" data-t="lezar-ker">' + esc(sz('lezar_gomb')) + '</button>') +
         '<button class="masod-gomb kicsi ikon-gomb-szeles" data-t="vegeredmeny-nyomtat" title="' + esc(sz('vegeredmeny_gomb')) + '">🖨 ' + esc(sz('nyomtatas_gomb')) + '</button>' +
         '<button class="fo-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
-        '<button class="masod-gomb kicsi" data-t="eredmeny-feltolt" title="' + esc(sz('eredmeny_tipp')) + '">' + esc(sz('eredmeny_gomb')) + '</button>' +
+        '<details class="beall-resz" style="margin:0"><summary>' + esc(sz('halado_cim')) + '</summary>' +
+          '<div class="nevezes-sor" style="margin-top:6px">' +
+            '<button class="masod-gomb kicsi" data-t="eredmeny-gs" title="' + esc(sz('eredmeny_gs_gomb')) + '">' + esc(sz('eredmeny_gs_gomb')) + '</button>' +
+            '<button class="halvany-gomb kicsi" data-t="eredmeny-feltolt" title="' + esc(sz('eredmeny_tipp')) + '">' + esc(sz('eredmeny_gomb')) + '</button>' +
+          '</div></details>' +
         '<button class="halvany-gomb kicsi" data-t="elo-feltolt" title="' + esc(sz('elo_tipp')) + '">' + esc(sz('elo_gomb')) + '</button>' +
                 '<span class="sugo">' + esc(sz('lezar_sugo')) + '</span>') +
           '</div>') +
@@ -1681,6 +1689,49 @@
         kuld(!!volt);
       });
     } else kuld(false);
+  }
+
+  /* A VÉGEREDMÉNY beírása a Google-táblázatba (külön lapra, a kért formában). */
+  function eredmenyGsFeltolt() {
+    var a = S.allapot;
+    var url = String(a.beall.gsUrl || '').trim();
+    if (!url) { hiba(sz('gs_nincs_url')); render(); return; }
+    if (!a.korok.length) { hiba(sz('nincs_eredmeny')); render(); return; }
+    if (!global.fetch) { hiba(sz('gs_nincs_fetch')); render(); return; }
+    var lista = M.rangsor(a, a.korok.length);
+    var dijDb = szam(a.beall.dijazott, 0);
+    var sorok = lista.map(function (p) {
+      return {
+        h: p.hely, nev: p.nev, kod: String(p.id), pont: p.pont,
+        penz: Math.round(p.penz * 100) / 100,
+        dij: (dijDb > 0 && p.hely <= dijDb),
+        rounds: (p.korok || []).slice().sort(function (x, y) { return x.kor - y.kor; })
+          .map(function (kr) { return { points: kr.pont, money: Math.round(kr.penz * 100) / 100 }; })
+      };
+    });
+    var csomag = {
+      action: 'eredmeny',
+      eredmeny: {
+        nev: a.beall.nev || a.beall.helyHu || '',
+        hely: a.beall.helyHu || '',
+        datum: a.beall.datum || '',
+        kor: a.korok.length,
+        sorok: sorok
+      }
+    };
+    S.eredmenyGsAllapot = sz('eredmeny_gs_folyamatban');
+    render();
+    global.fetch(url, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(csomag)
+    }).then(function () {
+      S.eredmenyGsAllapot = sz('eredmeny_gs_kesz');
+      ok(S.eredmenyGsAllapot); render();
+    }).catch(function () {
+      S.eredmenyGsAllapot = sz('eredmeny_gs_hiba');
+      hiba(S.eredmenyGsAllapot); render();
+    });
   }
 
   function eredmenyPrintHtml() {
@@ -3656,6 +3707,7 @@
       if (!global.confirm || global.confirm(sz('felho_kerdes'))) felhoVissza();
       return;
     }
+    if (t === 'eredmeny-gs') { eredmenyGsFeltolt(); return; }
     if (t === 'eredmeny-feltolt') { eredmenyFeltolt(); return; }
     if (t === 'vegeredmeny-nyomtat') {
       S.nyomtatEredmeny = true;
@@ -4289,7 +4341,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.91';
+  V.VERZIO = '1.92';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
