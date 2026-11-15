@@ -4389,7 +4389,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
      hivatalos Google-táblázatok, szezononként beágyazva a weblapba. */
   function renderResults(el){
     el.innerHTML = '<h1 class="page-title">'+esc(T('Eredmények','Výsledky'))+'</h1>'
-      + '<p style="margin:-.3rem 0 .9rem"><a class="btn sm secondary" href="#vegeredmeny">'+esc(T('Végeredmény – a programból feltöltve','Konečný výsledok – nahraté z programu'))+'</a></p>'+rule()
++rule()
       + '<div id="res-search">'+esc(T('Betöltés…','Načítava sa…'))+'</div>'
       + '<div id="res-body"></div>';
     loadFeatures(function(){
@@ -6217,6 +6217,16 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   function gidLabel(url){ var g = sheetGid(url); return g ? ('gid=' + g + ' ' + T('munkalap','hárok')) : T('első munkalap','prvý hárok'); }
   function renderAdminResults(){
     var body = document.getElementById('admin-body');
+    /* a programból feltöltött végeredmények ellenőrzése/jóváhagyása */
+    if(body && currentUser){
+      var veSav = document.createElement('div');
+      veSav.className = 'card';
+      veSav.style.cssText = 'padding:1rem 1.2rem;margin-bottom:1rem';
+      veSav.innerHTML = '<h3 style="margin:0 0 .4rem">'+esc(T('Végeredmények ellenőrzése','Kontrola konečných výsledkov'))+'</h3>'
+        + '<p class="meta" style="margin:0 0 .6rem">'+esc(T('A programból feltöltött végeredmények itt ellenőrizhetők és hagyhatók jóvá – csak jóváhagyás után jelennek meg a nyilvános oldalon.','Konečné výsledky nahraté z programu sa tu dajú skontrolovať a schváliť – verejne sa zobrazia až po schválení.'))+'</p>'
+        + '<a class="btn" href="#vegeredmeny">'+esc(T('Ellenőrzés és jóváhagyás','Kontrola a schválenie'))+'</a>';
+      body.appendChild(veSav);
+    }
     loadSeasons(function(seasons){
       var sorted = seasons.slice().sort(bySeasonDesc);
       var cur = null;
