@@ -3534,15 +3534,17 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
         var caps = words.filter(function(w){ var b = w.replace(/\.+$/, ''); return b.length > 1 && b === b.toUpperCase() && b !== b.toLowerCase(); }).length;
         /* Sorrend: a legutolsó szezon írásmódja → azonosítóval rendelkező alak →
            gyakoriság → szép írásmód. */
-      var szavakDb = words.length;      /* a hosszabb (vezetéknév + keresztnév) alak előnyt kap */
-        var score = (o.agg ? 100000000 : 0)      /* az összesítő (szezon) tábla neve a mérvadó */
+      /* FIGYELEM: ez csak a MEGJELENÍTETT NÉVFORMA kiválasztásának súlyozása.
+         A verseny pontjaihoz és az eredményhez semmi köze. */
+      var szavakDb = words.length;
+        var nevFormaSuly = (o.agg ? 100000000 : 0)   /* az összesítő (szezon) tábla neve a mérvadó */
           + (o.last || 0) * 10000
           + (Object.keys(o.ids).length ? 1000 : 0)
           + Math.min(o.rows + o.agg, 99) * 10
-        + Math.min(szavakDb, 3) * 40                    /* vezetéknév + keresztnév > csak vezetéknév */
+        + Math.min(szavakDb, 3) * 40                    /* csak a névformánál: teljes név > vezetéknév */
           + (/[áéíóöőúüűčšžťďňľĺřě]/i.test(x) ? 5 : 0) - (o.deceased ? 40 : 0)
           - lone * 60 - caps * 25 - (/^(ifj|id)\./i.test(x) ? 2 : 0);
-        if(score > bestScore){ bestScore = score; best = x; }
+        if(nevFormaSuly > bestScore){ bestScore = nevFormaSuly; best = x; }
       });
       var ids = idsOf(r);
       list2.forEach(function(x){ groupOf[x] = best; });
