@@ -4391,11 +4391,24 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   }
   /* EREDMÉNYEK: kereső a feltöltött eredményekben + a szervező által feltöltött
      hivatalos Google-táblázatok, szezononként beágyazva a weblapba. */
+  var resTab = 'versenyek';     /* 'versenyek' = versenyenkénti, 'osszesitett' = MUB összesített */
+  function setResTab(t){
+    resTab = (t === 'osszesitett') ? 'osszesitett' : 'versenyek';
+    renderResults(document.getElementById('view'));
+  }
   function renderResults(el){
     el.innerHTML = '<h1 class="page-title">'+esc(T('Eredmények','Výsledky'))+'</h1>'
-+rule()
-      + '<div id="res-search">'+esc(T('Betöltés…','Načítava sa…'))+'</div>'
+      + rule()
+      + '<div class="tabs noprint" style="margin:0 0 1rem">'
+        + '<button class="'+(resTab==='versenyek'?'active':'')+'" onclick="MUB.setResTab(\'versenyek\')">'+esc(T('Versenyenkénti eredmények','Výsledky podľa turnajov'))+'</button>'
+        + '<button class="'+(resTab==='osszesitett'?'active':'')+'" onclick="MUB.setResTab(\'osszesitett\')">'+esc(T('MUB összesített','Súhrn MUB'))+'</button>'
+      + '</div>'
+      + '<div id="res-search"></div>'
       + '<div id="res-body"></div>';
+    if(resTab === 'osszesitett'){
+      loadSeasons(function(seasons){ renderResultsStats(seasons.slice().sort(bySeasonDesc)); });
+      return;
+    }
     loadFeatures(function(){
       loadResults(function(all){
         RES_INDEX = resIndex(all);
@@ -4436,7 +4449,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
         var years = seasonYears(all);
         /* Alapból a legfrissebb (aktuális) szezon látszik, nem az összes. */
         if(!resSeasonInit){
-          resSeason = defaultResSeason(years, seasons);
+      /* a Statisztika alapból MINDEN évet mutat; a MUB összesített a legfrissebb szezont */
+      resSeason = (typeof resTab !== 'undefined' && resTab === 'osszesitett') ? defaultResSeason(years, seasons) : 'all';
           resSeasonInit = true;
         } else if(resSeason !== 'all' && years.indexOf(String(resSeason)) < 0){
           resSeason = 'all';
@@ -10012,7 +10026,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     mrSetYear: mrSetYear, mrEdit: mrEdit, mrCancelEdit: mrCancelEdit, mrReload: mrReload,
     savePlayer: savePlayer, setPlayerQuery: setPlayerQuery, playerShowMore: playerShowMore, exportContacts: exportContacts, setRegSort: setRegSort,
     uploadPlayerPhoto: uploadPlayerPhoto, removePlayerPhoto: removePlayerPhoto,
-    setResSort: setResSort, setResMin: setResMin, setResSource: setResSource, setResVillage: setResVillage, resVillageOpen: resVillageOpen,
+    setResSort: setResSort, setResMin: setResMin, setResSource: setResSource,
+    setResTab: function(t){ try{ setResTab(t); }catch(e){} }, setResVillage: setResVillage, resVillageOpen: resVillageOpen,
     setResQ: setResQ, setResQYear: setResQYear, setResQTour: setResQTour, setResQVill: setResQVill, setResQReset: setResQReset,
     shortCodeOf: shortCodeOf, isLongId: isLongId, regOpenNow: regOpenNow, skClock: skClock,
     setAdminSub: setAdminSub, unifyPlayerName: unifyPlayerName, uploadCoverPhoto: uploadCoverPhoto, removeCoverPhoto: removeCoverPhoto,
