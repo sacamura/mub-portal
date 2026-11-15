@@ -442,6 +442,7 @@
   /* ======================= nevezés ====================================== */
 
   function nevezesNezet() {
+    setTimeout(function () { try { kiemeltFrissit(); } catch (e) { } }, 400);
     var a = S.allapot;
     var jk = aktivJatekosok();
     var lista = jk.map(function (j, sorszam) {
@@ -2854,6 +2855,36 @@
     global.BEKULDES.eloMent(a.esemenyId, eloCsomag(), function () { });
   }
 
+  /* A weblapon bejelölt KIEMELT (★) játékosok átvétele – így a sorsolás
+     ugyanazokat a kiemelteket használja, mint a portál. Csak olvasás (REST). */
+  var kiemeltProbalt = false;
+  function kiemeltFrissit(csakHaKell) {
+    if (kiemeltProbalt && csakHaKell !== false) return;
+    if (!global.fetch || !global.Promise) return;
+    kiemeltProbalt = true;
+    var url = 'https://firestore.googleapis.com/v1/projects/mub-versenyek/databases/(default)/documents/players'
+      + '?pageSize=400&key=AIzaSyCIZwZB-O-uFyp19zOpMnCk8nwp_hLIKDc';
+    global.fetch(url).then(function (r) { return r.json(); }).then(function (j) {
+      var docs = (j && j.documents) || [];
+      var kodDb = {}, nevDb = {};
+      docs.forEach(function (d) {
+        var fl = d.fields || {};
+        var kod = fl.code && (fl.code.integerValue || fl.code.stringValue);
+        var nev = fl.name && fl.name.stringValue;
+        var kiem = !!(fl.kiemelt && fl.kiemelt.booleanValue);
+        if (!kiem) return;
+        if (kod !== undefined && kod !== null && kod !== '') kodDb[String(kod).trim()] = 1;
+        if (nev) nevDb[M.nevKulcs(String(nev))] = 1;
+      });
+      var valtozott = false;
+      (S.allapot.jatekosok || []).forEach(function (p) {
+        var kell = !!(kodDb[String(p.id)] || nevDb[M.nevKulcs(p.nev || '')]);
+        if (!!p.kiemelt !== kell) { p.kiemelt = kell; valtozott = true; }
+      });
+      if (valtozott) { mentes(); render(); }
+    }).catch(function () { });
+  }
+
   function excelSorok() {
     var a = S.allapot;
     var korDb = a.korok.length;
@@ -4387,7 +4418,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.94';
+  V.VERZIO = '1.95';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
