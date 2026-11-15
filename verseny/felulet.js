@@ -1641,10 +1641,16 @@
     var lista = M.rangsor(a, ig);
     var dijDb = szam(a.beall.dijazott, 0);
     var sorok = lista.map(function (p) {
+      /* körönkénti bontás is (mint a korábbi versenyeknél a weblapon) */
+      var korok = (p.korok || []).slice().sort(function (a, b) { return a.kor - b.kor; })
+        .map(function (kr) {
+          return { points: kr.pont, money: Math.round(kr.penz * 100) / 100 };
+        });
       return {
         h: p.hely, nev: p.nev, kod: String(p.id), pont: p.pont,
         penz: Math.round(p.penz * 100) / 100,
-        dij: (dijDb > 0 && p.hely <= dijDb)
+        dij: (dijDb > 0 && p.hely <= dijDb),
+        rounds: korok
       };
     });
     var csomag = {
@@ -4266,7 +4272,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.88';
+  V.VERZIO = '1.89';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
