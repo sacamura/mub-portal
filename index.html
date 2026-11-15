@@ -4415,7 +4415,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
      hivatalos Google-táblázatok, szezononként beágyazva a weblapba. */
   var resTab = 'versenyek';     /* 'versenyek' = versenyenkénti, 'osszesitett' = MUB összesített */
   function setResTab(t){
-    resTab = (t === 'osszesitett') ? 'osszesitett' : 'versenyek';
+    resTab = (t === 'osszesitett' && currentUser) ? 'osszesitett' : 'versenyek';
     renderResults(document.getElementById('view'));
   }
   function renderResults(el){
@@ -4423,7 +4423,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       + rule()
       + '<div class="tabs noprint" style="margin:0 0 1rem">'
         + '<button class="'+(resTab==='versenyek'?'active':'')+'" onclick="MUB.setResTab(\'versenyek\')">'+esc(T('Versenyenkénti eredmények','Výsledky podľa turnajov'))+'</button>'
-        + '<button class="'+(resTab==='osszesitett'?'active':'')+'" onclick="MUB.setResTab(\'osszesitett\')">'+esc(T('MUB összesített','Súhrn MUB'))+'</button>'
+        + (currentUser ? '<button class="'+(resTab==='osszesitett'?'active':'')+'" onclick="MUB.setResTab(\'osszesitett\')">'+esc(T('MUB összesített','Súhrn MUB'))+'</button>' : '')
       + '</div>'
       + '<div id="res-search"></div>'
       + '<div id="res-body"></div>';
@@ -9022,14 +9022,12 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '<button type="button" class="'+(isAgg ? 'active' : '')+'" onclick="MUB.mrSetMode(\'agg\')">'+esc(T('Szezon-összesítő (hivatalos végeredmény)','Súhrn sezóny (oficiálny výsledok)'))+'</button>'
       + '</div>'
       + '<p class="meta">'+(isAgg
-          ? esc(T('A szezon összesítő táblázata — EZ A HIVATALOS VÉGEREDMÉNY, ebből számol a ranglista és a statisztika. Soronként: 1) helyezés, 2) név, 3) azonosító (ID), majd az összes nyeremény, az összes pont (BODY) és a helyezési bónusszal együtt számolt hivatalos MUBL pont (végül a részvétel). Az azonosító a név előtt is állhat. A hivatalos pont a MUBL-összeg. A nevek itt a mérvadóak. A versenyenkénti feltöltés csak a részletekhez kell — a pontrendszer az évek során változott (volt 15/10/5 is), ezért a hivatalos pontot mindig innen veszi a portál.',
-                     'Súhrnná tabuľka sezóny — TOTO JE OFICIÁLNY VÝSLEDOK, z neho počíta rebríček a štatistika. V riadku: 1) umiestnenie, 2) meno, 3) ID, potom celková výhra, celkové body (BODY) a oficiálne MUBL body s bonusom (nakoniec účasť). ID môže byť aj pred menom. Oficiálne body sú MUBL súčet. Mená tu sú smerodajné. Nahranie turnajov slúži len na detaily — bodový systém sa po rokoch menil (bolo aj 15/10/5), preto oficiálne body berie portál vždy odtiaľto.'))
-          : esc(T('A verseny eredménye: soronként 1) helyezés, 2) azonosító (ID), 3) név, majd az 5 körben nyert összeg és a kör pontja, végül az ÖSSZ pénz és az ÖSSZ pont. Az azonosító a név után is állhat. Ha nincs körönkénti bontás, elég a nyeremény és a pont.',
-                     'Výsledky turnaja: v riadku 1) umiestnenie, 2) ID, 3) meno, potom 5 kôl (výhra a body) a spolu. ID môže byť aj za menom.')))+'</p>'
-      + '<p class="meta">'+esc(T('A neveket az azonosító (rövid kód vagy hosszú kártyaszám) alapján ismeri fel: ha az azonosító egyezik, a név kis eltérése (ékezet, szlovák/magyar alak, elgépelés) nem baj — zöld pipát kap. Ha valami nem egyezik, sárga jelzést ad, és ott dönthet. A név mező legördülő listát is kínál a nyilvántartásból, de szabadon is beírható.',
-                               'Mená rozpoznáva podľa ID (krátky kód alebo dlhé číslo karty): ak sa ID zhoduje, malý rozdiel v mene (diakritika, slovenská/maďarská podoba, preklep) nevadí — dostane zelenú fľajku. Ak sa niečo nezhoduje, dá žlté označenie a tam rozhodnete. Pole mena ponúka zoznam z evidencie, ale dá sa aj voľne písať.'))+'</p>'
-      + '<p class="meta">'+esc(T('Írja be a verseny adatait, majd illessze be az eredményt soronként, a verseny végeredménye szerint: 1) helyezés, 2) azonosító szám (ID), 3) név, majd az 5 körben nyert összeg, végül a pont. (Ha a körönkénti bontás nincs meg, elég a nyeremény és a pont.) A neveket az azonosító és a hasonlóság alapján is felismeri, és rákérdez, ha bizonytalan.',
-                              'Zadajte údaje turnaja a vložte hráčov v poradí (od 1. miesta po posledné). V riadku: meno a 5 vyhraných súm za kolá (€). Poradie určuje umiestnenie; body vypočíta portál.'))+'</p>'
+        ? esc(T('A szezon összesítő táblázata — EZ A HIVATALOS VÉGEREDMÉNY, ebből számol a ranglista és a statisztika. Soronként: 1) helyezés, 2) azonosító, 3) név, majd a pont és a pénz.',
+        'Súhrnná tabuľka sezóny — TOTO JE OFICIÁLNY VÝSLEDOK, z neho počíta rebríček a štatistika. V riadku: 1) umiestnenie, 2) ID, 3) meno, potom body a peniaze.'))
+        : esc(T('A verseny eredménye: soronként 1) helyezés, 2) azonosító (ID), 3) név, majd az 5 körben nyert összeg és a kör pontja, végül az ÖSSZ pénz és az ÖSSZ pont. Az azonosító a név után is állhat. Ha nincs körönkénti bontás, elég a nyeremény és a pont.',
+        'Výsledky turnaja: v riadku 1) umiestnenie, 2) ID, 3) meno, potom 5 kôl (výhra a body) a spolu. ID môže byť aj za menom. Ak nie je rozpis po kolách, stačí výhra a body.')))
+      + '<p class="meta">'+esc(T('A neveket az azonosító (rövid kód vagy hosszú kártyaszám) alapján ismeri fel: ha az azonosító egyezik, a név kis eltérése (ékezet, szlovák/magyar alak, elgépelés) nem baj. Ha valami nem egyezik, sárga jelzést ad, és ott dönthet.',
+        'Mená rozpoznáva podľa ID (krátky kód alebo dlhé číslo karty): ak sa ID zhoduje, malý rozdiel v mene (diakritika, slovenský/maďarský tvar, preklep) nie je problém. Ak niečo nesedí, dá žlté upozornenie a môžete rozhodnúť.'))
       + (isAgg ? '' : mrToursHtml())
       + '<div class="card" style="margin-bottom:1rem">'
       + '<div class="row3">'
