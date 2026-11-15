@@ -649,6 +649,9 @@
 .ve-ok{background:#eef7f0;border:1px solid #bcdcc6;color:#1f7a44;font-weight:700;font-size:.78rem;padding:.1rem .5rem;border-radius:999px}
 .ve-var{background:#fff8e6;border:1px solid #ecd9a6;color:#7a6420;font-weight:700;font-size:.78rem;padding:.1rem .5rem;border-radius:999px}
 .ve-ossz{color:#55697e;font-size:.88rem;margin:.4rem 0 0}
+
+.uj-verseny{background:#eef7f0;border:1px solid #bcdcc6;color:#1f7a44;font-size:.72rem;font-weight:700;
+  padding:.05rem .4rem;border-radius:999px;margin-left:.4rem}
 </style>
 </head>
 <body>
@@ -2831,6 +2834,12 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   /* src = 'new' (alap) → az új feltöltés; src = 'ref' → a régi (referencia) adatok.
      A referencia ugyanabban a gyűjteményben van, „ref_ÉV” azonosítóval, így nem kell
      külön jogosultság, és az importálás/mentés soha nem nyúl hozzá. */
+  /* 2026-11-14 -> 14.11.2026 (a versenycímkéhez, mint a kézi felvitelnél) */
+  function dmDate(iso){
+    var m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!m) return String(iso || '');
+    return Number(m[3]) + '.' + Number(m[2]) + '.' + m[1];
+  }
   function loadResults(cb, src){
     var wantRef = (src === 'ref');
     var key = wantRef ? 'resultsRef' : 'results';
@@ -2841,7 +2850,34 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
         var isRef = String(d.id).indexOf('ref_') === 0;
         if(isRef === wantRef) arr.push(Object.assign({ id: d.id }, d.data()));
       });
-      CACHE[key] = arr; cb(arr);
+      /* a programból feltöltött végeredmények beolvasztása (jóváhagyva) */
+      if(wantRef){ CACHE[key] = arr; cb(arr); return; }
+      db.collection('verseny_elo').where('tipus','==','eredmeny').get().then(function(s2){
+        var feltolt = [];
+        s2.forEach(function(d){ var x = d.data() || {}; if(x.jovahagyva === true) feltolt.push(x); });
+        feltolt.forEach(function(x){
+          var ev = String(x.datum || '').slice(0, 4) || 'ismeretlen';
+          var cimke = String(x.hely || x.nev || '') + ' ' + dmDate(x.datum || '');
+          var cel = null;
+          arr.forEach(function(y){ if(String(y.year) === ev) cel = y; });
+          if(!cel){
+            cel = { id: ev, year: ev, label: ev, rows: [], aggRows: [], tournaments: [], __uj: true };
+            arr.push(cel);
+          }
+          var marVane = (cel.rows || []).some(function(r){ return String(r.t) === cimke; });
+          if(marVane) return;
+          (x.sorok || []).forEach(function(r){
+            cel.rows.push({
+              n: r.nev || '', t: cimke, place: Number(r.h || 0),
+              points: Number(r.pont || 0), money: Number(r.penz || 0),
+              size: (x.sorok || []).length, drawn: false, rounds: [],
+              code: String(r.kod || ''), __uj: true
+            });
+          });
+          (cel.tournaments = cel.tournaments || []).push(cimke);
+        });
+        CACHE[key] = arr; cb(arr);
+      }).catch(function(){ CACHE[key] = arr; cb(arr); });
     }).catch(function(){ CACHE[key] = []; cb([]); });
   }
   function resultsOfYear(list, year){
