@@ -3762,17 +3762,17 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       }
       if(p.playedTotal != null) p.played = p.playedTotal;
       p.avgSize = p.sizes.length ? Math.round(p.sizes.reduce(function(a, b){ return a + b; }, 0) / p.sizes.length) : null;
-      /* ha van hivatalos összesített pont, az a mérvadó */
-      if(p.aggPoints != null) p.points = Math.round(p.aggPoints * 100) / 100;
+      /* a szezon összesítettje: minden verseny végeredménye összeadva */
+      /* Az összesített pont a szezonbeli versenyeken szerzett pontok ÖSSZEGE (pénz is összeadva). */
+      p.aggPoints = Math.round((p.points || 0) * 100) / 100;
       return p;
     });
     /* A ranglista alapelve: Pont (ez a fő), holtversenynél a több nyeremény,
        utána a több győzelem, végül a hivatalos helyezés és a név. */
     arr.sort(function(a, b){
       if(b.points !== a.points) return b.points - a.points;
-      /* azonos pontnál a hivatalos helyezés a mérvadó (a táblázat így sorolja) */
-      var ra = (a.aggRank == null ? 99999 : a.aggRank), rb = (b.aggRank == null ? 99999 : b.aggRank);
-      if(ra !== rb) return ra - rb;
+      /* azonos pontnál a több NYEREMÉNY dönt (ahogy a szabályunk mondja) */
+      if((b.money || 0) !== (a.money || 0)) return (b.money || 0) - (a.money || 0);
       if(b.grossMoney !== a.grossMoney) return b.grossMoney - a.grossMoney;
       if(b.wins !== a.wins) return b.wins - a.wins;
       if(b.podiums !== a.podiums) return b.podiums - a.podiums;
