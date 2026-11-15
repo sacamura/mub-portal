@@ -1381,9 +1381,9 @@
             '<button class="masod-gomb kicsi" data-t="ujranyit">' + esc(sz('lezarva_megnyitas')) + '</button>' +
           '</div>' +
           '<div class="nevezes-sor gomb-racs">' +
-            '<button class="fo-gomb" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
+            '<button class="halvany-gomb kicsi" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
             '<button class="masod-gomb kicsi ikon-gomb-szeles" data-t="vegeredmeny-nyomtat" title="' + esc(sz('vegeredmeny_gomb')) + '">🖨 ' + esc(sz('nyomtatas_gomb')) + '</button>' +
-            '<button class="masod-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
+            '<button class="fo-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
             '<button class="masod-gomb kicsi" data-t="eredmeny-feltolt" title="' + esc(sz('eredmeny_tipp')) + '">' + esc(sz('eredmeny_gomb')) + '</button>' +
           '</div>' +
           '<div class="nevezes-sor gomb-racs gomb-halvany">' +
@@ -1406,7 +1406,7 @@
             '</div>'
           : '<button class="masod-gomb kicsi veszely-gomb" data-t="lezar-ker">' + esc(sz('lezar_gomb')) + '</button>') +
         '<button class="masod-gomb kicsi ikon-gomb-szeles" data-t="vegeredmeny-nyomtat" title="' + esc(sz('vegeredmeny_gomb')) + '">🖨 ' + esc(sz('nyomtatas_gomb')) + '</button>' +
-        '<button class="masod-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
+        '<button class="fo-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
         '<button class="masod-gomb kicsi" data-t="eredmeny-feltolt" title="' + esc(sz('eredmeny_tipp')) + '">' + esc(sz('eredmeny_gomb')) + '</button>' +
         '<button class="halvany-gomb kicsi" data-t="elo-feltolt" title="' + esc(sz('elo_tipp')) + '">' + esc(sz('elo_gomb')) + '</button>' +
                 '<span class="sugo">' + esc(sz('lezar_sugo')) + '</span>') +
@@ -2197,7 +2197,7 @@
                   '<div class="bizt-fej">' + esc(sz('b4_fajl')) + '</div>' +
                   '<p class="bizt-magyar">' + esc(sz('b4_fajl_magyar')) + '</p>' +
                   '<div class="nevezes-sor">' +
-                    '<button class="halvany-gomb kicsi kicsi" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
+                    '<button class="halvany-gomb kicsi" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
                     '<button class="masod-gomb kicsi" data-t="import">' + esc(sz('import_gomb')) + '</button>' +
                     '<button class="masod-gomb kicsi" data-t="csv">' + esc(sz('csv_gomb')) + '</button>' +
                     '<input type="file" id="import-fajl" accept=".json" style="display:none">' +
@@ -4266,7 +4266,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.87';
+  V.VERZIO = '1.88';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
