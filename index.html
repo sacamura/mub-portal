@@ -3739,7 +3739,16 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
         grossSum += sm.gross; feeSum += sm.fee; roundsSum += rounds;
       });
       p.grossMoney = Math.round(grossSum * 100) / 100;
-      p.feePaid = Math.round(feeSum * 100) / 100;
+      /* Egy verseny nevezési díja 25 € (5 kör × 5 €). Az egyenleg:
+         a versenyeken nyert összeg − 25 € × ahány versenyen játszott. */
+      var versenyDb = 0;
+      var marLatott = {};
+      (p.rows || []).forEach(function (r2) {
+        var t2 = String(r2.t || '').trim();
+        if (t2 && !marLatott[t2]) { marLatott[t2] = 1; versenyDb++; }
+      });
+      p.versenyDb = versenyDb;
+      p.feePaid = Math.round(25 * versenyDb * 100) / 100;
       p.netMoney = Math.round((p.grossMoney - p.feePaid) * 100) / 100;
       p.roundsPlayed = roundsSum;
       /* A csoport összes névformája és azonosítója (a keresés és a megjelenítés miatt). */
@@ -4423,7 +4432,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       + rule()
       + '<div class="tabs noprint" style="margin:0 0 1rem">'
         + '<button class="'+(resTab==='versenyek'?'active':'')+'" onclick="MUB.setResTab(\'versenyek\')">'+esc(T('Versenyenkénti eredmények','Výsledky podľa turnajov'))+'</button>'
-        + (currentUser ? '<button class="'+(resTab==='osszesitett'?'active':'')+'" onclick="MUB.setResTab(\'osszesitett\')">'+esc(T('MUB összesített','Súhrn MUB'))+'</button>' : '')
+        + '<button class="'+(resTab==='osszesitett'?'active':'')+'" onclick="MUB.setResTab(\'osszesitett\')">'+esc(T('MUB összesített','Súhrn MUB'))+'</button>'
       + '</div>'
       + '<div id="res-search"></div>'
       + '<div id="res-body"></div>';
@@ -5588,7 +5597,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   var ADMIN_B_TABS = ['versenyek', 'hirek', 'galeria', 'jelentkezok', 'jatekosok', 'nevek', 'felvetel', 'szabalyok'];
   /* Az összevont „Eredmények” fül alpontjai (korábban külön fülek voltak). */
   var ADMIN_SUBS = [['felvetel', 'Eredmény felvétel', 'Zadať výsledky'], ['szezonok', 'Szezonok', 'Sezóny'],
-                    ['nevek', 'Név-egyesítés', 'Zlučovanie mien'], ['tablazat', 'Táblázat beolvasása', 'Načítať tabuľku']];
+                    ['nevek', 'Név-egyesítés', 'Zlučovanie mien'], ['jovahagyas', 'Jóváhagyás', 'Schválenie'], ['tablazat', 'Táblázat beolvasása', 'Načítať tabuľku']];
   function adminSubLabel(s){ return T(s[1], s[2]); }
   var ADMIN_ROLES = null;                              /* a Firebase-ből: { full:[], limited:[] } */
   function lowerList(a){ return (a || []).map(function(x){ return String(x).trim().toLowerCase(); }).filter(Boolean); }
@@ -5856,11 +5865,6 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       + '<button class="btn sm secondary noprint" onclick="MUB.logout()">'+esc(T('Kijelentkezés','Odhlásiť sa'))+'</button></div>'
       + '<div class="tabs noprint">'+tabs.map(function(t){ return '<button class="'+(adminTab===t[0]?'active':'')+'" onclick="MUB.setAdminTab(\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>'
       + '<div id="admin-sub"></div>'
-    + '<div class="card noprint" style="padding:.6rem .9rem;margin:.2rem 0 .8rem;display:flex;gap:.8rem;align-items:center;flex-wrap:wrap">'
-      + '<b>'+esc(T('Végeredmények jóváhagyása','Schvaľovanie konečných výsledkov'))+'</b>'
-      + '<a class="btn sm" href="#vegeredmeny">'+esc(T('Ellenőrzés és jóváhagyás','Kontrola a schválenie'))+'</a>'
-      + '<span class="meta" style="margin:0">'+esc(T('A programból feltöltött végeredmény csak itt, jóváhagyás után jelenik meg a nyilvános oldalon.','Konečný výsledok z programu sa verejne zobrazí až po schválení tu.'))+'</span>'
-    + '</div>'
       + '<div id="admin-body"></div>';
     el.innerHTML = html;
     /* A jogosultsági lista frissítése a háttérben (ha megváltozott, újrarajzolunk). */
@@ -5966,7 +5970,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
         return '<button class="'+(adminSub===s[0]?'active':'')+'" onclick="MUB.setAdminSub(\''+s[0]+'\')">'+esc(adminSubLabel(s))+'</button>';
       }).join('')+'</div>';
     } else if(sub){ sub.innerHTML = ''; }
-    if(adminSub === 'szezonok') renderAdminSeasons();
+    if(adminSub === 'jovahagyas') renderAdminJovahagyas();
+    else if(adminSub === 'szezonok') renderAdminSeasons();
     else if(adminSub === 'nevek') renderAdminNames();
     else if(adminSub === 'tablazat') renderAdminResults();
     else renderAdminMr();
@@ -5974,6 +5979,32 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   /* A régi (külön) fülek neveit átirányítjuk az összevont fül megfelelő alpontjára.
      A fő „Eredmények” fülre kattintva az utolsó alpont marad (elsőre a felvétel). */
   var ADMIN_TAB_ALIAS = { felvetel: 'felvetel', szezonok: 'szezonok', nevek: 'nevek', tablazat: 'tablazat', eredmeny: 'tablazat' };
+  /* A programból feltöltött végeredmények jóváhagyása külön almenüben. */
+  function renderAdminJovahagyas(){
+    var body = document.getElementById('admin-body');
+    if(!body) return;
+    body.innerHTML = '<h3 class="adminsub">'+esc(T('Végeredmények jóváhagyása','Schvaľovanie konečných výsledkov'))+'</h3>'
+      + '<p class="meta" style="margin:0 0 .9rem">'+esc(T('A programból feltöltött végeredmények itt ellenőrizhetők, itt hagyhatók jóvá, és innen látszik, mikor melyik verseny került fel.','Konečné výsledky z programu sa tu dajú skontrolovať a schváliť; vidno, kedy bol ktorý turnaj nahratý.'))+'</p>'
+      + '<div id="jov-list">'+esc(T('Betöltés…','Načítava sa…'))+'</div>';
+    var box = document.getElementById('jov-list');
+    db.collection('verseny_elo').where('tipus','==','eredmeny').get().then(function(snap){
+      var lista = [];
+      snap.forEach(function(d){ var x = d.data() || {}; x.__id = d.id; lista.push(x); });
+      lista.sort(function(a,b){ return ((b.ts||0)-(a.ts||0)) || String(b.datum||'').localeCompare(String(a.datum||'')); });
+      if(!lista.length){ if(box) box.innerHTML = '<p class="meta">'+esc(T('Még nincs feltöltött végeredmény.','Zatiaľ nie je nahratý konečný výsledok.'))+'</p>'; return; }
+      if(box) box.innerHTML = '<div class="table-wrap"><table class="list"><thead><tr>'
+        + '<th>'+esc(T('Verseny','Turnaj'))+'</th><th>'+esc(T('Dátum','Dátum'))+'</th><th class="num">'+esc(T('Játékos','Hráčov'))+'</th>'
+        + '<th>'+esc(T('Feltöltve','Nahraté'))+'</th><th>'+esc(T('Állapot','Stav'))+'</th><th></th></tr></thead><tbody>'
+        + lista.map(function(x){
+            var mikor = x.ts ? new Date(x.ts).toLocaleString() : '—';
+            return '<tr><td>'+esc(x.nev||'')+'</td><td class="num">'+esc(x.datum||'')+'</td><td class="num">'+esc(String((x.sorok||[]).length))+'</td>'
+              + '<td>'+esc(mikor)+'</td>'
+              + '<td>'+(x.jovahagyva ? '<span class="ve-ok">'+esc(T('jóváhagyva','schválené'))+'</span>' : '<span class="ve-var">'+esc(T('ellenőrzés alatt','na kontrole'))+'</span>')+'</td>'
+              + '<td><a class="btn sm secondary" href="#vegeredmeny">'+esc(T('Megnyitás','Otvoriť'))+'</a></td></tr>';
+          }).join('')
+        + '</tbody></table></div>';
+    }).catch(function(){ if(box) box.textContent = T('Nem sikerült betölteni.','Nepodarilo sa načítať.'); });
+  }
   /* A Szezonok fül megnyitása (pl. a Google-táblázat linkjének beillesztéséhez). */
   function goAdminSeasons(){
     if(!currentUser) return;
