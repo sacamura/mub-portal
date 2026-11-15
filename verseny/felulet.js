@@ -1726,7 +1726,7 @@
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(csomag)
     }).then(function () {
-      S.eredmenyGsAllapot = sz('eredmeny_gs_kesz');
+      S.eredmenyGsAllapot = sz('eredmeny_gs_kesz2');
       ok(S.eredmenyGsAllapot); render();
     }).catch(function () {
       S.eredmenyGsAllapot = sz('eredmeny_gs_hiba');
@@ -4341,7 +4341,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.92';
+  V.VERZIO = '1.93';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
