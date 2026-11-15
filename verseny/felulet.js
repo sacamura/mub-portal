@@ -1384,6 +1384,7 @@
             '<button class="halvany-gomb kicsi" data-t="export">' + esc(sz('export_gomb')) + '</button>' +
             '<button class="masod-gomb kicsi ikon-gomb-szeles" data-t="vegeredmeny-nyomtat" title="' + esc(sz('vegeredmeny_gomb')) + '">🖨 ' + esc(sz('nyomtatas_gomb')) + '</button>' +
             '<button class="fo-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
+            '<button class="fo-gomb kicsi" data-t="eredmeny-mind" title="' + esc(sz('eredmeny_mind_tipp')) + '">' + esc(sz('eredmeny_mind_gomb')) + '</button>' +
             '<details class="beall-resz" style="margin:0"><summary>' + esc(sz('halado_cim')) + '</summary>' +
               '<div class="nevezes-sor" style="margin-top:6px">' +
                 '<button class="masod-gomb kicsi" data-t="eredmeny-gs" title="' + esc(sz('eredmeny_gs_gomb')) + '">' + esc(sz('eredmeny_gs_gomb')) + '</button>' +
@@ -1391,7 +1392,6 @@
               '</div></details>' +
           '</div>' +
           '<div class="nevezes-sor gomb-racs gomb-halvany">' +
-            '<button class="halvany-gomb kicsi" data-t="elo-feltolt" title="' + esc(sz('elo_tipp')) + '">' + esc(sz('elo_gomb')) + '</button>' +
             '<button class="halvany-gomb kicsi" data-t="nezet" data-nezet="beallitas">' + esc(sz('lezarva_feltoltes')) + '</button>' +
             (varE('ujverseny')
               ? megerositesSav(sz('uj_verseny_biztos'), 'ujverseny-igen', 'megerosites-nem')
@@ -1411,12 +1411,12 @@
           : '<button class="masod-gomb kicsi veszely-gomb" data-t="lezar-ker">' + esc(sz('lezar_gomb')) + '</button>') +
         '<button class="masod-gomb kicsi ikon-gomb-szeles" data-t="vegeredmeny-nyomtat" title="' + esc(sz('vegeredmeny_gomb')) + '">🖨 ' + esc(sz('nyomtatas_gomb')) + '</button>' +
         '<button class="fo-gomb kicsi" data-t="excel">' + esc(sz('excel_gomb')) + '</button>' +
+        '<button class="fo-gomb kicsi" data-t="eredmeny-mind" title="' + esc(sz('eredmeny_mind_tipp')) + '">' + esc(sz('eredmeny_mind_gomb')) + '</button>' +
         '<details class="beall-resz" style="margin:0"><summary>' + esc(sz('halado_cim')) + '</summary>' +
           '<div class="nevezes-sor" style="margin-top:6px">' +
             '<button class="masod-gomb kicsi" data-t="eredmeny-gs" title="' + esc(sz('eredmeny_gs_gomb')) + '">' + esc(sz('eredmeny_gs_gomb')) + '</button>' +
-            '<button class="halvany-gomb kicsi" data-t="eredmeny-feltolt" title="' + esc(sz('eredmeny_tipp')) + '">' + esc(sz('eredmeny_gomb')) + '</button>' +
+        '<button class="halvany-gomb kicsi" data-t="eredmeny-feltolt" title="' + esc(sz('eredmeny_tipp')) + '">' + esc(sz('eredmeny_gomb')) + '</button>' +
           '</div></details>' +
-        '<button class="halvany-gomb kicsi" data-t="elo-feltolt" title="' + esc(sz('elo_tipp')) + '">' + esc(sz('elo_gomb')) + '</button>' +
                 '<span class="sugo">' + esc(sz('lezar_sugo')) + '</span>') +
           '</div>') +
       (S.eredmenyAllapot ? '<p class="eredmeny-allapot">' + esc(S.eredmenyAllapot) + '</p>' : '') +
@@ -1640,11 +1640,11 @@
 
   /* A4-es végeredmény-lap: egy oldalra beférő, tömör táblázat. */
   /* A VÉGEREDMÉNY feltöltése a weblapra (a jóváhagyásig „ellenőrzés alatt"). */
-  function eredmenyFeltolt() {
+  function eredmenyFeltolt(cb) {
     var a = S.allapot;
-    if (!a.korok.length) { hiba(sz('nincs_eredmeny')); render(); return; }
-    if (!a.esemenyId) { hiba(sz('elo_nincs_esemeny')); render(); return; }
-    if (!global.BEKULDES || !global.BEKULDES.eloMent) { hiba(sz('elo_hiba')); render(); return; }
+    if (!a.korok.length) { hiba(sz('nincs_eredmeny')); render(); if (cb) cb(true); return; }
+    if (!a.esemenyId) { hiba(sz('elo_nincs_esemeny')); render(); if (cb) cb(true); return; }
+    if (!global.BEKULDES || !global.BEKULDES.eloMent) { hiba(sz('elo_hiba')); render(); if (cb) cb(true); return; }
     var ig = a.korok.length;
     var lista = M.rangsor(a, ig);
     var dijDb = szam(a.beall.dijazott, 0);
@@ -1677,10 +1677,11 @@
     var kuld = function (marJovahagyva) {
       if (marJovahagyva) csomag.jovahagyva = true;
       global.BEKULDES.eloMent(docId, csomag, function (h) {
-        if (h) { hiba(sz('eredmeny_hiba')); render(); return; }
+        if (h) { hiba(sz('eredmeny_hiba')); render(); if (cb) cb(true); return; }
         S.eredmenyAllapot = marJovahagyva ? sz('eredmeny_frissitve') : sz('eredmeny_feltoltve');
         render();
         ok(S.eredmenyAllapot);
+        if (cb) cb(false);
       });
     };
     if (global.BEKULDES.eloOlvas) {
@@ -1692,12 +1693,39 @@
   }
 
   /* A VÉGEREDMÉNY beírása a Google-táblázatba (külön lapra, a kért formában). */
-  function eredmenyGsFeltolt() {
+  /* EGY gomb: a végeredmény megy a weblapra ÉS a Google-táblázatba. */
+  function eredmenyMindenhova() {
+    var a = S.allapot;
+    var webKesz = false, gsKesz = false, hibaVolt = false;
+    var jelent = function (tipus, h) {
+      if (h) hibaVolt = true;
+      if (tipus === 'web') webKesz = !h; else if (tipus === 'gs') gsKesz = !h;
+      if (webKesz && gsKesz) { S.eredmenyAllapot = sz('eredmeny_mind_kesz'); ok(S.eredmenyAllapot); render(); }
+      else if (hibaVolt && (webKesz || gsKesz)) { S.eredmenyAllapot = sz('eredmeny_mind_reszben'); render(); }
+    };
+    /* weblap */
+    var webHivas = function () {
+      try {
+        eredmenyFeltolt(function (h) { jelent('web', h); });
+      } catch (e) { jelent('web', true); }
+    };
+    /* Google-táblázat */
+    var gsHivas = function () {
+      try { eredmenyGsFeltolt(function (h) { jelent('gs', h); }); } catch (e) { jelent('gs', true); }
+    };
+    S.eredmenyAllapot = sz('eredmeny_mind_folyamatban');
+    render();
+    webHivas();
+    gsHivas();
+    if (!a.beall.gsUrl) { jelent('gs', true); }
+  }
+
+  function eredmenyGsFeltolt(cb) {
     var a = S.allapot;
     var url = String(a.beall.gsUrl || '').trim();
-    if (!url) { hiba(sz('gs_nincs_url')); render(); return; }
-    if (!a.korok.length) { hiba(sz('nincs_eredmeny')); render(); return; }
-    if (!global.fetch) { hiba(sz('gs_nincs_fetch')); render(); return; }
+    if (!url) { hiba(sz('gs_nincs_url')); render(); if (cb) cb(true); return; }
+    if (!a.korok.length) { hiba(sz('nincs_eredmeny')); render(); if (cb) cb(true); return; }
+    if (!global.fetch) { hiba(sz('gs_nincs_fetch')); render(); if (cb) cb(true); return; }
     var lista = M.rangsor(a, a.korok.length);
     var dijDb = szam(a.beall.dijazott, 0);
     var sorok = lista.map(function (p) {
@@ -1728,9 +1756,11 @@
     }).then(function () {
       S.eredmenyGsAllapot = sz('eredmeny_gs_kesz2');
       ok(S.eredmenyGsAllapot); render();
+      if (cb) cb(false);
     }).catch(function () {
       S.eredmenyGsAllapot = sz('eredmeny_gs_hiba');
       hiba(S.eredmenyGsAllapot); render();
+      if (cb) cb(true);
     });
   }
 
@@ -2278,6 +2308,9 @@
                   '<p class="bizt-magyar">' + esc(sz('b4_gs_magyar')) + '</p>' +
                   '<label class="beall-mezo szeles"><span class="mezo-felirat">' + esc(sz('gs_url')) + '</span>' +
                     '<input data-t="beall" data-mezo="gsUrl" value="' + esc(b.gsUrl || '') + '" placeholder="https://script.google.com/macros/s/…/exec"></label>' +
+      '<label class="beall-mezo"><span class="mezo-felirat">' + esc(sz('elo_auto_cim')) + sugoIkon('elo_auto_sugo') + '</span>' +
+        '<span class="kapcsolo-sor"><input type="checkbox" data-t="beall-kapcsolo" data-mezo="eloAuto"' +
+          (b.eloAuto === false ? '' : ' checked') + '> ' + esc(sz('elo_auto_rovid')) + '</span></label>' +
                   '<div class="nevezes-sor">' +
                     '<button class="masod-gomb kicsi" data-t="gs-teszt">' + esc(sz('gs_teszt_gomb')) + '</button>' +
             '<button class="masod-gomb kicsi" data-t="gs-most">' + esc(sz('gs_most')) + '</button>' +
@@ -2800,7 +2833,7 @@
     if (!a.korok.length) { hiba(sz('elo_nincs_kor')); render(); return; }
     if (!a.esemenyId) { hiba(sz('elo_nincs_esemeny')); render(); return; }
     var csomag = eloCsomag();
-    if (!global.BEKULDES || !global.BEKULDES.eloMent) { hiba(sz('elo_hiba')); render(); return; }
+    if (!global.BEKULDES || !global.BEKULDES.eloMent) { hiba(sz('elo_hiba')); render(); if (cb) cb(true); return; }
     ok(sz('elo_kuld'));
     global.BEKULDES.eloMent(a.esemenyId, csomag, function (h) {
       if (h) { hiba(sz('elo_hiba')); render(); return; }
@@ -2814,6 +2847,8 @@
   function eloFeltoltCsendes() {
     if (S.allapot && S.allapot.beall && S.allapot.beall.tesztVerseny) return;
     var a = S.allapot;
+    if (a.beall.eloAuto === false) return;              /* a beállításokban kikapcsolható */
+    if (!(a.beall.weblapJelentkezok || []).length) return; /* csak webes jelentkezőknél */
     if (!a.esemenyId || !a.korok.length) return;
     if (!global.BEKULDES || !global.BEKULDES.eloMent) return;
     global.BEKULDES.eloMent(a.esemenyId, eloCsomag(), function () { });
@@ -3664,6 +3699,7 @@
       ok(sz('teszt_vissza_kesz'));
       return;
     }
+    if (t === 'eredmeny-mind') { eredmenyMindenhova(); return; }
     if (t === 'elo-feltolt') { eloFeltolt(); return; }
     if (t === 'kesz-ki') {
       /* csak odagörgetünk a törzslista kártyához – adatot nem érint */
@@ -4077,6 +4113,11 @@
       return;
     }
     /* helyszín gépelése közben felkínáljuk a szokásos neveket */
+    if (t === 'beall-kapcsolo') {
+      var km = cel.getAttribute('data-mezo');
+      if (km) { S.allapot.beall[km] = !!cel.checked; mentes(); render(); }
+      return;
+    }
     if (t === 'beall') {
       var mez = cel.getAttribute('data-mezo');
       S.allapot.beall[mez] = (cel.type === 'checkbox') ? !!cel.checked : cel.value;
@@ -4141,6 +4182,11 @@
     if (t === 'nev') {
       var jn = jatekos(parseInt(cel.getAttribute('data-id'), 10));
       if (jn) { jn.nev = cel.value.trim() || jn.nev; mentes(); }
+      return;
+    }
+    if (t === 'beall-kapcsolo') {
+      var km = cel.getAttribute('data-mezo');
+      if (km) { S.allapot.beall[km] = !!cel.checked; mentes(); render(); }
       return;
     }
     if (t === 'beall') {
@@ -4341,7 +4387,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.93';
+  V.VERZIO = '1.94';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
