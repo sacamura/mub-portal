@@ -2300,7 +2300,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       loadRegistrations(function(regs){
         TID_COUNTS = countByTid(regs);
         var q = calFilter.trim().toLowerCase();
-        var sorted = ts.slice().sort(byDateAsc).filter(function(t){
+        /* fordított sorrend: a legfrissebb verseny van elöl */
+      var sorted = ts.slice().sort(byDateDesc).filter(function(t){
           if(!q) return true;
           var infoTxt = (t.info||[]).map(function(r){ return String((r&&r.hu)||'')+' '+String((r&&r.sk)||''); }).join(' ');
           return (String(t.location_hu||'')+' '+String(t.location_sk||'')+' '+String(t.date||'')+' '+tagLabel(t.tag)+' '+infoTxt).toLowerCase().indexOf(q) >= 0;
@@ -4409,7 +4410,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
                                     'Oficiálne výsledkové tabuľky turnajov podľa sezón. Tabuľku stránka otvorí po kliknutí (je to rýchlejšie a web neposkakuje), potom sa v tabuľke dá posúvať a listovať.'))+'</p>'
           + resultsSheetsHtml(seasons.slice().sort(bySeasonDesc))
           + (FEAT.statistics ? '<p class="meta" style="margin-top:1.4rem"><a href="#statisztika">'+esc(T('Összesített statisztika és játékos-adatlapok →','Súhrnná štatistika a karty hráčov →'))+'</a></p>' : '');
-        autoLoadSheets();
+        /* nem töltjük be magától a beágyazott táblázatokat: kattintásra nyílnak (nem ugrik az oldal) */
       });
     });
   }
