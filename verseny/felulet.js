@@ -1752,17 +1752,36 @@
     S.eredmenyGsAllapot = sz('eredmeny_gs_folyamatban');
     render();
     global.fetch(url, {
-      method: 'POST', mode: 'no-cors',
+      method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(csomag)
-    }).then(function () {
+    }).then(function (r) {
+      return r.json().catch(function () { return null; });
+    }).then(function (j) {
+      /* a szkript visszaadja: {ok:true, lap:'…', celba:true/false, tablazat:'…'} */
+      if (j && j.ok) {
+        if (j.celba === false) {
+          S.eredmenyGsAllapot = sz('eredmeny_gs_masik', { tabla: j.tablazat || '?' });
+          hiba(S.eredmenyGsAllapot); render(); if (cb) cb(true); return;
+        }
+        S.eredmenyGsAllapot = sz('eredmeny_gs_kesz2');
+        ok(S.eredmenyGsAllapot); render(); if (cb) cb(false); return;
+      }
       S.eredmenyGsAllapot = sz('eredmeny_gs_kesz2');
-      ok(S.eredmenyGsAllapot); render();
-      if (cb) cb(false);
+      ok(S.eredmenyGsAllapot); render(); if (cb) cb(false);
     }).catch(function () {
-      S.eredmenyGsAllapot = sz('eredmeny_gs_hiba');
-      hiba(S.eredmenyGsAllapot); render();
-      if (cb) cb(true);
+      /* ha a válasz nem olvasható (hálózat), legalább a feltöltést jelezzük */
+      global.fetch(url, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(csomag)
+      }).then(function () {
+        S.eredmenyGsAllapot = sz('eredmeny_gs_kesz2');
+        ok(S.eredmenyGsAllapot); render(); if (cb) cb(false);
+      }).catch(function () {
+        S.eredmenyGsAllapot = sz('eredmeny_gs_hiba');
+        hiba(S.eredmenyGsAllapot); render(); if (cb) cb(true);
+      });
     });
   }
 
@@ -4452,7 +4471,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.97';
+  V.VERZIO = '1.98';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
