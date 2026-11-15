@@ -2873,7 +2873,10 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
             cel.rows.push({
               n: r.nev || '', t: cimke, place: Number(r.h || 0),
               points: Number(r.pont || 0), money: Number(r.penz || 0),
-              size: (x.sorok || []).length, drawn: false, rounds: [],
+              size: (x.sorok || []).length, drawn: false,
+              rounds: (r.rounds || []).map(function (x2) {
+                return { points: Number(x2.points || 0), money: Number(x2.money || 0) };
+              }),
               code: String(r.kod || ''), __uj: true
             });
           });
