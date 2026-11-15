@@ -2270,7 +2270,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   }
   function renderHome(el){
     el.innerHTML = '<h1 class="page-title">'+esc(T('Üdvözlünk!','Vitajte!'))+'</h1>'+rule()
-      + '<p style="margin:0 0 1rem"><a class="btn" style="font-size:1.05rem;padding:.7rem 1.3rem" href="verseny/verseny.html">▶ ' + esc(T('Verseny indítása','Spustiť turnaj')) + '</a></p>'
+      + (currentUser ? '<p style="margin:0 0 1rem"><a class="btn" style="font-size:1.05rem;padding:.7rem 1.3rem" href="verseny/verseny.html">▶ ' + esc(T('Verseny indítása','Spustiť turnaj')) + '</a></p>' : '') +
       + '<div id="home-body">'+esc(T('Betöltés…','Načítava sa…'))+'</div>';
     loadTournaments(function(ts){
      loadRegistrations(function(regs){
