@@ -665,6 +665,18 @@
 .pcard2 .field label{font-size:.76rem!important}
 .pcard2 .pin{padding:.3rem .4rem!important;font-size:.92rem!important}
 .pcard2__note{font-size:.8rem!important;margin-top:.15rem!important}
+
+/* olvashatosag: időseknek is kényelmes méret */
+html{font-size:17px}
+body{font-size:1rem;line-height:1.55}
+.page-title{font-size:1.9rem;line-height:1.2}
+.meta,.ainote{font-size:.98rem;line-height:1.5;color:#33465a}
+.btn,.tabs button{font-size:.98rem;padding:.5rem .9rem}
+.list th,.list td{padding:.5rem .6rem;font-size:.98rem}
+.field label{font-size:.95rem}
+
+.meta-resz{margin:.3rem 0 .8rem}
+.meta-resz>summary{cursor:pointer;font-size:.95rem;color:#4a6076}
 </style>
 </head>
 <body>
@@ -1660,6 +1672,27 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     render();
   }
 
+  /* A hosszú magyarázatokat egy „Részletek” lenyílóba tesszük (nem kell a szem előtt). */
+  function metaBecsuk(gyoker){
+    try{
+      if(!gyoker || !gyoker.querySelectorAll) return;
+      var ps = gyoker.querySelectorAll('p.meta, p.ainote');
+      for(var i = 0; i < ps.length; i++){
+        var p = ps[i];
+        if(p.getAttribute('data-becsukva')) continue;
+        var szoveg = (p.textContent || '').trim();
+        if(szoveg.length < 220) continue;            /* a rövid sorok maradnak */
+        p.setAttribute('data-becsukva', '1');
+        var d = document.createElement('details');
+        d.className = 'meta-resz';
+        var sum = document.createElement('summary');
+        sum.textContent = (szoveg.slice(0, 60).replace(/\s+$/, '')) + '…';
+        d.appendChild(sum);
+        p.parentNode.insertBefore(d, p);
+        d.appendChild(p);
+      }
+    }catch(e){}
+  }
   function render(){
     document.documentElement.setAttribute('lang', lang==='sk' ? 'sk' : 'hu');
     var bs = document.getElementById('brand-sub');
@@ -1678,6 +1711,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     var routeMenu = { jelentkezesaim: 'jelentkezes', jelentkezok: 'jelentkezes' }[route] || route;
     if(!menuOn(routeMenu) && route !== 'home' && route !== 'admin' && route !== 'verseny') route = 'home';
     if(routeChanged && window.scrollTo) window.scrollTo(0, 0);
+    /* a hosszú magyarázatokat becsukjuk (a rajzolás után, késleltetve) */
+    setTimeout(function(){ try{ metaBecsuk(document.getElementById('view')); }catch(e){} }, 60);
     if(route==='home') return renderHome(el);
     if(route==='naptar') return renderCalendar(el);
     if(route==='galeria') return renderGallery(el);
