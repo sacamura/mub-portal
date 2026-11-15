@@ -844,7 +844,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 99;
+  var BUILD = 100;
   var BUILD_DATE = '2026-11-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -5956,7 +5956,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
     var html = (isFullAdmin() ? backupReminderHtml() : '') + '<div class="toolbar"><div><h1 class="page-title" style="display:inline">'+esc(T('Admin','Admin'))+'</h1> <span class="meta">'+esc(currentUser.email)+'</span></div>'
       + '<button class="btn sm secondary noprint" onclick="MUB.logout()">'+esc(T('Kijelentkezés','Odhlásiť sa'))+'</button></div>'
       + '<div class="tabs noprint">'+tabs.map(function(t){ return '<button class="'+(adminTab===t[0]?'active':'')+'" onclick="MUB.setAdminTab(\''+t[0]+'\')">'+t[1]+'</button>'; }).join('')+'</div>'
-      + '<div id="admin-sub"></div>'
+      + '<div id="admin-lat" class="card noprint" style="padding:.8rem 1rem;margin:.2rem 0 .9rem;display:none"></div>'
+    + '<div id="admin-sub"></div>'
       + '<div id="admin-body"></div>';
     el.innerHTML = html;
     /* A jogosultsági lista frissítése a háttérben (ha megváltozott, újrarajzolunk). */
@@ -5966,6 +5967,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
       ADMIN_ROLES = r;
       if(JSON.stringify(r) !== before && document.getElementById('admin-body')) renderAdmin(document.getElementById('view'));
     });
+    latogatottsagKartya();
     if(adminTab==='versenyek') renderAdminTournaments();
     else if(adminTab==='eredmenyek') renderAdminEredmenyek();
     else if(adminTab==='hirek') renderAdminNews();
@@ -6072,6 +6074,33 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
   /* A régi (külön) fülek neveit átirányítjuk az összevont fül megfelelő alpontjára.
      A fő „Eredmények” fülre kattintva az utolsó alpont marad (elsőre a felvétel). */
   /* Látogatottság: az utolsó 30 nap oldalmegnyitásai. */
+  /* Kis látogatottság-kártya az admin tetején (ma / 7 nap / 30 nap). */
+  function latogatottsagKartya(){
+    var box = document.getElementById('admin-lat');
+    if(!box || !currentUser) return;
+    box.style.display = 'block';
+    box.innerHTML = '<span class="meta">'+esc(T('Látogatottság','Návštevnosť'))+': …</span>';
+    var hatar = Date.now() - 30 * 24 * 3600 * 1000;
+    db.collection('logs').where('tip','==','latogatas').limit(2000).get().then(function(snap){
+      var ma = new Date().toISOString().slice(0,10);
+      var maDb = 0, hetDb = 0, hoDb = 0;
+      var het = Date.now() - 7*24*3600*1000;
+      var latogatok = {};
+      snap.forEach(function(d){
+        var x = d.data() || {};
+        if(!x.ts || x.ts < hatar) return;
+        hoDb++;
+        if(x.ts >= het) hetDb++;
+        if(new Date(x.ts).toISOString().slice(0,10) === ma) maDb++;
+        if(x.vid) latogatok[x.vid] = 1;
+      });
+      box.innerHTML = '<b>'+esc(T('Látogatottság','Návštevnosť'))+'</b>'
+        + ' <span class="meta" style="margin:0">'+esc(T('ma','dnes'))+': <b>'+maDb+'</b>'
+        + ' · 7 '+esc(T('nap','dní'))+': <b>'+hetDb+'</b>'
+        + ' · 30 '+esc(T('nap','dní'))+': <b>'+hoDb+'</b>'
+        + ' · '+esc(T('látogatók','návštevníci'))+': <b>'+Object.keys(latogatok).length+'</b></span>';
+    }).catch(function(){ box.style.display = 'none'; });
+  }
   function renderAdminLatogatottsag(){
     var body = document.getElementById('admin-body');
     if(!body) return;
