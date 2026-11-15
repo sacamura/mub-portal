@@ -639,6 +639,16 @@
 #gal-body{min-height:40vh}
 #rules-body{min-height:40vh}
 #jelentkezes-body{min-height:40vh}
+
+/* végeredmény blokk */
+.ve-blokk{margin:0 0 1.1rem;padding:0 0 .8rem;border-bottom:1px solid #eef2f6}
+.ve-blokk:last-child{border-bottom:none}
+.ve-fej{display:flex;gap:.6rem;align-items:baseline;flex-wrap:wrap;margin-bottom:.5rem}
+.ve-fej b{font-size:1.05rem}
+.ve-fej span{color:#6b7f8f;font-size:.9rem}
+.ve-ok{background:#eef7f0;border:1px solid #bcdcc6;color:#1f7a44;font-weight:700;font-size:.78rem;padding:.1rem .5rem;border-radius:999px}
+.ve-var{background:#fff8e6;border:1px solid #ecd9a6;color:#7a6420;font-weight:700;font-size:.78rem;padding:.1rem .5rem;border-radius:999px}
+.ve-ossz{color:#55697e;font-size:.88rem;margin:.4rem 0 0}
 </style>
 </head>
 <body>
@@ -1516,7 +1526,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   }
 
   /* ---------- router ---------- */
-  var ROUTES = ['home','naptar','galeria','jelentkezes','jelentkezesaim','jelentkezok','eredmenyek','statisztika','elo','verseny','szabalyok','admin'];
+  var ROUTES = ['home','naptar','galeria','jelentkezes','jelentkezesaim','jelentkezok','eredmenyek','statisztika','elo','vegeredmeny','verseny','szabalyok','admin'];
   function currentRoute(){
     var h = (location.hash||'#home').replace('#','');
     var base = h.split('/')[0];
@@ -1663,6 +1673,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     if(route==='szabalyok') return renderRules(el);
     if(route==='verseny') return renderVerseny(el);
     if(route==='elo') return renderElo(el);
+    if(route==='vegeredmeny') return renderVegerEredmeny(el);
     if(route==='admin') return renderAdmin(el);
   }
 
@@ -1697,6 +1708,58 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       });
     });
   }
+  /* ---------- VÉGEREDMÉNY (a programból feltöltve, jóváhagyás után) ---------- */
+  function renderVegerEredmeny(el){
+    el.innerHTML = '<div class="elo-oldal"><h1 class="page-title">'+esc(T('Végeredmény','Konečný výsledok'))+'</h1>'
+      + '<div class="card" style="padding:1.1rem 1.3rem"><p id="ve-tartalom">'+esc(T('Betöltés…','Načítava sa…'))+'</p></div></div>';
+    var box = el.querySelector('#ve-tartalom');
+    db.collection('verseny_elo').where('tipus','==','eredmeny').get().then(function(snap){
+      var lista = [];
+      snap.forEach(function(d){ var x = d.data() || {}; x.__id = d.id; lista.push(x); });
+      lista.sort(function(a,b){ return String(b.datum||'').localeCompare(String(a.datum||'')) || ((b.ts||0)-(a.ts||0)); });
+      var admin = !!currentUser;
+      var lathato = lista.filter(function(x){ return x.jovahagyva === true; });
+      if(!lathato.length && !admin){
+        if(box) box.innerHTML = '<p>'+esc(T('Még nincs jóváhagyott végeredmény.','Zatiaľ nie je schválený konečný výsledok.'))+'</p>';
+        return;
+      }
+      var html = '';
+      var mutat = admin ? lista : lathato;
+      mutat.forEach(function(x){
+        var sorok = x.sorok || [];
+        var osszPont = 0, osszPenz = 0;
+        sorok.forEach(function(r){ osszPont += Number(r.pont||0); osszPenz += Number(r.penz||0); });
+        html += '<div class="ve-blokk">'
+          + '<div class="ve-fej"><b>'+esc(x.nev||x.hely||'')+'</b> <span>'+esc(x.datum||'')+' · '+esc(String(x.kor||0))+' '+esc(T('kör','kolo'))+' · '+sorok.length+' '+esc(T('játékos','hráčov'))+'</span>'
+          + (x.jovahagyva ? ' <span class="ve-ok">'+esc(T('jóváhagyva','schválené'))+'</span>' : ' <span class="ve-var">'+esc(T('ellenőrzés alatt','na kontrole'))+'</span>')
+          + '</div>'
+          + '<div class="elo-gorgeto"><table class="tbl elo-tabla"><thead><tr><th>#</th><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Pont','Body'))+'</th><th>€</th></tr></thead><tbody>'
+          + sorok.map(function(r){
+              return '<tr'+(r.dij?' class="e-dij"':'')+'><td>'+esc(String(r.h))+'</td><td>'+esc(r.nev||'')+(r.dij?' 🎁':'')+'</td><td class="elo-ossz">'+esc(String(r.pont))+'</td><td class="elo-ossz">'+esc(String(r.penz))+'</td></tr>';
+            }).join('')
+          + '</tbody></table></div>'
+          + '<p class="ve-ossz">'+esc(T('Ellenőrzés','Kontrola'))+': Σ '+esc(T('pont','body'))+' = '+osszPont+' · Σ € = '+(Math.round(osszPenz*100)/100)+' · '+esc(T('játékos','hráčov'))+' = '+sorok.length+'</p>'
+          + (admin && !x.jovahagyva
+              ? '<p><button class="btn sm" data-ve-jovahagy="'+esc(x.__id)+'">'+esc(T('Jóváhagyás – megjelenhet a weblapon','Schváliť – môže sa zobraziť na webe'))+'</button></p>'
+              : '')
+          + '</div>';
+      });
+      if(box) box.innerHTML = html || '<p>'+esc(T('Még nincs feltöltött végeredmény.','Zatiaľ nie je nahratý konečný výsledok.'))+'</p>';
+      var gombok = el.querySelectorAll('[data-ve-jovahagy]');
+      [].forEach.call(gombok, function(b){
+        b.addEventListener('click', function(){
+          var id = b.getAttribute('data-ve-jovahagy');
+          b.disabled = true;
+          db.collection('verseny_elo').doc(id).update({ jovahagyva: true }).then(function(){
+            renderVegerEredmeny(el);
+          }).catch(function(){ b.disabled = false; alert(T('A jóváhagyás nem sikerült (nincs jogosultság?).','Schválenie zlyhalo (chýba oprávnenie?).')); });
+        });
+      });
+    }).catch(function(){
+      if(box) box.textContent = T('A végeredmény most nem érhető el.','Konečný výsledok teraz nie je dostupný.');
+    });
+  }
+
   /* ---------- ÉLŐ EREDMÉNY (a verseny napján) ---------- */
   var ELO_ID = null;
   /* Csak a verseny napján, 9:45 után jelenik meg. */
@@ -4286,7 +4349,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
   /* EREDMÉNYEK: kereső a feltöltött eredményekben + a szervező által feltöltött
      hivatalos Google-táblázatok, szezononként beágyazva a weblapba. */
   function renderResults(el){
-    el.innerHTML = '<h1 class="page-title">'+esc(T('Eredmények','Výsledky'))+'</h1>'+rule()
+    el.innerHTML = '<h1 class="page-title">'+esc(T('Eredmények','Výsledky'))+'</h1>'
+      + '<p style="margin:-.3rem 0 .9rem"><a class="btn sm secondary" href="#vegeredmeny">'+esc(T('Végeredmény – a programból feltöltve','Konečný výsledok – nahraté z programu'))+'</a></p>'+rule()
       + '<div id="res-search">'+esc(T('Betöltés…','Načítava sa…'))+'</div>'
       + '<div id="res-body"></div>';
     loadFeatures(function(){
