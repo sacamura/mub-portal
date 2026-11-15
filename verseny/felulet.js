@@ -549,6 +549,10 @@
       importKartya + kezdoKartya +
       (a.beall.kezdesKesz ? weblapJelentkezokKartya() : '') +
       '<div class="kartya-blokk">' +
+      '<div class="uj-verseny-sav">' +
+        '<button class="fo-gomb nagy" data-t="ujverseny">+ ' + esc(sz('uj_verseny_indit')) + '</button>' +
+        '<span class="sugo">' + esc(sz('uj_verseny_indit_sugo')) + '</span>' +
+      '</div>' +
         '<h2>' + esc(sz('nevezes_cim')) + '</h2>' +
       figyelmeztetes +
         szamlalo() +
@@ -4471,7 +4475,7 @@
   V._csipog = function () { return csipog(); };
 V._torzsValtozott = function () { return S.torzsValtozott || []; };
   V._torzsToroltek = function () { return S.torzsToroltek || []; };
-  V.VERZIO = '1.98';
+  V.VERZIO = '1.99';
   V._excelSorok = function () { return excelSorok(); };
   V._excelBiztHtml = function () { return excelBiztonsagiHtml(); };
   V._gsKuld = function (url) { return gsKuld(url); };
