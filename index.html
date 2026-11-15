@@ -4519,19 +4519,16 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
           /* Kereső rögtön a statisztika tetején */
           html += '<div class="topsearch"><div class="field"><label for="res-player-top">'+esc(T('Játékos keresése (név vagy azonosító szám)','Hľadanie hráča (meno alebo identifikačné číslo)'))+'</label>'
             + '<input id="res-player-top" type="search" placeholder="'+esc(T('pl. Sárközi Ferenc vagy 1','napr. Sárközi Ferenc alebo 1'))+'" oninput="MUB.openPlayerCard(this.value)"></div></div>'
-            + '<p class="ainote">'+esc(T('Ezt a statisztikát a mesterséges intelligencia dolgozta fel a Google-táblázatokból, ezért előfordulhat benne hiba. A ugyanazon játékos magyar és szlovák névalakjait (pl. László / Ladislav, becenevek) egy személyként számoljuk. Ha valami nem stimmel, jelezze a szervezőnek — köszönjük!',
-                                        'Túto štatistiku spracovala umelá inteligencia z Google tabuliek, preto sa v nej môže vyskytnúť chyba. Maďarské a slovenské varianty toho istého mena (napr. László / Ladislav, prezývky) počítame ako jednu osobu. Ak niečo nesedí, dajte vedieť organizátorovi — ďakujeme!'))+'</p>';
           if(!FEAT.statistics){
             html += '<p class="ainote">'+esc(T('Ez a statisztika egyelőre csak a bejelentkezett adminoknak látszik — a látogatók számára ki van kapcsolva. Ha rendben van, az Admin → Eredmények fülön a kapcsolóval teheti nyilvánossá.',
                                             'Táto štatistika je zatiaľ viditeľná len pre prihlásených administrátorov — pre návštevníkov je vypnutá.'))+'</p>';
           }
           var hasPer = stats.some(function(p){ return p.rows && p.rows.length; });
           var hasAgg = stats.some(function(p){ return p.hasAgg; });
-          html += '<div class="banner" role="status" style="border-color:var(--danger)"><strong>'
-            + esc(T('Kérem, a statisztikát mindenki ellenőrizze!','Prosím, každý si štatistiku skontrolujte!'))+'</strong><br>'
-            + esc(T('Ha eltérést tapasztal, szóljon a szervezőnek: az eredményeket mesterséges intelligencia dolgozta fel a feltöltött táblázatokból, ezért előfordulhat hiba.',
-                    'Ak zistíte rozdiel, ozvite sa organizátorovi: výsledky spracovala umelá inteligencia z nahratých tabuliek, preto sa môže vyskytnúť chyba.'))
-            + '</div>'
+    html += '<p class="ainote" style="border-color:var(--danger)">'
+      + esc(T('Az eredményeket mesterséges intelligencia dolgozta fel a táblázatokból – ha eltérést lát, szóljon a szervezőnek.',
+      'Výsledky spracovala umelá inteligencia z tabuliek – ak zistíte rozdiel, ozvite sa organizátorovi.'))
+      + '</p>'
             + '<h2 class="resh">'+esc(T('Ranglista','Rebríček'))+'</h2>';
           html += '<p class="meta">'+esc(T('A pénz 2 tizedesjegyen látszik, pontosan úgy, ahogy a feltöltött táblázatban van.','Peniaze sú zobrazené na 2 desatinné miesta, presne ako v nahratej tabuľke.'))+'</p>'
             + '<p class="meta">'+esc(hasAgg
