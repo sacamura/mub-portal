@@ -1097,3 +1097,8 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
   border:1px solid #dbe6f0;border-radius:10px;padding:9px 13px;margin:0 0 12px}
 .uj-verseny-sav .sugo{margin:0;flex:1 1 220px}
 .fo-gomb.nagy{font-size:1.05rem!important;padding:.6rem 1.2rem!important;font-weight:800}
+/* kapu: kezelői belépés */
+.kapu{max-width:640px;margin:8vh auto;background:#fff;border:1px solid #dbe6f0;border-radius:14px;
+  padding:1.6rem 1.8rem;box-shadow:0 8px 24px rgba(20,40,60,.08)}
+.kapu h1{font-size:1.5rem;margin:0 0 .8rem}
+.kapu .sugo{font-size:1rem;line-height:1.5}
