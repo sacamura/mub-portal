@@ -1081,3 +1081,11 @@ body.tema-zold .ora-szunet-mod .ora-cim{color:#ffd166}
 .gomb-halvany{margin-top:2px!important}
 .gomb-halvany .halvany-gomb{opacity:.85;font-size:.86rem}
 .ikon-gomb-szeles{min-width:auto}
+
+/* kiemelt csillag a nevezettek táblázatában */
+.kiemelt-cella{width:34px;text-align:center}
+.kiemelt-fej{width:34px}
+.kiemelt-star{background:transparent;border:1px solid #ccd6df;border-radius:7px;cursor:pointer;
+  font-size:.95rem;line-height:1;padding:2px 5px;color:#b9c3cc}
+.kiemelt-star.aktiv{background:#fff8e6;border-color:#e6cf94;color:#b8860b}
+.kiemelt-star:hover{background:#f2f6fa}
