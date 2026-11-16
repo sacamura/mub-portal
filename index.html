@@ -844,7 +844,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 102;
+  var BUILD = 103;
   var BUILD_DATE = '2026-11-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -5037,6 +5037,8 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
       + '</nav>';
   }
   function renderRegPage(tab){
+    /* a törzslista nevei (az azonosító->név felismeréshez) */
+    try { loadAllPlayers(function(ps){ setRefNames(ps); }); } catch(e) {}
     var el = document.getElementById('view');
     if(!el) return;
     var bodyId = (tab === 'who') ? 'who-body' : (tab === 'my' ? 'myreg-body' : 'reg-body');
@@ -5314,7 +5316,21 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     ev.preventDefault();
     var name = document.getElementById('f-name').value.trim();
     var code = shortCodeOf(document.getElementById('f-code').value.trim());
-    if(/^[0-9\s.,-]+$/.test(name)){
+    /* Ha a név mezőbe AZONOSÍTÓT írnak (idős jelentkezőknél gyakori), ismerjük fel:
+       a törzslistából kikeressük a nevet, és azzal folytatjuk. */
+    var csakSzam = /^[0-9\s.,-]+$/.test(name);
+    var nevbolKod = csakSzam ? String(name).replace(/[^0-9]/g, '') : '';
+    if(nevbolKod && !code) code = nevbolKod;
+    if(nevbolKod){
+      /* név pótlása a törzslistából (ha van ilyen kód) */
+      var kp = null;
+      try{
+        if(typeof REFNAMES !== 'undefined' && REFNAMES && REFNAMES[nevbolKod]) kp = REFNAMES[nevbolKod];
+      }catch(e){}
+      if(kp){ name = String(kp); }
+      else { name = String(name).trim(); }     /* marad, amit írt – az adminban jelöljük */
+    }
+    if(false){
       alert(T('A név nem lehet csak szám. Kérjük, a teljes nevet írja be (az azonosítót a külön mezőbe).',
         'Meno nemôže byť iba číslo. Napíšte celé meno (identifikátor patrí do samostatného poľa).'));
       var nm = document.getElementById('f-name'); if(nm){ nm.focus(); nm.select && nm.select(); }
