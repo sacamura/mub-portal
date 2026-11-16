@@ -844,7 +844,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 101;
+  var BUILD = 102;
   var BUILD_DATE = '2026-11-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -5314,6 +5314,12 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     ev.preventDefault();
     var name = document.getElementById('f-name').value.trim();
     var code = shortCodeOf(document.getElementById('f-code').value.trim());
+    if(/^[0-9\s.,-]+$/.test(name)){
+      alert(T('A név nem lehet csak szám. Kérjük, a teljes nevet írja be (az azonosítót a külön mezőbe).',
+        'Meno nemôže byť iba číslo. Napíšte celé meno (identifikátor patrí do samostatného poľa).'));
+      var nm = document.getElementById('f-name'); if(nm){ nm.focus(); nm.select && nm.select(); }
+      return;
+    }
     if(!name || !selectedTid) return;
     var btn = document.getElementById('submit-btn');
     btn.disabled = true; btn.textContent = T('Küldés…','Odosiela sa…');
@@ -5341,13 +5347,20 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
     }
     /* védelem a véletlen kétszeri jelentkezés ellen */
     db.collection('registrations').where('tournamentId','==',selectedTid).get().then(function(snap){
-      var dup = false, already = 0;
+      var dup = false, already = 0, dupNev = '';
+      function egyszerus(x){
+        return String(x == null ? '' : x).replace(/\s+/g, ' ').trim().toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      }
+      var nameK = egyszerus(name);
       snap.forEach(function(d){
+        var o = d.data() || {};
         already++;
-        if(String((d.data()||{}).name||'').trim().toLowerCase() === name.toLowerCase()) dup = true;
+        if(egyszerus(o.name) === nameK){ dup = true; dupNev = String(o.name || ''); }
+        if(code && String(o.code || '') === String(code)){ dup = true; dupNev = String(o.name || ''); }
       });
       if(dup){
-        var ok = confirm(T('Ez a név már szerepel a jelentkezők között. Ha Ön az, nem kell újra jelentkeznie. Biztosan beküldi még egyszer?',
+        var ok = confirm((dupNev ? ('(' + dupNev + ') – ') : '') + T('Ez a név már szerepel a jelentkezők között. Ha Ön az, nem kell újra jelentkeznie. Biztosan beküldi még egyszer?',
                            'Toto meno sa už nachádza medzi prihlásenými. Ak ste to vy, nemusíte sa prihlasovať znova. Naozaj to chcete odoslať ešte raz?'));
         if(!ok){ reset(); return; }
       }
