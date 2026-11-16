@@ -677,6 +677,10 @@ body{font-size:1rem;line-height:1.55}
 
 .meta-resz{margin:.3rem 0 .8rem}
 .meta-resz>summary{cursor:pointer;font-size:.95rem;color:#4a6076}
+
+/* gyanús jelentkezés */
+.reg-gyanus td{background:#fffbe8}
+.reg-gyanus td:first-child{font-weight:800;color:#b8860b}
 </style>
 </head>
 <body>
@@ -844,7 +848,7 @@ try{ db = logWrapDb(db); }catch(e){ /* régi böngésző: marad a naplózás né
 
   /* A weblap változatának száma. Minden feltöltésnél eggyel feljebb lép,
      így egy pillantással látszik, hogy a frissítés megérkezett-e (Ctrl+F5 után). */
-  var BUILD = 103;
+  var BUILD = 104;
   var BUILD_DATE = '2026-11-15';
 
   /* A régi weblap (Google Sites) címe — a láblécben és a galéria súgójában is ez szerepel. */
@@ -7961,6 +7965,29 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
 
   /* --- admin: registrations --- */
   var regPickTid = '';
+  /* Gyanús jelentkezés: név helyett szám, vagy ugyanaz a kód/név kétszer
+     ugyanazon a versenyen. Az admin listában sárgán jelöljük. */
+  function gyanusJelentkezesek(lista){
+    var kodDb = {}, nevDb = {}, gyanus = {};
+    (lista || []).forEach(function(r){
+      var t = String(r.tournamentId || '');
+      var kod = String(r.code || '').trim();
+      var nev = String(r.name || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if(kod){ kodDb[t + '|' + kod] = (kodDb[t + '|' + kod] || 0) + 1; }
+      if(nev){ nevDb[t + '|' + nev] = (nevDb[t + '|' + nev] || 0) + 1; }
+    });
+    (lista || []).forEach(function(r){
+      var t = String(r.tournamentId || '');
+      var kod = String(r.code || '').trim();
+      var nev = String(r.name || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      var ok = false;
+      if(/^[0-9\s.,-]+$/.test(String(r.name || ''))) ok = true;
+      if(kod && kodDb[t + '|' + kod] > 1) ok = true;
+      if(nev && nevDb[t + '|' + nev] > 1) ok = true;
+      if(ok) gyanus[String(r.id)] = true;
+    });
+    return gyanus;
+  }
   function renderAdminRegistrations(){
     var body = document.getElementById('admin-body');
     loadTournaments(function(ts){
@@ -8103,7 +8130,8 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
           .map(function(p){ return '<option value="'+esc(niceName(p.name))+'"></option>'; }).join('');
         var box2 = document.getElementById('reg-list');
         if(!box2) return;
-        box2.innerHTML = '<datalist id="reg-codes">'+opts+'</datalist><datalist id="reg-names">'+nameOpts+'</datalist>'
+        var gyanusLista = gyanusJelentkezesek(regs);
+      box2.innerHTML = '<datalist id="reg-codes">'+opts+'</datalist><datalist id="reg-names">'+nameOpts+'</datalist>'
           + '<div class="table-wrap"><table class="list"><thead><tr><th>#</th><th>'+esc(T('Név','Meno'))+'</th><th>'+esc(T('Kód','Kód'))+'</th>'
           + '<th>'+esc(T('Jelentkezés ideje','Čas prihlásenia'))+'</th><th class="noprint">'+esc(T('Jelen','Prítomný'))+'</th><th class="noprint"></th></tr></thead><tbody>'
           + regs.map(function(r,i){
@@ -8112,7 +8140,7 @@ A pénz a játék alatt lehet oszlopokban, de az utolsó játék előtt a tulajd
                 var m = findPlayerByText(players, r.name);
                 return m ? shortCodeOf(String(m.code || m.nfcCode || '')) : '';
               })();
-              return '<tr id="reg-row-'+i+'"'+(sug ? ' class="regsug"' : '')+'><td class="num">'+(i+1)+'</td>'
+              return '<tr id="reg-row-'+i+'"'+(sug ? ' class="regsug"' : '')+(gyanusLista[String(r.id)] ? ' reg-gyanus' : '')+'><td class="num">'+(i+1)+(gyanusLista[String(r.id)] ? ' ⚠' : '')+'</td>'
                 + '<td><input class="pin" id="reg-n-'+i+'" list="reg-names" value="'+esc(niceName(r.name||''))+'" oninput="MUB.regEdit('+i+',\'name\',this.value)"></td>'
                 + '<td><input class="pin" id="reg-c-'+i+'" list="reg-codes" inputmode="numeric" value="'+esc(shortCodeOf(r.code))+'"'+(sug ? ' placeholder="'+esc(sug)+'" title="'+esc(T('javaslat a név alapján','návrh podľa mena'))+'"' : '')+' oninput="MUB.regEdit('+i+',\'code\',this.value)">'
                   + (sug ? '<div class="meta" style="font-size:.75rem">'+esc(T('javaslat: ','návrh: '))+esc(sug)+'</div>' : '')+'</td>'
